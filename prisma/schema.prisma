@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── 코치 ───
+
+enum CoachStatus {
+  active
+  inactive
+  on_leave
+}
+
+model Coach {
+  id          String      @id @default(uuid())
+  name        String      @db.VarChar(50)
+  birthDate   DateTime?   @map("birth_date") @db.Date
+  phone       String?     @db.VarChar(20)
+  email       String?     @db.VarChar(100)
+  affiliation String?     @db.VarChar(100)
+  workType    String?     @map("work_type") @db.VarChar(200)
+  hourlyRate  Int?        @map("hourly_rate")
+  status      CoachStatus @default(active)
+  selfNote           String?  @map("self_note") @db.Text
+  portfolioUrl       String?  @map("portfolio_url") @db.Text
+  availabilityDetail String?  @map("availability_detail") @db.Text
+  managerNote        String?  @map("manager_note") @db.Text
+  accessToken String      @unique @map("access_token") @db.VarChar(64)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
+  deletedBy   String?     @map("deleted_by") @db.VarChar(100)
+
+  fields      CoachField[]
+  curriculums CoachCurriculum[]
+  documents   CoachDocument[]
+  schedules   CoachSchedule[]
+  accessLogs  ScheduleAccessLog[]
+  engagements          Engagement[]
+  engagementSchedules  EngagementSchedule[]
+
+  @@map("coaches")
+}
+
+// ─── 매니저 ───
+
+enum ManagerRole {
+  admin
+  user
+  blocked
+}
+
+model Manager {
+  id        String      @id @default(uuid())
+  email     String      @unique @db.VarChar(100)
+  name      String      @db.VarChar(50)
+  googleId  String      @unique @map("google_id") @db.VarChar(100)
+  role      ManagerRole @default(user)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@map("managers")
+}
+
+// ─── 마스터 테이블 ───
+
+model Field {
+  id      String       @id @default(uuid())
+  name    String       @unique @db.VarChar(50)
+  coaches CoachField[]
+
+  @@map("fields")
+}
+
+model Curriculum {
+  id      String            @id @default(uuid())
+  name    String            @unique @db.VarChar(100)
+  coaches CoachCurriculum[]
+
+  @@map("curriculums")
+}
+
+// ─── 연결 테이블 ───
+
+model CoachField {
+  coachId String @map("coach_id")
+  fieldId String @map("field_id")
+  coach   Coach  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  field   Field  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@id([coachId, fieldId])
+  @@map("coach_fields")
+}
+
+model CoachCurriculum {
+  coachId      String     @map("coach_id")
+  curriculumId String     @map("curriculum_id")
+  coach        Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@id([coachId, curriculumId])
+  @@map("coach_curriculums")
+}
+
+// ─── 문서 ───
+
+enum FileType {
+  resume
+  portfolio
+  certificate
+}
+
+model CoachDocument {
+  id         String   @id @default(uuid())
+  coachId    String   @map("coach_id")
+  fileUrl    String   @map("file_url") @db.VarChar(500)
+  fileName   String   @map("file_name") @db.VarChar(200)
+  fileType   FileType @map("file_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  coach      Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("coach_documents")
+}
+
+// ─── 투입 이력 ───
+
+enum EngagementStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+model Engagement {
+  id         String           @id @default(uuid())
+  coachId    String           @map("coach_id")
+  courseName String           @map("course_name") @db.VarChar(200)
+  status     EngagementStatus @default(scheduled)
+  startDate  DateTime         @map("start_date") @db.Date
+  endDate    DateTime         @map("end_date") @db.Date
+  startTime  String?          @map("start_time") @db.VarChar(5)
+  endTime    String?          @map("end_time") @db.VarChar(5)
+  location   String?          @db.VarChar(200)
+  rating     Int?             @db.SmallInt
+  feedback   String?          @db.Text
+  rehire     Boolean?
+  hourlyRate Int?             @map("hourly_rate")
+  hiredBy    String?          @map("hired_by") @db.VarChar(50)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  coach      Coach            @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  engagementSchedules EngagementSchedule[]
+
+  @@map("engagements")
+}
+
+model EngagementSchedule {
+  id           String     @id @default(uuid())
+  engagementId String     @map("engagement_id")
+  coachId      String     @map("coach_id")
+  date         DateTime   @db.Date
+  startTime    String     @map("start_time") @db.VarChar(5)
+  endTime      String     @map("end_time") @db.VarChar(5)
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  coach        Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("engagement_schedules")
+}
+
+// ─── 가용 스케줄 (핵심) ───
+
+model CoachSchedule {
+  id        String   @id @default(uuid())
+  coachId   String   @map("coach_id")
+  date      DateTime @db.Date
+  startTime String   @map("start_time") @db.VarChar(5)
+  endTime   String   @map("end_time") @db.VarChar(5)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  coach     Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("coach_schedules")
+}
+
+// ─── 접속/입력 기록 ───
+
+model ScheduleAccessLog {
+  id           String    @id @default(uuid())
+  coachId      String    @map("coach_id")
+  yearMonth    String    @map("year_month") @db.VarChar(7)
+  accessedAt   DateTime  @default(now()) @map("accessed_at")
+  lastEditedAt DateTime? @map("last_edited_at")
+  coach        Coach     @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@unique([coachId, yearMonth])
+  @@map("schedule_access_logs")
+}
+
+// ─── 수정 이력 ───
+
+enum AuditAction {
+  create
+  update
+  delete
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  tableName  String      @map("table_name") @db.VarChar(50)
+  recordId   String      @map("record_id")
+  action     AuditAction
+  field      String?     @db.VarChar(100)
+  oldValue   String?     @map("old_value") @db.Text
+  newValue   String?     @map("new_value") @db.Text
+  changedBy  String      @map("changed_by") @db.VarChar(100)
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  @@index([tableName, recordId])
+  @@index([changedBy])
+  @@map("audit_logs")
+}
+
+// ─── 동기화 로그 ───
+
+model SyncLog {
+  id          String   @id @default(uuid())
+  type        String   @db.VarChar(50)   // "engagements" | "samsung-schedule"
+  status      String   @db.VarChar(20)   // "success" | "error"
+  totalRows   Int      @default(0) @map("total_rows")
+  created     Int      @default(0)
+  updated     Int      @default(0)
+  skipped     Int      @default(0)
+  errors      Int      @default(0)
+  errorDetail String?  @map("error_detail") @db.Text
+  triggeredBy String   @map("triggered_by") @db.VarChar(100)
+  startedAt   DateTime @default(now()) @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  @@map("sync_logs")
+}

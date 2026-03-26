@@ -1,0 +1,32 @@
+name: Samsung Schedule Monthly Sync
+
+on:
+  schedule:
+    # 매월 마지막주 화요일 — cron으로 정확히 표현 불가하므로
+    # 매주 화요일에 실행하되, 스크립트에서 마지막주인지 확인
+    - cron: '0 0 * * 2'  # 매주 화요일 00:00 UTC (KST 09:00)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if last Tuesday of month
+        id: check
+        run: |
+          # 다음 화요일(+7일)이 다음 달이면, 이번 화요일이 마지막 주
+          next_tuesday_month=$(date -d "+7 days" +%m)
+          this_month=$(date +%m)
+          if [ "$next_tuesday_month" != "$this_month" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "is_last_week=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_last_week=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Samsung schedule sync
+        if: steps.check.outputs.is_last_week == 'true'
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/sync/samsung-schedule" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_API_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error
