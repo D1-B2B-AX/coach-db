@@ -1,0 +1,313 @@
+"use client"
+
+import { useState, useEffect, useCallback, useRef } from "react"
+
+import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
+import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
+import Toast from "@/components/Toast"
+
+interface StatusData {
+  yearMonth: string
+  status: {
+    notAccessed: number
+    accessedOnly: number
+    completed: number
+  }
+  notAccessedCoaches: { id: string; name: string }[]
+}
+
+interface CoachEntry {
+  id: string
+  name: string
+  schedules: { startTime: string; endTime: string }[]
+  fields: string[]
+  avgRating: number | null
+  latestEngagement: { courseName: string; endDate: string } | null
+}
+
+function formatYearMonth(year: number, month: number): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}`
+}
+
+function formatDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+}
+
+export default function DashboardPage() {
+  const now = new Date()
+  const [currentYear, setCurrentYear] = useState(now.getFullYear())
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth())
+  const [selectedStart, setSelectedStart] = useState<string>(formatDate(now))
+  const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
+  const [monthData, setMonthData] = useState<Record<string, number>>({})
+  const [coaches, setCoaches] = useState<CoachEntry[]>([])
+  const [statusData, setStatusData] = useState<StatusData | null>(null)
+  const [timeFilter, setTimeFilter] = useState<string>("all")
+  const [fieldFilter, setFieldFilter] = useState<string>("all")
+  const [ratingFilter, setRatingFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [engagementFilter, setEngagementFilter] = useState<string>("all")
+  const [customStart, setCustomStart] = useState("09:00")
+  const [customEnd, setCustomEnd] = useState("18:00")
+
+  const [monthLoading, setMonthLoading] = useState(false)
+  const [coachLoading, setCoachLoading] = useState(false)
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [toastMessage, setToastMessage] = useState("")
+  const [showToast, setShowToast] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const yearMonth = formatYearMonth(currentYear, currentMonth)
+
+  // Fetch month summary data
+  const fetchMonthData = useCallback(async () => {
+    setMonthLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (timeFilter !== "all") {
+        params.set("timeFilter", timeFilter)
+        if (timeFilter === "custom") {
+          params.set("customStart", customStart)
+          params.set("customEnd", customEnd)
+        }
+      }
+      const qs = params.toString() ? `?${params}` : ""
+      const res = await fetch(`/api/schedules/${yearMonth}${qs}`)
+      if (res.ok) {
+        const data = await res.json()
+        setMonthData(data.days || {})
+      }
+    } catch {
+      // silently fail for polling
+    } finally {
+      setMonthLoading(false)
+    }
+  }, [yearMonth, timeFilter, customStart, customEnd])
+
+  // Fetch status data
+  const fetchStatusData = useCallback(async () => {
+    setStatusLoading(true)
+    try {
+      const res = await fetch(`/api/schedules/${yearMonth}/status`)
+      if (res.ok) {
+        const data = await res.json()
+        setStatusData(data)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setStatusLoading(false)
+    }
+  }, [yearMonth])
+
+  // Fetch coaches for selected date (or date range)
+  const fetchCoaches = useCallback(async () => {
+    if (!selectedStart) {
+      setCoaches([])
+      return
+    }
+    setCoachLoading(true)
+    try {
+      const day = parseInt(selectedStart.split("-")[2], 10)
+      const ym = selectedStart.slice(0, 7)
+      const params = new URLSearchParams()
+      if (selectedEnd) params.set("endDate", selectedEnd)
+      if (timeFilter !== "all") {
+        params.set("timeFilter", timeFilter)
+        if (timeFilter === "custom") {
+          params.set("customStart", customStart)
+          params.set("customEnd", customEnd)
+        }
+      }
+      const qs = params.toString() ? `?${params}` : ""
+      const res = await fetch(`/api/schedules/${ym}/${day}${qs}`)
+      if (res.ok) {
+        const data = await res.json()
+        setCoaches(data.coaches || [])
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCoachLoading(false)
+    }
+  }, [selectedStart, selectedEnd, timeFilter, customStart, customEnd])
+
+  // On mount + month change: fetch month data + status
+  useEffect(() => {
+    fetchMonthData()
+    fetchStatusData()
+  }, [fetchMonthData, fetchStatusData])
+
+  // 30-second polling for month data
+  useEffect(() => {
+    pollingRef.current = setInterval(() => {
+      fetchMonthData()
+    }, 30_000)
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [fetchMonthData])
+
+  // Fetch coaches when selectedDate or timeFilter changes
+  useEffect(() => {
+    fetchCoaches()
+  }, [fetchCoaches])
+
+  // Navigate months
+  function handlePrevMonth() {
+    if (currentMonth === 0) {
+      setCurrentYear((y) => y - 1)
+      setCurrentMonth(11)
+    } else {
+      setCurrentMonth((m) => m - 1)
+    }
+    // Auto-select: if navigating to the month containing today, select today; otherwise clear
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+    if (prevYear === now.getFullYear() && prevMonth === now.getMonth()) {
+      setSelectedStart(formatDate(now))
+    } else {
+      setSelectedStart(
+        `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-01`
+      )
+    }
+    setSelectedEnd(null)
+    setTimeFilter("all")
+  }
+
+  function handleNextMonth() {
+    if (currentMonth === 11) {
+      setCurrentYear((y) => y + 1)
+      setCurrentMonth(0)
+    } else {
+      setCurrentMonth((m) => m + 1)
+    }
+    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1
+    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear
+    if (nextYear === now.getFullYear() && nextMonth === now.getMonth()) {
+      setSelectedStart(formatDate(now))
+    } else {
+      setSelectedStart(
+        `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`
+      )
+    }
+    setSelectedEnd(null)
+    setTimeFilter("all")
+  }
+
+  function handleSelectDate(dateStr: string) {
+    const todayStr = formatDate(new Date())
+
+    // 과거 날짜는 단일 선택만 (범위 선택 불가)
+    if (dateStr < todayStr) {
+      setSelectedStart(dateStr)
+      setSelectedEnd(null)
+      return
+    }
+
+    if (!selectedEnd && selectedStart && selectedStart >= todayStr && dateStr > selectedStart) {
+      setSelectedEnd(dateStr)
+    } else {
+      setSelectedStart(dateStr)
+      setSelectedEnd(null)
+    }
+  }
+
+  function handleTimeFilterChange(filter: string) {
+    setTimeFilter(filter)
+  }
+
+  async function handleSyncAndRefresh() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/sync/engagements', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setToastMessage(`동기화 완료: ${data.created}건 생성, ${data.skipped}건 스킵`)
+        setShowToast(true)
+      } else {
+        setToastMessage(`동기화 실패: ${data.error}`)
+        setShowToast(true)
+      }
+    } catch {
+      setToastMessage('동기화 중 오류 발생')
+      setShowToast(true)
+    } finally {
+      setSyncing(false)
+      fetchMonthData()
+    }
+  }
+
+  function handleToday() {
+    const today = new Date()
+    setCurrentYear(today.getFullYear())
+    setCurrentMonth(today.getMonth())
+    setSelectedStart(formatDate(today))
+    setSelectedEnd(null)
+    setTimeFilter("all")
+  }
+
+  function handleReset() {
+    setSelectedEnd(null)
+    setTimeFilter("all")
+    setCustomStart("09:00")
+    setCustomEnd("18:00")
+  }
+
+  function handleStatusRefresh() {
+    fetchStatusData()
+    fetchMonthData()
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
+      {/* Main content: calendar + coach list */}
+      <div className="grid min-w-0 gap-5 md:grid-cols-[340px_1fr] lg:grid-cols-[380px_1fr]">
+        <DashboardCalendar
+          year={currentYear}
+          month={currentMonth}
+          selectedStart={selectedStart}
+          selectedEnd={selectedEnd}
+          monthData={monthData}
+          onSelectDate={handleSelectDate}
+          onPrevMonth={handlePrevMonth}
+          onNextMonth={handleNextMonth}
+          onToday={handleToday}
+          onRefresh={handleSyncAndRefresh}
+          syncing={syncing}
+          timeFilter={timeFilter}
+          onTimeFilterChange={handleTimeFilterChange}
+          customStart={customStart}
+          customEnd={customEnd}
+          onCustomTimeApply={(s, e) => { setCustomStart(s); setCustomEnd(e); setTimeFilter("custom") }}
+        />
+        <DashboardCoachList
+          selectedDate={selectedStart}
+          selectedEnd={selectedEnd}
+          coaches={coaches}
+          loading={coachLoading}
+          timeFilter={timeFilter}
+          onTimeFilterChange={handleTimeFilterChange}
+          customStart={customStart}
+          customEnd={customEnd}
+          fieldFilter={fieldFilter}
+          onFieldFilterChange={setFieldFilter}
+          ratingFilter={ratingFilter}
+          onRatingFilterChange={setRatingFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          engagementFilter={engagementFilter}
+          onEngagementFilterChange={setEngagementFilter}
+        />
+      </div>
+
+      <Toast
+        message={toastMessage}
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
+    </div>
+  )
+}
