@@ -347,7 +347,9 @@ export async function syncEngagements(): Promise<SyncResult> {
 
     // 이메일/연락처 추출
     const email = emailRaw.match(/[\w.+-]+@[\w.-]+\.\w+/)?.[0] || null
-    const phone = phoneRaw.match(/\d{2,3}-\d{3,4}-\d{4}/)?.[0] || null
+    // 전화번호: 하이픈/공백/점 등 구분자 모두 제거 후 숫자만 추출, 010 형식으로 정규화
+    const digits = phoneRaw.replace(/[^\d]/g, '')
+    const phone = digits.length >= 10 ? digits.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3') : null
 
     let coachId = coachByName.get(name)
     if (!coachId) {
