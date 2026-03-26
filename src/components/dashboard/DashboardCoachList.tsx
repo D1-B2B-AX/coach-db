@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { Skeleton } from "@/components/Skeleton"
 
 interface CoachSchedule {
   startTime: string
@@ -227,7 +228,7 @@ export default function DashboardCoachList({
               onClick={handleExport}
               className="cursor-pointer rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
             >
-              내보내기 ({selectedIds.size})
+              연락처 내보내기 ({selectedIds.size})
             </button>
           )}
         </div>
@@ -235,7 +236,21 @@ export default function DashboardCoachList({
       {/* Coach rows */}
       <div>
         {loading ? (
-          <div className="px-5 py-8 text-center text-sm text-gray-400">불러오는 중...</div>
+          <div>
+            <div className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+              <div className="w-4" /><div>이름</div><div>가용 시간</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
+            </div>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-10" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-8 mx-auto" />
+                <Skeleton className="h-4 w-6 mx-auto" />
+              </div>
+            ))}
+          </div>
         ) : filteredCoaches.length === 0 ? (
           <div className="px-5 py-8 text-center text-sm text-gray-400">해당 조건에 맞는 코치가 없습니다</div>
         ) : (

@@ -9,18 +9,19 @@ import ProfileTab from "@/components/coaches/detail/ProfileTab"
 import ScheduleTab from "@/components/coaches/detail/ScheduleTab"
 import EngagementTab from "@/components/coaches/detail/EngagementTab"
 import DocumentTab from "@/components/coaches/detail/DocumentTab"
+import { Skeleton, SkeletonCard } from "@/components/Skeleton"
 
 type TabKey = "profile" | "schedule" | "engagement"
 
 interface CoachDetail {
   id: string
   name: string
+  employeeId: string | null
   birthDate: string | null
   phone: string | null
   email: string | null
   affiliation: string | null
   workType: string | null
-  hourlyRate: number | null
   status: string
   selfNote: string | null
   portfolioUrl: string | null
@@ -37,6 +38,12 @@ interface CoachDetail {
     startTime: string | null
     endTime: string | null
     status: string
+  }[]
+  engagementSchedules: {
+    date: string
+    startTime: string
+    endTime: string
+    engagement: { courseName: string }
   }[]
   documentCount: number
   avgRating: number | null
@@ -138,7 +145,39 @@ export default function CoachDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="py-12 text-center text-sm text-gray-400">불러오는 중...</div>
+        {/* Header skeleton */}
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-5 w-5" />
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+        {/* Tab bar skeleton */}
+        <div className="mt-5 flex gap-6 border-b border-gray-200 pb-2.5">
+          <Skeleton className="h-4 w-12" />
+          <Skeleton className="h-4 w-12" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        {/* Content skeleton */}
+        <div className="mt-6 space-y-4">
+          <SkeletonCard>
+            <div className="grid grid-cols-2 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
+          </SkeletonCard>
+          <SkeletonCard>
+            <Skeleton className="h-3 w-24 mb-3" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-14 rounded-full" />
+            </div>
+          </SkeletonCard>
+        </div>
       </div>
     )
   }
@@ -228,6 +267,7 @@ export default function CoachDetailPage() {
           <ScheduleTab
             coachId={coachId}
             engagements={coach.engagements}
+            engagementSchedules={coach.engagementSchedules}
             availabilityDetail={coach.availabilityDetail}
           />
         )}

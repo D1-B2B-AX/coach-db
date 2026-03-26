@@ -135,11 +135,13 @@ export default function DashboardCalendar({
         <button
           onClick={onRefresh}
           disabled={syncing}
-          className={`cursor-pointer rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+          className={`cursor-pointer rounded-full py-1 text-[11px] font-medium transition-colors w-[52px] flex items-center justify-center ${
             syncing ? 'bg-[#E8F5E9] text-[#2E7D32]' : 'bg-[#E8F5E9] text-[#2E7D32] hover:bg-[#C8E6C9]'
           }`}
         >
-          {syncing ? '동기화 중...' : '새로고침'}
+          {syncing ? (
+            <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+          ) : '새로고침'}
         </button>
       </div>
 

@@ -322,6 +322,7 @@ export async function syncEngagements(): Promise<SyncResult> {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
     const name = String(row[4] || '').trim() // E: 근무자 성명
+    const employeeIdRaw = String(row[3] || '').trim().replace(/-\d+$/, '') // D: 사번 (접미사 제거)
     const workType = String(row[5] || '').trim() // F: 담당직무 (실습코치/운영조교 등)
     const courseName = String(row[7] || '').trim() // H: 과정명
     const rateRaw = row[8] // I: 시급
@@ -364,6 +365,7 @@ export async function syncEngagements(): Promise<SyncResult> {
             email,
             phone,
             workType: workType || null,
+            employeeId: employeeIdRaw || null,
           },
         })
         coachId = created.id
@@ -374,13 +376,14 @@ export async function syncEngagements(): Promise<SyncResult> {
         continue
       }
     } else {
-      // 기존 코치: 이메일/연락처/근무유형 비어있으면 보완
-      if (email || phone || workType) {
-        const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { email: true, phone: true, workType: true } })
+      // 기존 코치: 이메일/연락처/근무유형/사번 비어있으면 보완
+      if (email || phone || workType || employeeIdRaw) {
+        const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { email: true, phone: true, workType: true, employeeId: true } })
         const updates: Record<string, string> = {}
         if (!existing?.email && email) updates.email = email
         if (!existing?.phone && phone) updates.phone = phone
         if (!existing?.workType && workType) updates.workType = workType
+        if (!existing?.employeeId && employeeIdRaw) updates.employeeId = employeeIdRaw
         if (Object.keys(updates).length > 0) {
           await prisma.coach.update({ where: { id: coachId }, data: updates })
         }
@@ -391,6 +394,12 @@ export async function syncEngagements(): Promise<SyncResult> {
     const endDate = parseDate(endDateRaw)
 
     if (!startDate || !endDate) {
+      result.skipped++
+      continue
+    }
+
+    // 2026년 계약만 동기화
+    if (startDate.getFullYear() < 2026) {
       result.skipped++
       continue
     }

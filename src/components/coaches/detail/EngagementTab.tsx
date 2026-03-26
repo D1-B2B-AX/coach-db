@@ -95,7 +95,6 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(true)
 
   useEscClose(showModal, () => setShowModal(false))
 
@@ -216,8 +215,17 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        불러오는 중...
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-24 animate-pulse rounded bg-gray-100" />
+          <div className="h-9 w-24 animate-pulse rounded-xl bg-gray-100" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 space-y-2">
+            <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
+            <div className="h-3 w-32 animate-pulse rounded bg-gray-100" />
+          </div>
+        ))}
       </div>
     )
   }
@@ -226,27 +234,18 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center gap-1.5 cursor-pointer text-sm font-semibold text-[#333] hover:text-[#1976D2] transition-colors"
-        >
-          <svg className={`h-4 w-4 transition-transform ${collapsed ? "" : "rotate-90"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <span className="text-sm font-semibold text-[#333]">
           투입 이력 ({engagements.length}건)
+        </span>
+        <button
+          onClick={openCreateModal}
+          className="inline-flex items-center rounded-xl bg-[#1976D2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+        >
+          + 이력 등록
         </button>
-        {!collapsed && (
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center rounded-xl bg-[#1976D2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
-          >
-            + 이력 등록
-          </button>
-        )}
       </div>
 
-      {/* Table */}
-      {collapsed ? null : engagements.length === 0 ? (
+      {engagements.length === 0 ? (
         <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
           등록된 투입 이력이 없습니다
         </div>
@@ -261,7 +260,10 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
                 key={eng.id}
                 className={`rounded-xl bg-white border border-gray-100 border-l-[3px] ${statusCfg.borderClass}`}
               >
-                <div className="px-4 py-3">
+                <div
+                  className="px-4 py-3 cursor-pointer"
+                  onClick={() => setExpandedId(expandedId === eng.id ? null : eng.id)}
+                >
                   {/* 상단: 상태 + 과정명 + 수정 */}
                   <div className="flex items-center gap-2">
                     <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
@@ -276,33 +278,38 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
                         수정
                       </button>
                     )}
+                    <svg className={`shrink-0 h-3.5 w-3.5 text-gray-300 transition-transform ${expandedId === eng.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                   <div className="mt-1 text-sm text-gray-500">
                     {formatDate(eng.startDate)} ~ {formatDate(eng.endDate)}
                     {eng.location && <span className="ml-2 text-gray-400">· {eng.location}</span>}
                   </div>
 
-                  {/* 중단: 한 줄 — 급여/담당/평가/재섭외 + 피드백 */}
-                  <div className="mt-3 border-t border-gray-100 pt-3 text-sm space-y-2">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <span><span className="text-gray-400">급여</span> <span className="text-gray-300">-</span></span>
-                      <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{eng.hiredBy || "-"}</span></span>
-                      <span><span className="text-gray-400">평가</span> <span className={eng.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{eng.rating !== null ? `★ ${eng.rating}` : "-"}</span></span>
-                      <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {eng.rehire !== null ? (
-                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${eng.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
-                          {eng.rehire ? "희망" : "비희망"}
-                        </span>
-                      ) : <span className="text-gray-300">-</span>}</span>
+                  {/* 상세: 급여/담당/평가/재섭외 + 피드백 — 클릭으로 토글 */}
+                  {expandedId === eng.id && (
+                    <div className="mt-3 border-t border-gray-100 pt-3 text-sm space-y-2">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span><span className="text-gray-400">급여</span> <span className="text-gray-300">-</span></span>
+                        <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{eng.hiredBy || "-"}</span></span>
+                        <span><span className="text-gray-400">평가</span> <span className={eng.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{eng.rating !== null ? `★ ${eng.rating}` : "-"}</span></span>
+                        <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {eng.rehire !== null ? (
+                          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${eng.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
+                            {eng.rehire ? "희망" : "비희망"}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">피드백</span>{" "}
+                        {eng.feedback ? (
+                          <span className="text-[#333] whitespace-pre-wrap">{eng.feedback}</span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400">피드백</span>{" "}
-                      {eng.feedback ? (
-                        <span className="text-[#333] whitespace-pre-wrap">{eng.feedback}</span>
-                      ) : (
-                        <span className="text-gray-300">-</span>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )

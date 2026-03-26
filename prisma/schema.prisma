@@ -17,13 +17,13 @@ enum CoachStatus {
 
 model Coach {
   id          String      @id @default(uuid())
+  employeeId  String?     @map("employee_id") @db.VarChar(20)
   name        String      @db.VarChar(50)
   birthDate   DateTime?   @map("birth_date") @db.Date
   phone       String?     @db.VarChar(20)
   email       String?     @db.VarChar(100)
   affiliation String?     @db.VarChar(100)
   workType    String?     @map("work_type") @db.VarChar(200)
-  hourlyRate  Int?        @map("hourly_rate")
   status      CoachStatus @default(active)
   selfNote           String?  @map("self_note") @db.Text
   portfolioUrl       String?  @map("portfolio_url") @db.Text

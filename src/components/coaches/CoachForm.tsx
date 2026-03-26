@@ -17,7 +17,6 @@ export interface CoachDetail {
   email: string | null
   affiliation: string | null
   workType: string | null
-  hourlyRate: number | null
   status: string
   selfNote: string | null
   managerNote: string | null
@@ -33,8 +32,6 @@ export interface CoachFormData {
   email: string | null
   affiliation: string | null
   workType: string | null
-  hourlyRate: number | null
-  status: string
   selfNote: string | null
   managerNote: string | null
   fields: string[]
@@ -49,12 +46,6 @@ interface CoachFormProps {
 }
 
 // --- Constants ---
-
-const STATUS_OPTIONS = [
-  { value: "active", label: "활성" },
-  { value: "inactive", label: "비활성" },
-  { value: "on_leave", label: "휴직" },
-]
 
 // --- MultiSelectCombobox ---
 
@@ -217,10 +208,6 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
   const [email, setEmail] = useState(initialData?.email ?? "")
   const [affiliation, setAffiliation] = useState(initialData?.affiliation ?? "")
   const [workType, setWorkType] = useState(initialData?.workType ?? "")
-  const [hourlyRate, setHourlyRate] = useState(
-    initialData?.hourlyRate != null ? String(initialData.hourlyRate) : ""
-  )
-  const [status, setStatus] = useState(initialData?.status ?? "active")
   const [selfNote, setSelfNote] = useState(initialData?.selfNote ?? "")
   const [managerNote, setManagerNote] = useState(initialData?.managerNote ?? "")
   const [selectedFields, setSelectedFields] = useState<string[]>(
@@ -280,8 +267,6 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
       email: email.trim() || null,
       affiliation: affiliation.trim() || null,
       workType: workType || null,
-      hourlyRate: hourlyRate ? Number(hourlyRate) : null,
-      status,
       selfNote: selfNote.trim() || null,
       managerNote: managerNote.trim() || null,
       fields: selectedFields,
@@ -394,36 +379,6 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
             />
           </div>
 
-          {/* 시급 */}
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-[#333]">시급 (원)</label>
-            <input
-              type="number"
-              value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="0"
-              min={0}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
-            />
-          </div>
-
-          {/* 상태 -- only in edit mode */}
-          {isEdit && (
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[#333]">상태</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full appearance-none cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </div>
 

@@ -118,8 +118,19 @@ export default function DocumentTab({ coachId }: DocumentTabProps) {
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        불러오는 중...
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
+          <div className="h-9 w-24 animate-pulse rounded-xl bg-gray-100" />
+        </div>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 flex items-center gap-4">
+            <div className="h-4 w-40 animate-pulse rounded bg-gray-100" />
+            <div className="h-5 w-14 animate-pulse rounded-full bg-gray-100" />
+            <div className="flex-1" />
+            <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
+          </div>
+        ))}
       </div>
     )
   }

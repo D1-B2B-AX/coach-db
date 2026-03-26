@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { ReactNode } from "react"
+import { Skeleton } from "@/components/Skeleton"
 
 interface CoachField {
   id: string
@@ -79,8 +80,20 @@ export default function CoachListTable({
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white px-5 py-12 text-center text-base text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        불러오는 중...
+      <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+        <div className="hidden sm:grid grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
+          <div className="w-4" /><div>이름</div><div>연락처</div><div>분야</div><div>최근 근무일</div><div>평가</div>
+        </div>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="grid grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 px-4 py-3 border-b border-gray-100">
+            <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-10" />
+            <Skeleton className="h-4 w-8" />
+          </div>
+        ))}
       </div>
     )
   }
@@ -94,7 +107,7 @@ export default function CoachListTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+    <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
       {/* Top bar: filters + search + actions */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 px-5 py-2.5">
         {filterSlot}

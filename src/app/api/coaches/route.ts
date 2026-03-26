@@ -94,12 +94,12 @@ export async function GET(request: NextRequest) {
     ratingAggregates.map((r) => [r.coachId, r._avg.rating])
   )
 
-  // Compute work days (distinct dates in coach_schedules) per coach for last 6 months
+  // Compute work days (distinct dates in engagement_schedules) per coach for last 6 months
   const _6m = new Date()
   _6m.setMonth(_6m.getMonth() - 6)
   const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-01`)
   const workDayCounts = coachIds.length > 0
-    ? await prisma.coachSchedule.groupBy({
+    ? await prisma.engagementSchedule.groupBy({
         by: ['coachId'],
         where: {
           coachId: { in: coachIds },
@@ -159,14 +159,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { name, birthDate, phone, email, affiliation, workType, hourlyRate, status, selfNote, managerNote, fields, curriculums } = body as {
+  const { name, birthDate, phone, email, affiliation, workType, status, selfNote, managerNote, fields, curriculums } = body as {
     name?: string
     birthDate?: string
     phone?: string
     email?: string
     affiliation?: string
     workType?: string
-    hourlyRate?: number
     status?: string
     selfNote?: string
     managerNote?: string
@@ -189,7 +188,6 @@ export async function POST(request: NextRequest) {
         email: email || undefined,
         affiliation: affiliation || undefined,
         workType: workType as any || undefined,
-        hourlyRate: hourlyRate != null ? Number(hourlyRate) : undefined,
         status: (status as any) || 'active',
         selfNote: selfNote || undefined,
         managerNote: managerNote || undefined,

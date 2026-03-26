@@ -13,12 +13,12 @@ interface DocItem {
 interface CoachDetail {
   id: string
   name: string
+  employeeId: string | null
   birthDate: string | null
   phone: string | null
   email: string | null
   affiliation: string | null
   workType: string | null
-  hourlyRate: number | null
   status: string
   selfNote: string | null
   portfolioUrl: string | null
@@ -35,21 +35,10 @@ interface ProfileTabProps {
   isAdmin?: boolean
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "활동중",
-  inactive: "비활동",
-  on_leave: "휴직",
-}
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "-"
   const d = new Date(dateStr)
   return d.toLocaleDateString("ko-KR")
-}
-
-function formatCurrency(val: number | null): string {
-  if (val === null) return "-"
-  return `${val.toLocaleString("ko-KR")}원`
 }
 
 export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTabProps) {
@@ -121,6 +110,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
           <InfoItem label="연락처" value={coach.phone || "-"} />
           <InfoItem label="이메일" value={coach.email || "-"} />
           <InfoItem label="생년월일" value={formatDate(coach.birthDate) || "-"} />
+          <InfoItem label="사번" value={coach.employeeId || "-"} />
           <InfoItem label="소속" value={coach.affiliation || "-"} />
           {/* Portfolio — inline in the grid */}
           <div className="flex items-baseline gap-2 py-1">
@@ -131,15 +121,16 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                   href={coach.portfolioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full bg-[#E3F2FD] px-2.5 py-0.5 text-sm text-[#1976D2] hover:bg-[#BBDEFB] transition-colors"
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                  <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                   이력서/포트폴리오
                 </a>
               )}
               {docs.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-0.5 text-sm">
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[#1976D2] hover:underline">
+                <div key={doc.id} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-sm">
+                  <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-900 transition-colors">
                     {doc.fileName}
                   </a>
                   <button
@@ -371,7 +362,6 @@ const FIELD_LABELS: Record<string, string> = {
   email: "이메일",
   affiliation: "소속",
   workType: "근무유형",
-  hourlyRate: "시급",
   status: "상태",
   selfNote: "특이사항 / 히스토리",
   managerNote: "메모",
@@ -427,37 +417,32 @@ function AuditLogSection({ coachId }: { coachId: string }) {
           ) : logs.length === 0 ? (
             <div className="py-4 text-center text-sm text-gray-400">수정 이력이 없습니다</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {logs.map((log) => (
-                <div key={log.id} className="rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-[#333]">
-                      {(log as any).changedByName || log.changedBy.split("@")[0]}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(log.createdAt).toLocaleDateString("ko-KR")}{" "}
-                      {new Date(log.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-500">
+                <div key={log.id} className="flex items-baseline gap-2 px-1 py-1 text-sm">
+                  <span className="shrink-0 text-xs text-gray-400">
+                    {new Date(log.createdAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}{" "}
+                    {new Date(log.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="shrink-0 font-medium text-gray-500">
+                    {(log as any).changedByName || log.changedBy.split("@")[0]}
+                  </span>
+                  <span className="text-gray-400">
                     {log.action === "delete" ? (
-                      <span className="text-red-500">코치 삭제</span>
+                      <span className="text-red-500">삭제</span>
                     ) : log.action === "create" ? (
                       <span className="text-[#1976D2]">
-                        {log.tableName === "engagements" ? "투입 이력 생성" : "코치 생성"}
+                        {log.tableName === "engagements" ? "투입 이력 생성" : "생성"}
                       </span>
                     ) : (
                       <>
-                        <span className="font-medium text-gray-600">
-                          {FIELD_LABELS[log.field || ""] || log.field}
-                        </span>
-                        {" "}
-                        <span className="text-gray-400 line-through">{formatAuditValue(log.oldValue)}</span>
+                        {FIELD_LABELS[log.field || ""] || log.field}{" "}
+                        <span className="line-through">{formatAuditValue(log.oldValue)}</span>
                         {" → "}
                         <span className="text-[#333]">{formatAuditValue(log.newValue)}</span>
                       </>
                     )}
-                  </div>
+                  </span>
                 </div>
               ))}
             </div>

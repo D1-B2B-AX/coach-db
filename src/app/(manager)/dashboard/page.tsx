@@ -23,6 +23,9 @@ interface CoachEntry {
   fields: string[]
   avgRating: number | null
   latestEngagement: { courseName: string; endDate: string } | null
+  recentEngagements?: { courseName: string; endDate: string }[]
+  engagementCount?: number
+  workDays?: number
 }
 
 function formatYearMonth(year: number, month: number): string {
@@ -37,7 +40,7 @@ export default function DashboardPage() {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
-  const [selectedStart, setSelectedStart] = useState<string>(formatDate(now))
+  const [selectedStart, setSelectedStart] = useState<string | null>(formatDate(now))
   const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
@@ -199,6 +202,12 @@ export default function DashboardPage() {
 
   function handleSelectDate(dateStr: string) {
     const todayStr = formatDate(new Date())
+
+    // 이미 선택된 날짜를 다시 누르면 선택 해제
+    if (dateStr === selectedStart && !selectedEnd) {
+      setSelectedStart(null)
+      return
+    }
 
     // 과거 날짜는 단일 선택만 (범위 선택 불가)
     if (dateStr < todayStr) {

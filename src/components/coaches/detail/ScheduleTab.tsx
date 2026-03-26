@@ -28,6 +28,7 @@ interface AccessLog {
 interface ScheduleTabProps {
   coachId: string
   engagements: Engagement[]
+  engagementSchedules: EngagementScheduleEntry[]
   availabilityDetail?: string | null
 }
 
@@ -41,11 +42,19 @@ function getAccessStatus(log: AccessLog | null): { label: string; className: str
   return { label: "접속만", className: "bg-[#FFF8E1] text-[#F57F17]" }
 }
 
-export default function ScheduleTab({ coachId, engagements, availabilityDetail }: ScheduleTabProps) {
+interface EngagementScheduleEntry {
+  date: string
+  startTime: string
+  endTime: string
+  engagement: { courseName: string }
+}
+
+export default function ScheduleTab({ coachId, engagements, engagementSchedules, availabilityDetail }: ScheduleTabProps) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([])
+  const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [accessLog, setAccessLog] = useState<AccessLog | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
@@ -89,24 +98,16 @@ export default function ScheduleTab({ coachId, engagements, availabilityDetail }
     fetchSchedules()
   }, [fetchSchedules])
 
-  // Compute 6-month work day summary from cache + engagements
+  // Compute 6-month work day summary from cache + engagementSchedules
   const workDaySummary = (() => {
     if (scheduleCache.size === 0) return null
-    // Build engagement date set for the 6-month window
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    // Build engagement date set from actual engagement_schedules
     const engDatesPerMonth = new Map<string, Set<string>>()
-    for (const eng of engagements) {
-      if (eng.status === "cancelled") continue
-      const start = new Date(eng.startDate)
-      const end = new Date(eng.endDate)
-      const cursor = new Date(Math.max(start.getTime(), sixMonthsAgo.getTime()))
-      while (cursor <= end) {
-        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`
-        const ym = key.slice(0, 7)
-        if (!engDatesPerMonth.has(ym)) engDatesPerMonth.set(ym, new Set())
-        engDatesPerMonth.get(ym)!.add(key)
-        cursor.setDate(cursor.getDate() + 1)
-      }
+    for (const es of engagementSchedules) {
+      const key = es.date.slice(0, 10)
+      const ym = key.slice(0, 7)
+      if (!engDatesPerMonth.has(ym)) engDatesPerMonth.set(ym, new Set())
+      engDatesPerMonth.get(ym)!.add(key)
     }
 
     let total = 0
@@ -169,22 +170,14 @@ export default function ScheduleTab({ coachId, engagements, availabilityDetail }
   const availableDates = new Set<string>()
   for (const [key] of scheduleMap) availableDates.add(key)
 
-  // Confirmed dates: engagement 날짜 범위의 모든 날짜를 표시
-  // coach_schedules에 상세 근무일이 있으면 그걸 우선, 없으면 engagement 날짜 범위 사용
+  // Confirmed dates: engagement_schedules의 실제 근무일만 표시
   const engagementDateMap = new Map<string, string[]>() // dateKey → courseName[]
 
-  for (const eng of engagements) {
-    if (eng.status === "cancelled") continue
-    const start = new Date(eng.startDate)
-    const end = new Date(eng.endDate)
-    const cursor = new Date(start)
-    while (cursor <= end) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`
-      const list = engagementDateMap.get(key) || []
-      list.push(eng.courseName)
-      engagementDateMap.set(key, list)
-      cursor.setDate(cursor.getDate() + 1)
-    }
+  for (const es of engagementSchedules) {
+    const key = es.date.slice(0, 10)
+    const list = engagementDateMap.get(key) || []
+    list.push(es.engagement.courseName)
+    engagementDateMap.set(key, list)
   }
 
   const engagementDates = new Set(engagementDateMap.keys())
@@ -260,7 +253,13 @@ export default function ScheduleTab({ coachId, engagements, availabilityDetail }
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-sm text-gray-400">불러오는 중...</div>
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 35 }).map((_, i) => (
+                  <div key={i} className="aspect-square animate-pulse rounded-lg bg-gray-100" />
+                ))}
+              </div>
+            </div>
           ) : (
             <>
               {/* Days grid */}
