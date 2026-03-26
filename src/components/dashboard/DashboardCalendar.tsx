@@ -99,33 +99,39 @@ export default function DashboardCalendar({
             </button>
           )
         })}
-        <select
-          value={customStart}
-          onChange={(e) => onCustomTimeApply(e.target.value, customEnd)}
-          className={`w-[52px] rounded-lg border px-1 py-1 text-[11px] focus:outline-none appearance-none transition-colors bg-white ${
-            timeFilter === "custom"
-              ? "border-[#1976D2] text-[#1976D2] font-medium"
-              : "border-gray-200 text-gray-500"
-          }`}
-        >
-          {TIME_OPTIONS.slice(0, -1).map((t) => (
-            <option key={t} value={t}>{t.replace(/^0/, '')}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={customStart}
+            onChange={(e) => onCustomTimeApply(e.target.value, customEnd)}
+            className={`w-[62px] cursor-pointer rounded-full pl-2.5 pr-4 py-1 text-[11px] font-medium focus:outline-none appearance-none transition-colors ${
+              timeFilter === "custom"
+                ? "bg-[#E3F2FD] text-[#1976D2]"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            {TIME_OPTIONS.slice(0, -1).map((t) => (
+              <option key={t} value={t}>{t.replace(/^0/, '')}</option>
+            ))}
+          </select>
+          <svg className={`pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 ${timeFilter === "custom" ? "text-[#1976D2]" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </div>
         <span className="text-[11px] text-gray-400">~</span>
-        <select
-          value={customEnd}
-          onChange={(e) => onCustomTimeApply(customStart, e.target.value)}
-          className={`w-[52px] rounded-lg border px-1 py-1 text-[11px] focus:outline-none appearance-none transition-colors bg-white ${
-            timeFilter === "custom"
-              ? "border-[#1976D2] text-[#1976D2] font-medium"
-              : "border-gray-200 text-gray-500"
-          }`}
-        >
-          {TIME_OPTIONS.slice(1).map((t) => (
-            <option key={t} value={t}>{t.replace(/^0/, '')}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={customEnd}
+            onChange={(e) => onCustomTimeApply(customStart, e.target.value)}
+            className={`w-[62px] cursor-pointer rounded-full pl-2.5 pr-4 py-1 text-[11px] font-medium focus:outline-none appearance-none transition-colors ${
+              timeFilter === "custom"
+                ? "bg-[#E3F2FD] text-[#1976D2]"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            {TIME_OPTIONS.slice(1).map((t) => (
+              <option key={t} value={t}>{t.replace(/^0/, '')}</option>
+            ))}
+          </select>
+          <svg className={`pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 ${timeFilter === "custom" ? "text-[#1976D2]" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </div>
         <button
           onClick={onRefresh}
           disabled={syncing}
