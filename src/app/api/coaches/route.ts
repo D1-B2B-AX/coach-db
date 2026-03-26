@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { generateAccessToken } from '@/lib/coach-auth'
+import { toDateOnly } from '@/lib/date-utils'
 import type { Prisma } from '@/generated/prisma/client'
 
 // GET /api/coaches — list coaches with filtering
@@ -94,9 +95,9 @@ export async function GET(request: NextRequest) {
   )
 
   // Compute work days (distinct dates in coach_schedules) per coach for last 6 months
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-  sixMonthsAgo.setDate(1)
+  const _6m = new Date()
+  _6m.setMonth(_6m.getMonth() - 6)
+  const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-01`)
   const workDayCounts = coachIds.length > 0
     ? await prisma.coachSchedule.groupBy({
         by: ['coachId'],
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
     const created = await tx.coach.create({
       data: {
         name: name.trim(),
-        birthDate: birthDate ? new Date(birthDate) : undefined,
+        birthDate: birthDate ? toDateOnly(birthDate) : undefined,
         phone: phone || undefined,
         email: email || undefined,
         affiliation: affiliation || undefined,

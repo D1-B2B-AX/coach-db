@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { toBitmap, subtractBitmap, toIntervals, hasAvailability } from '@/lib/schedule-bitmap'
+import { toDateOnly } from '@/lib/date-utils'
 
 type RouteParams = { params: Promise<{ yearMonth: string; date: string }> }
 
@@ -200,6 +201,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Compute avg ratings + work days
   const coachIds = resultCoaches.map(c => c.id)
 
+  const now = new Date()
+  const sixMAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+  const sixMonthsAgoDate = toDateOnly(`${sixMAgo.getFullYear()}-${String(sixMAgo.getMonth() + 1).padStart(2, '0')}-01`)
+  const todayDate = toDateOnly(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`)
+
   const [ratingAggregates, workDayRows] = await Promise.all([
     coachIds.length > 0
       ? prisma.engagement.groupBy({
@@ -213,8 +219,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           SELECT coach_id, COUNT(DISTINCT date) as days
           FROM coach_schedules
           WHERE coach_id::text = ANY(${coachIds})
-            AND date >= ${new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)}
-            AND date <= ${new Date()}
+            AND date >= ${sixMonthsAgoDate}
+            AND date <= ${todayDate}
           GROUP BY coach_id
         `
       : [],

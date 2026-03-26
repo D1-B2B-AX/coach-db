@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { toDateOnly } from '@/lib/date-utils'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -91,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Build update data — only include fields that were provided
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name.trim()
-    if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null
+    if (birthDate !== undefined) updateData.birthDate = birthDate ? toDateOnly(birthDate) : null
     if (phone !== undefined) updateData.phone = phone
     if (email !== undefined) updateData.email = email
     if (affiliation !== undefined) updateData.affiliation = affiliation

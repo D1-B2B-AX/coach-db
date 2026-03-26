@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
+import { toDateOnly } from '@/lib/date-utils'
 
 type RouteParams = { params: Promise<{ yearMonth: string }> }
 
 function parseYearMonth(yearMonth: string) {
   if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(yearMonth)) return null
   const [year, month] = yearMonth.split('-').map(Number)
-  const startDate = new Date(year, month - 1, 1)
-  const endDate = new Date(year, month, 0) // last day of month
+  const lastDay = new Date(year, month, 0).getDate()
+  const startDate = toDateOnly(`${yearMonth}-01`)
+  const endDate = toDateOnly(`${yearMonth}-${String(lastDay).padStart(2, '0')}`)
   return { year, month, startDate, endDate }
 }
 
