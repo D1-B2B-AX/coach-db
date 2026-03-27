@@ -241,6 +241,23 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
     )
   }
 
+  // 같은 과정명 그룹핑 (삼성 SW학부 등)
+  const grouped = (() => {
+    const groups: { key: string; items: Engagement[]; merged: boolean }[] = []
+    const seen = new Map<string, number>() // courseName → group index
+    for (const eng of engagements) {
+      const existing = seen.get(eng.courseName)
+      if (existing !== undefined) {
+        groups[existing].items.push(eng)
+        groups[existing].merged = true
+      } else {
+        seen.set(eng.courseName, groups.length)
+        groups.push({ key: eng.id, items: [eng], merged: false })
+      }
+    }
+    return groups
+  })()
+
   return (
     <div className="space-y-4">
 
@@ -250,60 +267,83 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
         </div>
       ) : (
         <div className="space-y-2">
-          {engagements.map((eng) => {
-            const statusCfg = STATUS_CONFIG[eng.status] || STATUS_CONFIG.scheduled
-            const canEdit = isAdmin || (currentManagerName && eng.hiredBy === currentManagerName)
+          {grouped.map((group) => {
+            const first = group.items[0]
+            const last = group.items[group.items.length - 1]
+            // 그룹이면 전체 기간, 아니면 단건 기간
+            const displayStart = group.merged ? group.items.reduce((min, e) => e.startDate < min ? e.startDate : min, first.startDate) : first.startDate
+            const displayEnd = group.merged ? group.items.reduce((max, e) => e.endDate > max ? e.endDate : max, first.endDate) : first.endDate
+            const statusCfg = STATUS_CONFIG[first.status] || STATUS_CONFIG.scheduled
+            const canEdit = !group.merged && (isAdmin || (currentManagerName && first.hiredBy === currentManagerName))
+            const isExpanded = expandedIds.has(group.key)
 
             return (
               <div
-                key={eng.id}
+                key={group.key}
                 className={`rounded-lg bg-white border border-gray-100 border-l-[3px] ${statusCfg.borderClass}`}
               >
                 {/* 한 줄 요약 */}
                 <div
                   className="flex items-center gap-2 px-3 py-2 cursor-pointer"
-                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(eng.id)) next.delete(eng.id); else next.add(eng.id); return next })}
+                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next })}
                 >
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
                     {statusCfg.label}
                   </span>
                   <span className="shrink-0 text-xs text-gray-400">
-                    {formatDate(eng.startDate)}~{formatDate(eng.endDate)}
+                    {formatDate(displayStart)}~{formatDate(displayEnd)}
                   </span>
-                  <span className="text-sm text-[#333] truncate flex-1">{eng.courseName}</span>
+                  <span className="text-sm text-[#333] truncate flex-1">
+                    {first.courseName}
+                    {group.merged && <span className="ml-1 text-xs text-gray-400">({group.items.length}건)</span>}
+                  </span>
                   {canEdit && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); openEditModal(eng) }}
+                      onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
                       className="shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
                     >
                       수정
                     </button>
                   )}
-                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${expandedIds.has(eng.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
 
                 {/* 상세 펼침 */}
-                {expandedIds.has(eng.id) && (
+                {isExpanded && !group.merged && (
                   <div className="border-t border-gray-100 px-3 py-2.5 text-sm space-y-2">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                      {eng.workType && <span><span className="text-gray-400">유형</span> <span className="text-[#333]">{eng.workType}</span></span>}
-                      <span><span className="text-gray-400">시급</span> <span className={eng.hourlyRate ? "text-[#333]" : "text-gray-300"}>{eng.hourlyRate ? `${eng.hourlyRate.toLocaleString()}원` : "-"}</span></span>
-                      <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{eng.hiredBy || "-"}</span></span>
-                      <span><span className="text-gray-400">평가</span> <span className={eng.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{eng.rating !== null ? `★ ${eng.rating}` : "-"}</span></span>
-                      <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {eng.rehire !== null ? (
-                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${eng.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
-                          {eng.rehire ? "희망" : "비희망"}
+                      {first.workType && <span><span className="text-gray-400">유형</span> <span className="text-[#333]">{first.workType}</span></span>}
+                      <span><span className="text-gray-400">시급</span> <span className={first.hourlyRate ? "text-[#333]" : "text-gray-300"}>{first.hourlyRate ? `${first.hourlyRate.toLocaleString()}원` : "-"}</span></span>
+                      <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{first.hiredBy || "-"}</span></span>
+                      <span><span className="text-gray-400">평가</span> <span className={first.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{first.rating !== null ? `★ ${first.rating}` : "-"}</span></span>
+                      <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {first.rehire !== null ? (
+                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${first.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
+                          {first.rehire ? "희망" : "비희망"}
                         </span>
                       ) : <span className="text-gray-300">-</span>}</span>
                     </div>
-                    {eng.feedback && (
+                    {first.feedback && (
                       <div>
                         <span className="text-gray-400">피드백</span>{" "}
-                        <span className="text-[#333] whitespace-pre-wrap">{eng.feedback}</span>
+                        <span className="text-[#333] whitespace-pre-wrap">{first.feedback}</span>
                       </div>
                     )}
+                  </div>
+                )}
+                {/* 그룹 펼침: 개별 차수 목록 */}
+                {isExpanded && group.merged && (
+                  <div className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500 space-y-1">
+                    {group.items.map((sub) => (
+                      <div key={sub.id} className="flex items-center gap-2">
+                        <span className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold ${(STATUS_CONFIG[sub.status] || STATUS_CONFIG.scheduled).className}`}>
+                          {(STATUS_CONFIG[sub.status] || STATUS_CONFIG.scheduled).label}
+                        </span>
+                        <span>{formatDate(sub.startDate)}~{formatDate(sub.endDate)}</span>
+                        {sub.startTime && sub.endTime && <span className="text-gray-400">{sub.startTime}~{sub.endTime}</span>}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
