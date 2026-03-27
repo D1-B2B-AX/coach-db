@@ -304,7 +304,24 @@ export async function syncEngagements(): Promise<SyncResult> {
     coachByName.set(c.name, c.id)
   }
 
-  // 3. Parse rows and match
+  // 3. Pre-scan: 코치별 사번 수집 (노이즈 제거 후 유니크 값 join)
+  const NOISE = ['취소', '입사취소', '입사 취소', '계약취소', '근무취소', '사번없음', '-']
+  const employeeIdsByName = new Map<string, Set<string>>()
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i]
+    const name = String(row[4] || '').trim()
+    const eid = String(row[3] || '').trim().replace(/-\d+$/, '')
+    if (!name || !eid || NOISE.includes(eid)) continue
+    if (!employeeIdsByName.has(name)) employeeIdsByName.set(name, new Set())
+    employeeIdsByName.get(name)!.add(eid)
+  }
+  // name → "91000025, 81000012" (유니크, 정렬)
+  const resolvedEmployeeId = new Map<string, string>()
+  for (const [name, ids] of employeeIdsByName) {
+    resolvedEmployeeId.set(name, [...ids].sort().join(', '))
+  }
+
+  // 4. Parse rows and match
   const unmatchedNames = new Set<string>()
   const engagements: {
     coachId: string
@@ -322,7 +339,6 @@ export async function syncEngagements(): Promise<SyncResult> {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
     const name = String(row[4] || '').trim() // E: 근무자 성명
-    const employeeIdRaw = String(row[3] || '').trim().replace(/-\d+$/, '') // D: 사번 (접미사 제거)
     const workType = String(row[5] || '').trim() // F: 담당직무 (실습코치/운영조교 등)
     const courseName = String(row[7] || '').trim() // H: 과정명
     const rateRaw = row[8] // I: 시급
@@ -365,7 +381,7 @@ export async function syncEngagements(): Promise<SyncResult> {
             email,
             phone,
             workType: workType || null,
-            employeeId: employeeIdRaw || null,
+            employeeId: resolvedEmployeeId.get(name) || null,
           },
         })
         coachId = created.id
@@ -376,14 +392,15 @@ export async function syncEngagements(): Promise<SyncResult> {
         continue
       }
     } else {
-      // 기존 코치: 이메일/연락처/근무유형/사번 비어있으면 보완
-      if (email || phone || workType || employeeIdRaw) {
+      // 기존 코치: 이메일/연락처/근무유형 비어있으면 보완, 사번은 항상 시트 기준으로 갱신
+      const resolvedEid = resolvedEmployeeId.get(name) || null
+      if (email || phone || workType || resolvedEid) {
         const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { email: true, phone: true, workType: true, employeeId: true } })
         const updates: Record<string, string> = {}
         if (!existing?.email && email) updates.email = email
         if (!existing?.phone && phone) updates.phone = phone
         if (!existing?.workType && workType) updates.workType = workType
-        if (!existing?.employeeId && employeeIdRaw) updates.employeeId = employeeIdRaw
+        if (resolvedEid && existing?.employeeId !== resolvedEid) updates.employeeId = resolvedEid
         if (Object.keys(updates).length > 0) {
           await prisma.coach.update({ where: { id: coachId }, data: updates })
         }

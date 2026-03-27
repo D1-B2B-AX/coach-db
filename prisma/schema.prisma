@@ -17,7 +17,7 @@ enum CoachStatus {
 
 model Coach {
   id          String      @id @default(uuid())
-  employeeId  String?     @map("employee_id") @db.VarChar(20)
+  employeeId  String?     @map("employee_id") @db.VarChar(200)
   name        String      @db.VarChar(50)
   birthDate   DateTime?   @map("birth_date") @db.Date
   phone       String?     @db.VarChar(20)
