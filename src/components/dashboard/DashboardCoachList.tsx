@@ -299,10 +299,10 @@ export default function DashboardCoachList({
                   <span className="text-xs text-gray-400 truncate">
                     {courseName || "-"}
                   </span>
-                  <span className="text-xs text-gray-500 text-center">
+                  <span className="text-xs text-gray-500">
                     {(coach.workDays ?? 0) > 0 ? `${coach.workDays}일` : "-"}
                   </span>
-                  <span className="text-xs text-center">
+                  <span className="text-xs">
                     {coach.avgRating !== null ? <span className="text-[#F57F17]">{coach.avgRating.toFixed(1)}</span> : <span className="text-gray-300">-</span>}
                   </span>
                 </div>
