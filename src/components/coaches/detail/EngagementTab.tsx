@@ -272,8 +272,13 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
             const last = group.items[group.items.length - 1]
             const displayStart = group.merged ? group.items.reduce((min, e) => e.startDate < min ? e.startDate : min, first.startDate) : first.startDate
             const displayEnd = group.merged ? group.items.reduce((max, e) => e.endDate > max ? e.endDate : max, first.endDate) : first.endDate
-            const statusCfg = STATUS_CONFIG[first.status] || STATUS_CONFIG.scheduled
-            const canEdit = !group.merged && (isAdmin || (currentManagerName && first.hiredBy === currentManagerName))
+            // 그룹 상태: in_progress > scheduled > completed
+            const groupStatus = group.merged
+              ? (group.items.some(e => e.status === 'in_progress') ? 'in_progress'
+                : group.items.some(e => e.status === 'scheduled') ? 'scheduled' : first.status)
+              : first.status
+            const statusCfg = STATUS_CONFIG[groupStatus] || STATUS_CONFIG.scheduled
+            const canEdit = isAdmin || (currentManagerName && first.hiredBy === currentManagerName)
             const isExpanded = expandedIds.has(group.key)
 
             return (
@@ -283,8 +288,8 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
               >
                 {/* 한 줄 요약 */}
                 <div
-                  className={`flex items-center gap-2 px-3 py-2 ${group.merged ? "" : "cursor-pointer"}`}
-                  onClick={() => { if (!group.merged) setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next }) }}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer"
+                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next })}
                 >
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
                     {statusCfg.label}
@@ -296,23 +301,13 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     }
                   </span>
                   <span className="text-sm text-[#333] truncate flex-1">{first.courseName}</span>
-                  {canEdit && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
-                      className="shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
-                    >
-                      수정
-                    </button>
-                  )}
-                  {!group.merged && (
-                    <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
+                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
 
                 {/* 상세 펼침 */}
-                {isExpanded && !group.merged && (
+                {isExpanded && (
                   <div className="border-t border-gray-100 px-3 py-2.5 text-sm space-y-2">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                       {first.workType && <span><span className="text-gray-400">유형</span> <span className="text-[#333]">{first.workType}</span></span>}
@@ -324,6 +319,14 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                           {first.rehire ? "희망" : "비희망"}
                         </span>
                       ) : <span className="text-gray-300">-</span>}</span>
+                      {(isAdmin || (currentManagerName && first.hiredBy === currentManagerName)) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
+                          className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
+                        >
+                          수정
+                        </button>
+                      )}
                     </div>
                     {first.feedback && (
                       <div>
