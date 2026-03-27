@@ -270,7 +270,6 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
           {grouped.map((group) => {
             const first = group.items[0]
             const last = group.items[group.items.length - 1]
-            // 그룹이면 전체 기간, 아니면 단건 기간
             const displayStart = group.merged ? group.items.reduce((min, e) => e.startDate < min ? e.startDate : min, first.startDate) : first.startDate
             const displayEnd = group.merged ? group.items.reduce((max, e) => e.endDate > max ? e.endDate : max, first.endDate) : first.endDate
             const statusCfg = STATUS_CONFIG[first.status] || STATUS_CONFIG.scheduled
@@ -284,19 +283,19 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
               >
                 {/* 한 줄 요약 */}
                 <div
-                  className="flex items-center gap-2 px-3 py-2 cursor-pointer"
-                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next })}
+                  className={`flex items-center gap-2 px-3 py-2 ${group.merged ? "" : "cursor-pointer"}`}
+                  onClick={() => { if (!group.merged) setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next }) }}
                 >
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
                     {statusCfg.label}
                   </span>
                   <span className="shrink-0 text-xs text-gray-400">
-                    {formatDate(displayStart)}~{formatDate(displayEnd)}
+                    {group.merged
+                      ? `${new Date(displayStart).getFullYear()}.${new Date(displayStart).getMonth() + 1}~${new Date(displayEnd).getFullYear()}.${new Date(displayEnd).getMonth() + 1}`
+                      : `${formatDate(displayStart)}~${formatDate(displayEnd)}`
+                    }
                   </span>
-                  <span className="text-sm text-[#333] truncate flex-1">
-                    {first.courseName}
-                    {group.merged && <span className="ml-1 text-xs text-gray-400">({group.items.length}건)</span>}
-                  </span>
+                  <span className="text-sm text-[#333] truncate flex-1">{first.courseName}</span>
                   {canEdit && (
                     <button
                       onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
@@ -305,9 +304,11 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       수정
                     </button>
                   )}
-                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  {!group.merged && (
+                    <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
                 </div>
 
                 {/* 상세 펼침 */}
@@ -330,20 +331,6 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                         <span className="text-[#333] whitespace-pre-wrap">{first.feedback}</span>
                       </div>
                     )}
-                  </div>
-                )}
-                {/* 그룹 펼침: 개별 차수 목록 */}
-                {isExpanded && group.merged && (
-                  <div className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500 space-y-1">
-                    {group.items.map((sub) => (
-                      <div key={sub.id} className="flex items-center gap-2">
-                        <span className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold ${(STATUS_CONFIG[sub.status] || STATUS_CONFIG.scheduled).className}`}>
-                          {(STATUS_CONFIG[sub.status] || STATUS_CONFIG.scheduled).label}
-                        </span>
-                        <span>{formatDate(sub.startDate)}~{formatDate(sub.endDate)}</span>
-                        {sub.startTime && sub.endTime && <span className="text-gray-400">{sub.startTime}~{sub.endTime}</span>}
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
