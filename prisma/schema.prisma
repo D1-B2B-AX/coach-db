@@ -13,7 +13,6 @@ enum CoachStatus {
   pending
   active
   inactive
-  on_leave
 }
 
 model Coach {
@@ -26,7 +25,8 @@ model Coach {
   affiliation String?     @db.VarChar(100)
   workType    String?     @map("work_type") @db.VarChar(200)
   status      CoachStatus @default(active)
-  statusNote  String?     @map("status_note") @db.VarChar(200)
+  statusNote  String?     @map("status_note") @db.VarChar(60)
+  returnDate  DateTime?   @map("return_date") @db.Date
   selfNote           String?  @map("self_note") @db.Text
   portfolioUrl       String?  @map("portfolio_url") @db.Text
   availabilityDetail String?  @map("availability_detail") @db.Text

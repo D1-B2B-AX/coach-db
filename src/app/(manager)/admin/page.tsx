@@ -49,6 +49,9 @@ export default function AdminPage() {
   const [appSyncLoading, setAppSyncLoading] = useState(false)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null)
+  const [appNotes, setAppNotes] = useState<Record<string, string>>({})
+  const [savingAppNote, setSavingAppNote] = useState<string | null>(null)
 
   useEscClose(confirmAction !== null, () => setConfirmAction(null))
 
@@ -202,7 +205,7 @@ export default function AdminPage() {
       const res = await fetch('/api/sync/samsung-schedule', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        setToastMessage(`삼성 일정 동기화 완료: ${data.created}건 생성`)
+        setToastMessage(`DS 일정 동기화 완료: ${data.created}건 생성`)
       } else {
         setToastMessage(`동기화 실패: ${data.error}`)
       }
@@ -232,7 +235,7 @@ export default function AdminPage() {
 
   const TABS = [
     { key: "managers" as const, label: `매니저 관리 (${managers.length})` },
-    { key: "applications" as const, label: `신청 관리${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
+    { key: "applications" as const, label: `코치 신청 목록${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
     { key: "links" as const, label: "코치 관리" },
     { key: "deleted" as const, label: `코치 삭제 내역 (${deletedCoaches.length})` },
     { key: "sync" as const, label: "동기화" },
@@ -576,106 +579,157 @@ export default function AdminPage() {
           <CoachManagementTab />
         )}
 
-        {/* Sync tab */}
+        {/* Applications tab */}
         {activeTab === "applications" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#333]">코치 신청 목록</span>
-              <button
-                onClick={async () => {
-                  setAppSyncLoading(true)
-                  try {
-                    const res = await fetch("/api/sync/applications", { method: "POST" })
-                    const data = await res.json()
-                    if (res.ok) {
-                      setToastMessage(`신청 동기화: ${data.created}건 생성, ${data.skipped}건 스킵`)
-                      setShowToast(true)
-                      fetchPendingCoaches()
-                    } else {
-                      setToastMessage(`동기화 실패: ${data.error}`)
-                      setShowToast(true)
-                    }
-                  } catch {
-                    setToastMessage("동기화 중 오류 발생")
-                    setShowToast(true)
-                  } finally {
-                    setAppSyncLoading(false)
-                  }
-                }}
-                disabled={appSyncLoading}
-                className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
-              >
-                {appSyncLoading ? "동기화 중..." : "구글폼 동기화"}
-              </button>
-            </div>
-
             {pendingCoaches.length === 0 ? (
               <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
                 대기 중인 신청이 없습니다
               </div>
             ) : (
               <div className="space-y-3">
-                {pendingCoaches.map((coach: any) => (
-                  <div key={coach.id} className="rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-[#333]">{coach.name}</span>
-                          {coach.workType && (
-                            <span className="rounded-full bg-[#F3E5F5] px-2 py-0.5 text-[11px] font-medium text-[#7B1FA2]">{coach.workType}</span>
+                {pendingCoaches.map((coach: any) => {
+                  const isExpanded = expandedAppId === coach.id
+                  const noteLines = (coach.selfNote || "").split("\n").filter(Boolean)
+                  return (
+                    <div
+                      key={coach.id}
+                      className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden"
+                    >
+                      {/* Card header — always visible */}
+                      <div
+                        className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                        onClick={() => setExpandedAppId(isExpanded ? null : coach.id)}
+                      >
+                        <div className="min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[#333]">{coach.name}</span>
+                            {coach.workType && (() => {
+                              const types: string[] = []
+                              if (coach.workType.includes("운영조교")) types.push("운영조교")
+                              if (coach.workType.includes("실습코치")) types.push("실습코치")
+                              return types.map((t: string) => (
+                                <span key={t} className="rounded-full bg-[#F3E5F5] px-2 py-0.5 text-[11px] font-medium text-[#7B1FA2]">{t}</span>
+                              ))
+                            })()}
+                            <span className="text-xs text-gray-500">{coach.phone}</span>
+                            {coach.createdAt && (
+                              <span className="text-[11px] text-gray-300">{new Date(coach.createdAt).toLocaleDateString("ko-KR")}</span>
+                            )}
+                          </div>
+                          {coach.fields?.length > 0 && (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="shrink-0 text-[10px] text-gray-400">교육/가능 분야</span>
+                              <div className="flex flex-wrap gap-1">
+                                {coach.fields.map((f: string) => (
+                                  <span key={f} className="rounded-full bg-[#E3F2FD] px-2 py-0.5 text-[10px] font-medium text-[#1976D2]">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {coach.curriculums?.length > 0 && (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="shrink-0 text-[10px] text-gray-400">보유 스킬</span>
+                              <div className="flex flex-wrap gap-1">
+                                {coach.curriculums.map((c: string) => (
+                                  <span key={c} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{c}</span>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-                          {coach.phone && <span>{coach.phone}</span>}
-                          {coach.email && <span>{coach.email}</span>}
-                          {coach.affiliation && <span>{coach.affiliation}</span>}
+                        <div className="flex items-center gap-2 shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`${coach.name} 코치를 승인하시겠습니까?`)) return
+                              const res = await fetch(`/api/admin/applications/${coach.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "approve" }),
+                              })
+                              if (res.ok) {
+                                setToastMessage(`${coach.name} 승인 완료`)
+                                setShowToast(true)
+                                fetchPendingCoaches()
+                              }
+                            }}
+                            className="cursor-pointer rounded-lg bg-[#E8F5E9] px-3 py-1.5 text-xs font-semibold text-[#2E7D32] hover:bg-[#C8E6C9] transition-colors"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={() => { setRejectId(coach.id); setRejectReason("") }}
+                            className="cursor-pointer rounded-lg bg-[#FBE9E7] px-3 py-1.5 text-xs font-semibold text-[#D84315] hover:bg-[#FFCCBC] transition-colors"
+                          >
+                            거절
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={async () => {
-                            const res = await fetch(`/api/admin/applications/${coach.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ action: "approve" }),
-                            })
-                            if (res.ok) {
-                              setToastMessage(`${coach.name} 승인 완료`)
-                              setShowToast(true)
-                              fetchPendingCoaches()
-                            }
-                          }}
-                          className="cursor-pointer rounded-lg bg-[#E8F5E9] px-3 py-1.5 text-xs font-semibold text-[#2E7D32] hover:bg-[#C8E6C9] transition-colors"
-                        >
-                          승인
-                        </button>
-                        <button
-                          onClick={() => { setRejectId(coach.id); setRejectReason("") }}
-                          className="cursor-pointer rounded-lg bg-[#FBE9E7] px-3 py-1.5 text-xs font-semibold text-[#D84315] hover:bg-[#FFCCBC] transition-colors"
-                        >
-                          거절
-                        </button>
-                      </div>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-100 bg-gray-50/30 px-5 py-4 space-y-1.5">
+                          <AppDetailRow label="이메일" value={coach.email} />
+                          <AppDetailRow label="생년월일" value={coach.birthDate ? new Date(coach.birthDate).toLocaleDateString("ko-KR") : null} />
+                          <AppDetailRow label="소속" value={coach.affiliation} />
+                          <AppDetailRow label="근무 가능 기간" value={coach.availabilityDetail} />
+                          {noteLines.map((line: string, i: number) => {
+                            const match = line.match(/^\[(.+?)\]\s*(.*)$/)
+                            if (match) return <AppDetailRow key={i} label={match[1]} value={match[2]} />
+                            return <AppDetailRow key={i} label="" value={line} />
+                          })}
+                          {coach.documents?.length > 0 && (
+                            <div className="flex gap-2">
+                              <span className="shrink-0 w-28 text-xs text-gray-400">포트폴리오</span>
+                              <div className="flex flex-wrap gap-1">
+                                {coach.documents.map((d: any) => (
+                                  <a key={d.id} href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">{d.fileName}</a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Manager memo */}
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <span className="text-xs text-gray-400">메모</span>
+                            <textarea
+                              value={appNotes[coach.id] ?? coach.managerNote ?? ""}
+                              onChange={(e) => setAppNotes(prev => ({ ...prev, [coach.id]: e.target.value }))}
+                              placeholder="면접 일정, 참고사항 등"
+                              rows={2}
+                              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-[#333] focus:outline-none focus:border-[#1976D2]"
+                            />
+                            {(appNotes[coach.id] !== undefined && appNotes[coach.id] !== (coach.managerNote ?? "")) && (
+                              <button
+                                onClick={async () => {
+                                  setSavingAppNote(coach.id)
+                                  const note = appNotes[coach.id]?.trim() || null
+                                  try {
+                                    const res = await fetch(`/api/coaches/${coach.id}`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ managerNote: note }),
+                                    })
+                                    if (res.ok) {
+                                      setToastMessage("메모 저장 완료")
+                                      setShowToast(true)
+                                      fetchPendingCoaches()
+                                    }
+                                  } finally {
+                                    setSavingAppNote(null)
+                                  }
+                                }}
+                                disabled={savingAppNote === coach.id}
+                                className="mt-1.5 cursor-pointer rounded-md bg-[#1976D2] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                              >
+                                {savingAppNote === coach.id ? "저장 중..." : "메모 저장"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {/* Detail rows */}
-                    {(coach.fields?.length > 0 || coach.curriculums?.length > 0) && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {coach.fields?.map((f: string) => (
-                          <span key={f} className="rounded-full bg-[#E3F2FD] px-2 py-0.5 text-[11px] font-medium text-[#1976D2]">{f}</span>
-                        ))}
-                        {coach.curriculums?.map((c: string) => (
-                          <span key={c} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{c}</span>
-                        ))}
-                      </div>
-                    )}
-                    {coach.selfNote && (
-                      <div className="mt-2 max-h-16 overflow-y-auto whitespace-pre-wrap text-xs text-gray-500">{coach.selfNote}</div>
-                    )}
-                    {coach.availabilityDetail && (
-                      <div className="mt-1 text-xs text-gray-400">{coach.availabilityDetail}</div>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
@@ -725,17 +779,56 @@ export default function AdminPage() {
 
         {activeTab === "sync" && (
           <div className="space-y-4">
+            {/* 코치 신청 동기화 */}
             <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
-              <h3 className="text-sm font-semibold text-[#333]">데이터 동기화</h3>
+              <h3 className="text-sm font-semibold text-[#333]">코치 신청 동기화</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                구글폼 응답 시트에서 신규 코치 신청을 가져옵니다.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    setAppSyncLoading(true)
+                    try {
+                      const res = await fetch("/api/sync/applications", { method: "POST" })
+                      const data = await res.json()
+                      if (res.ok) {
+                        setToastMessage(`동기화 완료: ${data.created}건 생성, ${data.skipped}건 기존`)
+                        setShowToast(true)
+                        fetchPendingCoaches()
+                      } else {
+                        setToastMessage(`동기화 실패: ${data.error}`)
+                        setShowToast(true)
+                      }
+                    } catch {
+                      setToastMessage("동기화 중 오류 발생")
+                      setShowToast(true)
+                    } finally {
+                      setAppSyncLoading(false)
+                    }
+                  }}
+                  disabled={appSyncLoading}
+                  className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                >
+                  {appSyncLoading ? "동기화 중..." : "구글폼 동기화"}
+                </button>
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSc6Mt8e1n0mOLEeiDiVVbNZvUFcRWJzHcyzH7a8LE5vib_4fA/viewform" target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">구글폼</a>
+                <a href="https://docs.google.com/spreadsheets/d/1xrkRqw3niREpZRIYuB6cEjOGm7Y45bEWkqP02vESR20" target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">구글폼 응답시트</a>
+              </div>
+            </div>
+
+            {/* 삼성전자 일정 동기화 */}
+            <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
+              <h3 className="text-sm font-semibold text-[#333]">삼성전자 일정 동기화</h3>
               <p className="mt-2 text-sm text-gray-500">
                 구글시트에서 삼성전자 SW학부 교육과정 스케줄을 가져옵니다. 기존 삼성 일정은 삭제 후 새로 생성됩니다.
               </p>
               <button
                 onClick={handleSamsungSync}
                 disabled={syncLoading}
-                className="mt-4 cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                className="mt-3 cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
               >
-                {syncLoading ? "동기화 중..." : "삼성 일정 동기화"}
+                {syncLoading ? "동기화 중..." : "DS 일정 동기화"}
               </button>
             </div>
           </div>
@@ -1033,6 +1126,26 @@ function CoachManagementTab() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function AppDetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-2">
+      <span className="shrink-0 w-28 text-xs text-gray-400">{label}</span>
+      <span className="text-xs text-[#333] whitespace-pre-wrap">{value}</span>
+    </div>
+  )
+}
+
+function AppDetailBlock({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null
+  return (
+    <div>
+      <span className="text-[10px] text-gray-400">{label}</span>
+      <div className="mt-0.5 text-xs text-[#333] whitespace-pre-wrap">{value}</div>
     </div>
   )
 }

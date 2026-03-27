@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       where,
       skip,
       take: limit,
-      orderBy: { name: 'asc' },
+      orderBy: [{ status: 'asc' }, { name: 'asc' }],
       include: {
         fields: {
           include: { field: true },

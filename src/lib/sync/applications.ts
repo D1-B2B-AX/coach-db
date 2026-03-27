@@ -27,8 +27,9 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
 
   const drive = google.drive({ version: 'v3', auth })
 
-  const res = await drive.files.get(
-    { fileId: APPLICATION_SHEET_ID, alt: 'media' },
+  // 구글 스프레드시트는 export로 다운로드 (네이티브 시트는 alt:media 불가)
+  const res = await drive.files.export(
+    { fileId: APPLICATION_SHEET_ID, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
     { responseType: 'arraybuffer' },
   )
   const workbook = XLSX.read(Buffer.from(res.data as ArrayBuffer))
@@ -47,6 +48,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
+    const timestampRaw = row[0] // A열: 타임스탬프
     const name = String(row[2] || '').trim()
     const phoneRaw = String(row[3] || '').trim()
     const birthRaw = String(row[4] || '').trim()
@@ -86,6 +88,18 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
     const curriculumNames = splitMulti(skillRaw)
 
     try {
+      // 타임스탬프 파싱 (Excel serial number or date string)
+      let createdAt: Date | undefined
+      if (timestampRaw) {
+        if (typeof timestampRaw === 'number') {
+          // Excel serial date
+          createdAt = new Date((timestampRaw - 25569) * 86400000)
+        } else {
+          const parsed = new Date(String(timestampRaw))
+          if (!isNaN(parsed.getTime())) createdAt = parsed
+        }
+      }
+
       const coach = await prisma.coach.create({
         data: {
           name,
@@ -98,6 +112,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
           selfNote,
           status: 'pending',
           accessToken: generateAccessToken(),
+          ...(createdAt ? { createdAt } : {}),
         },
       })
 

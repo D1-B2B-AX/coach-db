@@ -24,6 +24,7 @@ interface CoachDetail {
   workType: string | null
   status: string
   statusNote: string | null
+  returnDate: string | null
   selfNote: string | null
   portfolioUrl: string | null
   availabilityDetail: string | null
@@ -59,7 +60,6 @@ const TABS: { key: TabKey; label: string }[] = [
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   active: { label: "활동중", className: "bg-[#E8F5E9] text-[#2E7D32]" },
   inactive: { label: "비활동", className: "bg-gray-100 text-gray-500" },
-  on_leave: { label: "휴직", className: "bg-[#FFF8E1] text-[#F57F17]" },
   pending: { label: "대기", className: "bg-[#E3F2FD] text-[#1565C0]" },
 }
 
@@ -158,6 +158,19 @@ export default function CoachDetailPage() {
     }
   }
 
+  async function handleReturnDateSave(date: string | null) {
+    try {
+      const res = await fetch(`/api/coaches/${coachId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnDate: date }),
+      })
+      if (res.ok) {
+        setCoach((prev) => prev ? { ...prev, returnDate: date } : prev)
+      }
+    } catch { /* */ }
+  }
+
   async function handleStatusNoteSave(note: string) {
     const trimmed = note.trim() || null
     try {
@@ -225,8 +238,7 @@ export default function CoachDetailPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Header — Line 1: 이름 [상태] 메모 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/coaches"
             className="shrink-0 text-sm text-gray-400 hover:text-gray-600 transition-colors"
@@ -243,7 +255,15 @@ export default function CoachDetailPage() {
             return (
               <>
                 <button
-                  onClick={() => handleStatusChange(isActive ? "inactive" : "active")}
+                  onClick={() => {
+                    if (isActive) {
+                      handleStatusChange("inactive")
+                    } else {
+                      handleStatusChange("active")
+                      // 활동중으로 전환 시 복귀 예정일 초기화
+                      handleReturnDateSave(null)
+                    }
+                  }}
                   disabled={savingStatus}
                   className="shrink-0 cursor-pointer flex items-center gap-1.5 rounded-full bg-gray-100 p-0.5 transition-colors"
                 >
@@ -254,19 +274,16 @@ export default function CoachDetailPage() {
                     비활동
                   </span>
                 </button>
-                {managerRole === "admin" && !isActive && (
-                  <div className="relative shrink-0">
-                    <select
-                      value={coach.status}
-                      onChange={(e) => handleStatusChange(e.target.value)}
-                      className="cursor-pointer rounded-full bg-gray-50 px-2 py-0.5 pr-5 text-[11px] text-gray-500 border border-gray-200 outline-none appearance-none"
-                    >
-                      <option value="inactive">비활동</option>
-                      <option value="on_leave">휴직</option>
-                      <option value="pending">대기</option>
-                    </select>
-                    <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-2 w-2 text-gray-400" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0l5 6 5-6z"/></svg>
-                  </div>
+                {!isActive && (
+                  <span className="shrink-0 flex items-center gap-1">
+                    <span className="text-[11px] text-gray-400">복귀 예정월</span>
+                    <input
+                      type="month"
+                      value={coach.returnDate?.slice(0, 7) || ""}
+                      onChange={(e) => handleReturnDateSave(e.target.value ? `${e.target.value}-01` : null)}
+                      className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-500 outline-none focus:border-blue-300"
+                    />
+                  </span>
                 )}
               </>
             )
@@ -282,20 +299,18 @@ export default function CoachDetailPage() {
                 if (e.key === "Enter") handleStatusNoteSave(statusNoteValue)
                 if (e.key === "Escape") setEditingStatusNote(false)
               }}
-              maxLength={200}
-              placeholder="상태 메모..."
+              maxLength={60}
+              placeholder="활동 관련 메모를 적어주세요."
               className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-sm text-gray-600 outline-none focus:border-blue-300"
             />
           ) : (
             <button
               onClick={() => { setStatusNoteValue(coach.statusNote || ""); setEditingStatusNote(true) }}
-              className="min-w-0 cursor-pointer truncate text-sm text-gray-400 hover:text-gray-600 transition-colors"
-              title={coach.statusNote || "메모 추가"}
+              className="min-w-0 cursor-pointer text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
-              {coach.statusNote || <span className="text-gray-300">+ 메모</span>}
+              {coach.statusNote || <span className="text-gray-300">+ 활동 관련 메모</span>}
             </button>
           )}
-        </div>
       </div>
       {/* Tab bar + context actions */}
       <div className="mt-5 flex items-center justify-between border-b border-gray-200">
