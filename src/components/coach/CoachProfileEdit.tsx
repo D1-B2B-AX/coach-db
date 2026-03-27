@@ -19,8 +19,11 @@ interface Props {
   onSaved: () => void
 }
 
-const FIELD_OPTIONS = [
+const EDU_FIELD_OPTIONS = [
   "개발 / 프로그래밍", "데이터 사이언스", "인공지능", "자동화 & 업무생산성", "디자인",
+]
+
+const DETAIL_FIELD_OPTIONS = [
   "프론트엔드", "백엔드", "모바일 앱 개발", "데이터분석", "데이터엔지니어링",
   "머신러닝", "딥러닝", "클라우드 & 데브옵스", "업무자동화", "OA활용",
   "ChatGPT & 생성형AI", "UI/UX",
@@ -191,7 +194,25 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
         <div>
           <label className="text-xs text-gray-400">교육 분야</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {FIELD_OPTIONS.map(f => (
+            {EDU_FIELD_OPTIONS.map(f => (
+              <button
+                key={f}
+                onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
+                className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  selectedFields.has(f) ? "bg-[#E3F2FD] text-[#1976D2]" : "bg-gray-50 text-gray-400"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 가능 분야 */}
+        <div>
+          <label className="text-xs text-gray-400">가능 분야</label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {DETAIL_FIELD_OPTIONS.map(f => (
               <button
                 key={f}
                 onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
