@@ -67,9 +67,11 @@ interface TimePanelProps {
   selectedSlots: Set<string>
   confirmedSlots: Set<string>
   confirmedCourseNames?: string[]
+  isUnavailable: boolean
   onToggleSlot: (slot: string) => void
   onSelectAll: () => void
   onClear: () => void
+  onToggleUnavailable: () => void
 }
 
 export default function TimePanel({
@@ -78,9 +80,11 @@ export default function TimePanel({
   selectedSlots,
   confirmedSlots,
   confirmedCourseNames,
+  isUnavailable,
   onToggleSlot,
   onSelectAll,
   onClear,
+  onToggleUnavailable,
 }: TimePanelProps) {
   const summaryParts = useMemo(() => {
     const parts: { label: string; text: string }[] = []
@@ -149,50 +153,62 @@ export default function TimePanel({
           )
         })}
         <button
-          onClick={onClear}
-          className="cursor-pointer rounded-lg border border-[#e0e0e0] bg-white py-2 text-[12px] font-semibold text-[#999] transition-all hover:bg-gray-50"
+          onClick={onToggleUnavailable}
+          className={`cursor-pointer rounded-lg border py-2 text-[12px] font-semibold transition-all ${
+            isUnavailable
+              ? "border-[#D84315] bg-[#FBE9E7] text-[#D84315]"
+              : "border-[#e0e0e0] bg-white text-[#999] hover:bg-gray-50"
+          }`}
         >
-          초기화
+          불가
         </button>
       </div>
 
       {/* Time grid */}
-      <div className="grid grid-cols-2 gap-1.5">
-        {ALL_SLOTS.map((slot) => {
-          const isConfirmed = confirmedSlots.has(slot)
-          const isSelected = selectedSlots.has(slot) && !isConfirmed
+      {isUnavailable ? (
+        <div className="rounded-lg bg-[#FBE9E7] px-4 py-8 text-center text-sm text-[#D84315]">
+          이 날은 불가로 표시되었습니다
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-1.5">
+          {ALL_SLOTS.map((slot) => {
+            const isConfirmed = confirmedSlots.has(slot)
+            const isSelected = selectedSlots.has(slot) && !isConfirmed
 
-          let className =
-            "cursor-pointer rounded-lg border px-1 py-[10px] text-center text-[13px] transition-all"
+            let className =
+              "cursor-pointer rounded-lg border px-1 py-[10px] text-center text-[13px] transition-all"
 
-          if (isConfirmed) {
-            className =
-              "cursor-default rounded-lg border border-[#1976D2] bg-[#E3F2FD] px-1 py-[10px] text-center text-[13px] font-semibold text-[#1976D2]"
-          } else if (isSelected) {
-            className =
-              "cursor-pointer rounded-lg border border-[#4CAF50] bg-[#E8F5E9] px-1 py-[10px] text-center text-[13px] font-semibold text-[#2E7D32] transition-all"
-          } else {
-            className =
-              "cursor-pointer rounded-lg border border-[#e0e0e0] px-1 py-[10px] text-center text-[13px] text-[#888] transition-all hover:bg-gray-50"
-          }
+            if (isConfirmed) {
+              className =
+                "cursor-default rounded-lg border border-[#1976D2] bg-[#E3F2FD] px-1 py-[10px] text-center text-[13px] font-semibold text-[#1976D2]"
+            } else if (isSelected) {
+              className =
+                "cursor-pointer rounded-lg border border-[#4CAF50] bg-[#E8F5E9] px-1 py-[10px] text-center text-[13px] font-semibold text-[#2E7D32] transition-all"
+            } else {
+              className =
+                "cursor-pointer rounded-lg border border-[#e0e0e0] px-1 py-[10px] text-center text-[13px] text-[#888] transition-all hover:bg-gray-50"
+            }
 
-          return (
-            <div
-              key={slot}
-              className={className}
-              onClick={() => {
-                if (!isConfirmed) onToggleSlot(slot)
-              }}
-            >
-              {slotLabel(slot)}
-            </div>
-          )
-        })}
-      </div>
+            return (
+              <div
+                key={slot}
+                className={className}
+                onClick={() => {
+                  if (!isConfirmed) onToggleSlot(slot)
+                }}
+              >
+                {slotLabel(slot)}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Summary */}
       <div className="mt-3 rounded-lg bg-[#f9f9f9] px-2.5 py-2 text-[11px] leading-relaxed text-[#666]">
-        {summaryParts.length > 0 ? (
+        {isUnavailable ? (
+          <div><strong>불가</strong></div>
+        ) : summaryParts.length > 0 ? (
           summaryParts.map((p, i) => (
             <div key={i}>
               <strong>{p.label}:</strong> {p.text}

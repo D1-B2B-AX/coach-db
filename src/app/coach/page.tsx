@@ -51,10 +51,18 @@ interface EngagementScheduleEntry {
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-/** Convert API schedule ranges → Map<dateKey, Set<halfHourSlot>> */
-function schedulesToSlotMap(schedules: ScheduleSlot[]): Map<string, Set<string>> {
+const UNAVAILABLE_SENTINEL = "00:00" // startTime === endTime === "00:00" → 불가
+
+/** Convert API schedule ranges → { slotMap, unavailableDates } */
+function schedulesToSlotMap(schedules: ScheduleSlot[]): { slotMap: Map<string, Set<string>>; unavailableDates: Set<string> } {
   const map = new Map<string, Set<string>>()
+  const unavailable = new Set<string>()
   for (const s of schedules) {
+    // 불가 센티널
+    if (s.startTime === UNAVAILABLE_SENTINEL && s.endTime === UNAVAILABLE_SENTINEL) {
+      unavailable.add(s.date)
+      continue
+    }
     if (!map.has(s.date)) map.set(s.date, new Set())
     const set = map.get(s.date)!
     // Expand range into 30-min slots
@@ -74,7 +82,7 @@ function schedulesToSlotMap(schedules: ScheduleSlot[]): Map<string, Set<string>>
       }
     }
   }
-  return map
+  return { slotMap: map, unavailableDates: unavailable }
 }
 
 /** Convert Map<dateKey, Set<halfHourSlot>> → API slots array (grouped consecutive ranges) */
@@ -223,6 +231,7 @@ function CoachScheduleContent() {
   // Data from API
   const [coachInfo, setCoachInfo] = useState<CoachInfo | null>(null)
   const [schedules, setSchedules] = useState<Map<string, Set<string>>>(new Map())
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set())
   const [engagements, setEngagements] = useState<Engagement[]>([])
   const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
@@ -346,8 +355,9 @@ function CoachScheduleContent() {
         ])
         setCoachInfo(coach)
 
-        const slotMap = schedulesToSlotMap(scheduleData.schedules)
+        const { slotMap, unavailableDates: unavail } = schedulesToSlotMap(scheduleData.schedules)
         setSchedules(slotMap)
+        setUnavailableDates(unavail)
         setEditingSlots(deepCopySlotMap(slotMap)) // deep copy
         setEngagements(scheduleData.engagements)
         setEngSchedules(scheduleData.engagementSchedules || [])
@@ -388,8 +398,9 @@ function CoachScheduleContent() {
       try {
         const ym = yearMonthStr(newYear, newMonth)
         const data = await fetchSchedule(ym)
-        const slotMap = schedulesToSlotMap(data.schedules)
+        const { slotMap, unavailableDates: unavail } = schedulesToSlotMap(data.schedules)
         setSchedules(slotMap)
+        setUnavailableDates(unavail)
         setEditingSlots(deepCopySlotMap(slotMap))
         setEngagements(data.engagements)
         setEngSchedules(data.engagementSchedules || [])
@@ -445,6 +456,11 @@ function CoachScheduleContent() {
   const handleToggleSlot = useCallback(
     (slot: string) => {
       if (!selectedDay) return
+      // 가용 시간 선택하면 불가 해제
+      setUnavailableDates((prev) => {
+        if (prev.has(selectedDay)) { const next = new Set(prev); next.delete(selectedDay); return next }
+        return prev
+      })
       setEditingSlots((prev) => {
         const next = new Map(prev)
         const daySlots = new Set(next.get(selectedDay) ?? [])
@@ -483,6 +499,25 @@ function CoachScheduleContent() {
     })
   }, [selectedDay])
 
+  const handleToggleUnavailable = useCallback(() => {
+    if (!selectedDay) return
+    setUnavailableDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(selectedDay)) {
+        next.delete(selectedDay)
+      } else {
+        next.add(selectedDay)
+        // 불가 전환 시 해당일 가용 슬롯 초기화
+        setEditingSlots((p) => {
+          const n = new Map(p)
+          n.set(selectedDay, new Set())
+          return n
+        })
+      }
+      return next
+    })
+  }, [selectedDay])
+
   // ─── Save ───────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
@@ -492,6 +527,13 @@ function CoachScheduleContent() {
     // Filter to only include slots for the current month
     const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`
     const monthSlots = apiSlots.filter((s) => s.date.startsWith(monthPrefix))
+
+    // 불가 날짜 센티널 추가
+    for (const dateKey of unavailableDates) {
+      if (dateKey.startsWith(monthPrefix)) {
+        monthSlots.push({ date: dateKey, startTime: "00:00", endTime: "00:00" })
+      }
+    }
 
     setSaving(true)
     try {
@@ -599,6 +641,7 @@ function CoachScheduleContent() {
               selectedDay={selectedDay}
               availableDates={availableDates}
               confirmedDates={confirmedDates}
+              unavailableDates={unavailableDates}
               onSelectDay={handleSelectDay}
               onConfirmedClick={handleConfirmedClick}
               onPrevMonth={() => changeMonth(-1)}
@@ -692,9 +735,11 @@ function CoachScheduleContent() {
             selectedSlots={currentDaySlots}
             confirmedSlots={currentDayConfirmed}
             confirmedCourseNames={currentDayCourseNames}
+            isUnavailable={selectedDay ? unavailableDates.has(selectedDay) : false}
             onToggleSlot={handleToggleSlot}
             onSelectAll={handleSelectAll}
             onClear={handleClear}
+            onToggleUnavailable={handleToggleUnavailable}
           />
         )}
       </div>

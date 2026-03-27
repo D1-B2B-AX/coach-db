@@ -6,6 +6,7 @@ interface ScheduleCalendarProps {
   selectedDay: string | null // "YYYY-MM-DD"
   availableDates: Set<string> // dates with schedule entries
   confirmedDates: Set<string> // dates with confirmed engagements
+  unavailableDates: Set<string> // dates marked as unavailable
   onSelectDay: (dateKey: string, day: number) => void
   onConfirmedClick: (dateKey: string) => void
   onPrevMonth: () => void
@@ -18,6 +19,7 @@ export default function ScheduleCalendar({
   selectedDay,
   availableDates,
   confirmedDates,
+  unavailableDates,
   onSelectDay,
   onConfirmedClick,
   onPrevMonth,
@@ -89,6 +91,7 @@ export default function ScheduleCalendar({
           const isToday = key === todayStr
           const isConfirmed = confirmedDates.has(key)
           const isAvailable = availableDates.has(key)
+          const isUnavailable = unavailableDates.has(key)
           const isSelected = selectedDay === key
 
           let cellClass =
@@ -102,6 +105,9 @@ export default function ScheduleCalendar({
           } else if (isConfirmed) {
             cellClass +=
               " bg-[#1976D2] text-white font-semibold cursor-pointer hover:bg-[#1565C0]"
+          } else if (isUnavailable) {
+            cellClass +=
+              " bg-[#FBE9E7] text-[#D84315] font-semibold cursor-pointer hover:bg-[#FFCCBC]"
           } else if (isAvailable) {
             cellClass +=
               " bg-[#E8F5E9] text-[#2E7D32] font-semibold cursor-pointer hover:bg-[#C8E6C9]"
