@@ -86,10 +86,13 @@ export default function TimePanel({
     const parts: { label: string; text: string }[] = []
     const confirmedArr = [...confirmedSlots].sort()
     const selectedArr = [...selectedSlots].filter((s) => !confirmedSlots.has(s)).sort()
-    if (confirmedArr.length > 0) parts.push({ label: "확정", text: formatRanges(confirmedArr) })
+    if (confirmedArr.length > 0) {
+      const courseText = confirmedCourseNames?.length ? ` · ${confirmedCourseNames.join(", ")}` : ""
+      parts.push({ label: "확정", text: formatRanges(confirmedArr) + courseText })
+    }
     if (selectedArr.length > 0) parts.push({ label: "가용", text: formatRanges(selectedArr) })
     return parts
-  }, [selectedSlots, confirmedSlots])
+  }, [selectedSlots, confirmedSlots, confirmedCourseNames])
 
   const isFullyConfirmed = confirmedSlots.size > 0 && [...selectedSlots].every(s => confirmedSlots.has(s))
 
@@ -98,16 +101,7 @@ export default function TimePanel({
       <div className="mb-1 text-center text-[15px] font-semibold text-[#333]">
         {month}월 {day}일
       </div>
-      {isFullyConfirmed ? (
-        <div className="mb-3 text-center text-[12px] text-[#1976D2]">확정 일정 (변경 불가)</div>
-      ) : null}
-      {confirmedCourseNames && confirmedCourseNames.length > 0 && (
-        <div className="mb-3 text-center text-[12px] text-[#1976D2]">
-          {confirmedCourseNames.map((name, i) => (
-            <div key={i}>{name}</div>
-          ))}
-        </div>
-      )}
+      {/* Course names now shown inline with confirmed time range */}
       <div className="mb-3 text-center text-[12px] text-[#888]">
         가능한 시간을 선택해주세요
       </div>
