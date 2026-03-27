@@ -254,15 +254,28 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose }: P
         </div>
 
         {/* 저장 */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`w-full cursor-pointer rounded-lg py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-            saved ? "bg-[#2E7D32] text-white" : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
-          }`}
-        >
-          {saving ? "저장 중..." : saved ? "✓ 저장됨" : "프로필 저장"}
-        </button>
+        {(() => {
+          const hasChanges =
+            (phone.trim() || null) !== (profile.phone ?? null) ||
+            (email.trim() || null) !== (profile.email ?? null) ||
+            (affiliation.trim() || null) !== (profile.affiliation ?? null) ||
+            (availDetail.trim() || null) !== (profile.availabilityDetail ?? null) ||
+            [...selectedFields].sort().join(",") !== profile.fields.map(f => f.name).sort().join(",") ||
+            [...selectedSkills].sort().join(",") !== profile.curriculums.map(c => c.name).sort().join(",")
+          return (
+            <button
+              onClick={hasChanges ? handleSave : () => onClose?.()}
+              disabled={saving}
+              className={`w-full cursor-pointer rounded-lg py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+                saved ? "bg-[#2E7D32] text-white"
+                : hasChanges ? "bg-[#1976D2] text-white hover:bg-[#1565C0]"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              {saving ? "저장 중..." : saved ? "✓ 저장됨" : hasChanges ? "프로필 저장" : "닫기"}
+            </button>
+          )
+        })()}
     </div>
   )
 }
