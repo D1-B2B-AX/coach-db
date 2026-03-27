@@ -19,17 +19,20 @@ interface Props {
   onSaved: () => void
 }
 
-const EDU_FIELD_OPTIONS = [
+// 구글폼 7-1. 교육 분야 → DB: CoachField (가능 분야)
+const FIELD_OPTIONS = [
   "개발 / 프로그래밍", "데이터 사이언스", "인공지능", "자동화 & 업무생산성", "디자인",
 ]
 
-const DETAIL_FIELD_OPTIONS = [
+// 구글폼 7-2. 가능 분야 → DB: CoachCurriculum (가능 커리큘럼)
+const CURRICULUM_AREA_OPTIONS = [
   "프론트엔드", "백엔드", "모바일 앱 개발", "데이터분석", "데이터엔지니어링",
   "머신러닝", "딥러닝", "클라우드 & 데브옵스", "업무자동화", "OA활용",
   "ChatGPT & 생성형AI", "UI/UX",
 ]
 
-const SKILL_OPTIONS = [
+// 구글폼 7-3. 보유 스킬 → DB: CoachCurriculum (가능 커리큘럼)
+const CURRICULUM_SKILL_OPTIONS = [
   "Python 기초", "Python 심화", "Java", "R", "C++", "Kotlin", "Swift",
   "HTML/CSS/JavaScript", "React/Vue.js/Next.js", "Node.js",
   "Django/Flask", "Spring/Springboot", "Hadoop/Spark",
@@ -190,11 +193,11 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
           />
         </div>
 
-        {/* 교육 분야 */}
+        {/* 교육 분야 → CoachField */}
         <div>
           <label className="text-xs text-gray-400">교육 분야</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {EDU_FIELD_OPTIONS.map(f => (
+            {FIELD_OPTIONS.map(f => (
               <button
                 key={f}
                 onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
@@ -208,43 +211,43 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
           </div>
         </div>
 
-        {/* 가능 분야 */}
+        {/* 가능 분야 → CoachCurriculum */}
         <div>
           <label className="text-xs text-gray-400">가능 분야</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {DETAIL_FIELD_OPTIONS.map(f => (
+            {CURRICULUM_AREA_OPTIONS.map(c => (
               <button
-                key={f}
-                onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
+                key={c}
+                onClick={() => toggleItem(selectedSkills, c, setSelectedSkills)}
                 className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedFields.has(f) ? "bg-[#E3F2FD] text-[#1976D2]" : "bg-gray-50 text-gray-400"
+                  selectedSkills.has(c) ? "bg-[#F3E5F5] text-[#7B1FA2]" : "bg-gray-50 text-gray-400"
                 }`}
               >
-                {f}
+                {c}
               </button>
             ))}
           </div>
           <div className="mt-2 flex gap-2">
             <input
               type="text"
-              placeholder="기타 분야 직접 입력"
+              placeholder="기타 직접 입력"
               className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
                   const val = (e.target as HTMLInputElement).value.trim()
-                  if (val) { setSelectedFields(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
+                  if (val) { setSelectedSkills(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
                 }
               }}
             />
           </div>
         </div>
 
-        {/* 보유 스킬 */}
+        {/* 보유 스킬 → CoachCurriculum */}
         <div>
           <label className="text-xs text-gray-400">보유 스킬</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {SKILL_OPTIONS.map(s => (
+            {CURRICULUM_SKILL_OPTIONS.map(s => (
               <button
                 key={s}
                 onClick={() => toggleItem(selectedSkills, s, setSelectedSkills)}
@@ -259,7 +262,7 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
           <div className="mt-2 flex gap-2">
             <input
               type="text"
-              placeholder="기타 스킬 직접 입력"
+              placeholder="기타 직접 입력"
               className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

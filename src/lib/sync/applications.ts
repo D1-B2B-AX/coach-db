@@ -83,9 +83,10 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
     if (extraRequest) selfNoteParts.push(`[기타 요청] ${extraRequest}`)
     const selfNote = selfNoteParts.join('\n') || null
 
-    // 분야: 교육 분야 + 가능 분야 합침
-    const fieldNames = [...new Set([...splitMulti(fieldRaw1), ...splitMulti(fieldRaw2)])]
-    const curriculumNames = splitMulti(skillRaw)
+    // 7-1. 교육 분야 → CoachField (가능 분야)
+    const fieldNames = splitMulti(fieldRaw1)
+    // 7-2. 가능 분야 + 7-3. 보유 스킬 → CoachCurriculum (가능 커리큘럼)
+    const curriculumNames = [...new Set([...splitMulti(fieldRaw2), ...splitMulti(skillRaw)])]
 
     try {
       // 타임스탬프 파싱 (Excel serial number or date string)
