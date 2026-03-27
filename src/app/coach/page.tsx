@@ -227,6 +227,10 @@ function CoachScheduleContent() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [coachTab, setCoachTab] = useState<"schedule" | "profile">("schedule")
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [phoneInput, setPhoneInput] = useState("")
+  const [phoneError, setPhoneError] = useState("")
 
   // Only current month and next month are editable
   const isEditable = useMemo(() => {
@@ -539,11 +543,6 @@ function CoachScheduleContent() {
   const currentDayConfirmed = selectedDay
     ? confirmedSlotsMap.get(selectedDay) ?? new Set<string>()
     : new Set<string>()
-
-  const [coachTab, setCoachTab] = useState<"schedule" | "profile">("schedule")
-  const [phoneVerified, setPhoneVerified] = useState(false)
-  const [phoneInput, setPhoneInput] = useState("")
-  const [phoneError, setPhoneError] = useState("")
 
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
