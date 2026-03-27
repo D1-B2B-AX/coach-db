@@ -17,6 +17,7 @@ interface Props {
   token: string
   profile: CoachProfile
   onSaved: () => void
+  onClose?: () => void
 }
 
 // 구글폼 7-1. 교육 분야 → DB: CoachField (가능 분야)
@@ -41,7 +42,7 @@ const CURRICULUM_SKILL_OPTIONS = [
   "Docker/Kubernetes", "AWS/Azure/GCP", "Figma", "Photoshop",
 ]
 
-export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
+export default function CoachProfileEdit({ token, profile, onSaved, onClose }: Props) {
   const [open, setOpen] = useState(true)
   const [phone, setPhone] = useState(profile.phone ?? "")
   const [email, setEmail] = useState(profile.email ?? "")
@@ -81,7 +82,7 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
       if (res.ok) {
         setSaved(true)
         onSaved()
-        setTimeout(() => setSaved(false), 2000)
+        setTimeout(() => { setSaved(false); onClose?.() }, 1000)
       }
     } finally {
       setSaving(false)

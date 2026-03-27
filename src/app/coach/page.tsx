@@ -673,6 +673,7 @@ function CoachScheduleContent() {
                   onSaved={() => {
                     fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
                   }}
+                  onClose={() => setShowProfile(false)}
                 />
               ) : null}
             </div>
