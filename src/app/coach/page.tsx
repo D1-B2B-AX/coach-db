@@ -41,6 +41,14 @@ interface Engagement {
   status: string
 }
 
+interface EngagementScheduleEntry {
+  date: string
+  startTime: string
+  endTime: string
+  courseName: string
+  status: string
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 /** Convert API schedule ranges → Map<dateKey, Set<halfHourSlot>> */
@@ -216,6 +224,7 @@ function CoachScheduleContent() {
   const [coachInfo, setCoachInfo] = useState<CoachInfo | null>(null)
   const [schedules, setSchedules] = useState<Map<string, Set<string>>>(new Map())
   const [engagements, setEngagements] = useState<Engagement[]>([])
+  const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
 
   // Editing state — working copy that only modifies the "available" slots
@@ -227,7 +236,7 @@ function CoachScheduleContent() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
-  const [coachTab, setCoachTab] = useState<"schedule" | "profile">("schedule")
+  const [showProfile, setShowProfile] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [phoneInput, setPhoneInput] = useState("")
   const [phoneError, setPhoneError] = useState("")
@@ -249,15 +258,35 @@ function CoachScheduleContent() {
     return set
   }, [schedules])
 
-  // Derived: confirmed data (only dates with actual schedule entries within engagement ranges)
-  const confirmedDates = useMemo(
-    () => engagementsToConfirmedDates(engagements, allScheduleDates),
-    [engagements, allScheduleDates]
-  )
-  const confirmedSlotsMap = useMemo(
-    () => engagementsToConfirmedSlots(engagements, allScheduleDates),
-    [engagements, allScheduleDates]
-  )
+  // Derived: confirmed data from engagementSchedules (실제 확정 일정)
+  const confirmedDates = useMemo(() => {
+    const set = new Set<string>()
+    for (const es of engSchedules) {
+      if (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed") {
+        set.add(es.date)
+      }
+    }
+    return set
+  }, [engSchedules])
+
+  const confirmedSlotsMap = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const es of engSchedules) {
+      if (es.status !== "scheduled" && es.status !== "in_progress" && es.status !== "completed") continue
+      if (!map.has(es.date)) map.set(es.date, new Set())
+      const set = map.get(es.date)!
+      const [sh, sm] = es.startTime.split(":").map(Number)
+      const [eh, em] = es.endTime.split(":").map(Number)
+      let h = sh, m = sm
+      while (h < eh || (h === eh && m < em)) {
+        const slotKey = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+        if (ALL_SLOTS.includes(slotKey)) set.add(slotKey)
+        m += 30
+        if (m >= 60) { h += 1; m = 0 }
+      }
+    }
+    return map
+  }, [engSchedules])
 
   // Derived: available dates (from editing slots)
   const availableDates = useMemo(() => {
@@ -291,6 +320,7 @@ function CoachScheduleContent() {
       return (await res.json()) as {
         schedules: ScheduleSlot[]
         engagements: Engagement[]
+        engagementSchedules: EngagementScheduleEntry[]
         lastSavedAt: string | null
       }
     },
@@ -320,6 +350,7 @@ function CoachScheduleContent() {
         setSchedules(slotMap)
         setEditingSlots(deepCopySlotMap(slotMap)) // deep copy
         setEngagements(scheduleData.engagements)
+        setEngSchedules(scheduleData.engagementSchedules || [])
         setLastSavedAt(scheduleData.lastSavedAt)
         setError(null)
       } catch (e: any) {
@@ -361,6 +392,7 @@ function CoachScheduleContent() {
         setSchedules(slotMap)
         setEditingSlots(deepCopySlotMap(slotMap))
         setEngagements(data.engagements)
+        setEngSchedules(data.engagementSchedules || [])
         setLastSavedAt(data.lastSavedAt)
       } catch {
         showToast("일정을 불러오지 못했습니다")
