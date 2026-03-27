@@ -203,6 +203,20 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
               </button>
             ))}
           </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="text"
+              placeholder="기타 분야 직접 입력"
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  const val = (e.target as HTMLInputElement).value.trim()
+                  if (val) { setSelectedFields(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* 보유 스킬 */}
@@ -220,6 +234,20 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
                 {s}
               </button>
             ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="text"
+              placeholder="기타 스킬 직접 입력"
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  const val = (e.target as HTMLInputElement).value.trim()
+                  if (val) { setSelectedSkills(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
+                }
+              }}
+            />
           </div>
         </div>
 
