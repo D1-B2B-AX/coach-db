@@ -57,12 +57,12 @@ export function parseWorkSchedules(raw: any, contextYear?: number): WorkSchedule
     )
     if (spanMatch) {
       results.push({
-        date: new Date(defYear, +spanMatch[1] - 1, +spanMatch[2]),
+        date: utcNoon(defYear, +spanMatch[1] - 1, +spanMatch[2]),
         startTime: spanMatch[3].padStart(5, '0'),
         endTime: '23:59',
       })
       results.push({
-        date: new Date(defYear, +spanMatch[4] - 1, +spanMatch[5]),
+        date: utcNoon(defYear, +spanMatch[4] - 1, +spanMatch[5]),
         startTime: '00:00',
         endTime: spanMatch[6].padStart(5, '0'),
       })
@@ -113,8 +113,8 @@ export function extractDates(line: string, defYear: number): Date[] {
       /(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\s*(?:\([^)]*\))?\s*~\s*(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/
     )
     if (m) {
-      const start = new Date(+m[1], +m[2] - 1, +m[3])
-      const end = new Date(+m[4], +m[5] - 1, +m[6])
+      const start = utcNoon(+m[1], +m[2] - 1, +m[3])
+      const end = utcNoon(+m[4], +m[5] - 1, +m[6])
       return expandRange(start, end, extractWeekdays(line))
     }
   }
@@ -128,8 +128,8 @@ export function extractDates(line: string, defYear: number): Date[] {
       // ~ 뒤가 4자리 연도가 아닌지 확인
       const afterTilde = cleaned.slice(cleaned.indexOf('~') + 1).trim()
       if (!/^\d{4}/.test(afterTilde)) {
-        const start = new Date(+m[1], +m[2] - 1, +m[3])
-        const end = new Date(+m[1], +m[2] - 1, +m[4])
+        const start = utcNoon(+m[1], +m[2] - 1, +m[3])
+        const end = utcNoon(+m[1], +m[2] - 1, +m[4])
         return expandRange(start, end, extractWeekdays(line))
       }
     }
@@ -143,7 +143,7 @@ export function extractDates(line: string, defYear: number): Date[] {
     while ((m = regex.exec(cleaned)) !== null) {
       const y = +m[1], mo = +m[2], d = +m[3]
       if (y >= 2020 && y <= 2030 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-        dates.push(new Date(y, mo - 1, d))
+        dates.push(utcNoon(y, mo - 1, d))
       }
     }
     if (dates.length > 0) return dates
@@ -155,7 +155,7 @@ export function extractDates(line: string, defYear: number): Date[] {
     const regex = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/g
     let m
     while ((m = regex.exec(cleaned)) !== null) {
-      dates.push(new Date(defYear, +m[1] - 1, +m[2]))
+      dates.push(utcNoon(defYear, +m[1] - 1, +m[2]))
     }
     if (dates.length > 0) return dates
   }
@@ -168,7 +168,7 @@ export function extractDates(line: string, defYear: number): Date[] {
     while ((m = regex.exec(cleaned)) !== null) {
       const mo = +m[1], d = +m[2]
       if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-        dates.push(new Date(defYear, mo - 1, d))
+        dates.push(utcNoon(defYear, mo - 1, d))
       }
     }
     if (dates.length > 0) return dates
@@ -213,19 +213,24 @@ export function extractWeekdays(line: string): number[] | null {
   return null
 }
 
-/** 날짜 범위 확장 (요일 필터 적용) */
+/** 날짜 범위 확장 (요일 필터 적용) — UTC 기반 */
 export function expandRange(start: Date, end: Date, weekdays?: number[] | null): Date[] {
   const dates: Date[] = []
   const cursor = new Date(start)
   let safety = 0
   while (cursor <= end && safety < 366) {
-    if (!weekdays || weekdays.includes(cursor.getDay())) {
-      dates.push(new Date(cursor))
+    if (!weekdays || weekdays.includes(cursor.getUTCDay())) {
+      dates.push(utcNoon(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate()))
     }
-    cursor.setDate(cursor.getDate() + 1)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
     safety++
   }
   return dates
+}
+
+/** UTC 정오로 Date 생성 — 타임존 밀림 방지 */
+function utcNoon(y: number, m: number, d: number): Date {
+  return new Date(Date.UTC(y, m, d, 12, 0, 0))
 }
 
 export function parseDate(raw: any): Date | null {
@@ -235,15 +240,17 @@ export function parseDate(raw: any): Date | null {
   // "2022.11.14" or "2022-11-14"
   const match = str.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
   if (match) {
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    return utcNoon(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
   }
 
   // Excel serial number
   if (!isNaN(Number(str))) {
     const serial = Number(str)
     if (serial > 40000 && serial < 50000) {
-      const date = new Date((serial - 25569) * 86400 * 1000)
-      return date
+      // Excel epoch = 1900-01-01, JS epoch = 1970-01-01 → offset 25569 days
+      const ms = (serial - 25569) * 86400 * 1000
+      const d = new Date(ms)
+      return utcNoon(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
     }
   }
 
@@ -363,14 +370,17 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
-    // 날짜 파싱 + 2026년 필터 (코치 매칭보다 먼저)
+    // 날짜 파싱 + 최근 6개월 필터 (코치 매칭보다 먼저)
     const startDate = parseDate(startDateRaw)
     const endDate = parseDate(endDateRaw)
     if (!startDate || !endDate) {
       result.skipped++
       continue
     }
-    if (startDate.getFullYear() < 2026) {
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    sixMonthsAgo.setDate(1) // 6개월 전 1일
+    if (startDate < sixMonthsAgo) {
       result.skipped++
       continue
     }

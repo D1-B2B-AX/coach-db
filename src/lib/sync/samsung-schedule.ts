@@ -34,14 +34,16 @@ export function parseDate(raw: any): Date | null {
   // "2026-03-04" or "2026.03.04" or "2026/03/04"
   const match = str.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
   if (match) {
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0))
   }
 
   // Excel serial number
   if (!isNaN(Number(str))) {
     const serial = Number(str)
     if (serial > 40000 && serial < 60000) {
-      return new Date((serial - 25569) * 86400 * 1000)
+      const ms = (serial - 25569) * 86400 * 1000
+      const d = new Date(ms)
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
     }
   }
 
@@ -57,8 +59,8 @@ export function expandDateRange(start: Date, end: Date): Date[] {
   const cursor = new Date(start)
   let safety = 0
   while (cursor <= end && safety < 366) {
-    dates.push(new Date(cursor))
-    cursor.setDate(cursor.getDate() + 1)
+    dates.push(new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate(), 12, 0, 0)))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
     safety++
   }
   return dates
