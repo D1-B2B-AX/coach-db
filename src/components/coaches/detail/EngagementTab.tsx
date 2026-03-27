@@ -33,7 +33,7 @@ interface EngagementTabProps {
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; borderClass: string }> = {
   scheduled: { label: "예정", className: "bg-[#E3F2FD] text-[#1976D2]", borderClass: "border-l-[#1976D2]" },
-  in_progress: { label: "진행중", className: "bg-[#FFF8E1] text-[#F57F17]", borderClass: "border-l-[#F57F17]" },
+  in_progress: { label: "진행", className: "bg-[#FFF8E1] text-[#F57F17]", borderClass: "border-l-[#F57F17]" },
   completed: { label: "완료", className: "bg-gray-100 text-gray-500", borderClass: "border-l-gray-300" },
   cancelled: { label: "취소", className: "bg-[#FBE9E7] text-[#D84315]", borderClass: "border-l-[#D84315]" },
 }
@@ -301,6 +301,14 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     }
                   </span>
                   <span className="text-sm text-[#333] truncate flex-1">{first.courseName}</span>
+                  {canEdit && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
+                      className="shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
+                    >
+                      수정
+                    </button>
+                  )}
                   <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -319,14 +327,6 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                           {first.rehire ? "희망" : "비희망"}
                         </span>
                       ) : <span className="text-gray-300">-</span>}</span>
-                      {(isAdmin || (currentManagerName && first.hiredBy === currentManagerName)) && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditModal(first) }}
-                          className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
-                        >
-                          수정
-                        </button>
-                      )}
                     </div>
                     {first.feedback && (
                       <div>
