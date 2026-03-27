@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
 
   const where: Prisma.CoachWhereInput = {
     deletedAt: null,
+    status: { not: 'pending' },
   }
 
   // Search across name, phone, email

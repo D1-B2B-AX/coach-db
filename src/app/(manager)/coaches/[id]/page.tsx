@@ -23,6 +23,7 @@ interface CoachDetail {
   affiliation: string | null
   workType: string | null
   status: string
+  statusNote: string | null
   selfNote: string | null
   portfolioUrl: string | null
   availabilityDetail: string | null
@@ -59,12 +60,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   active: { label: "활동중", className: "bg-[#E8F5E9] text-[#2E7D32]" },
   inactive: { label: "비활동", className: "bg-gray-100 text-gray-500" },
   on_leave: { label: "휴직", className: "bg-[#FFF8E1] text-[#F57F17]" },
-}
-
-const WORK_TYPE_COLOR: Record<string, string> = {
-  "실습코치": "bg-[#F3E5F5] text-[#7B1FA2]",
-  "운영조교": "bg-[#E0F2F1] text-[#00695C]",
-  _default: "bg-[#E8EAF6] text-[#283593]",
+  pending: { label: "대기", className: "bg-[#E3F2FD] text-[#1565C0]" },
 }
 
 export default function CoachDetailPage() {
@@ -85,6 +81,10 @@ export default function CoachDetailPage() {
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "profile"
   )
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [editingStatusNote, setEditingStatusNote] = useState(false)
+  const [statusNoteValue, setStatusNoteValue] = useState("")
+  const [savingStatus, setSavingStatus] = useState(false)
+  const [showEngagementModal, setShowEngagementModal] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState("")
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
@@ -142,6 +142,38 @@ export default function CoachDetailPage() {
     }
   }
 
+  async function handleStatusChange(newStatus: string) {
+    setSavingStatus(true)
+    try {
+      const res = await fetch(`/api/coaches/${coachId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (res.ok) {
+        setCoach((prev) => prev ? { ...prev, status: newStatus } : prev)
+      }
+    } catch { /* */ } finally {
+      setSavingStatus(false)
+    }
+  }
+
+  async function handleStatusNoteSave(note: string) {
+    const trimmed = note.trim() || null
+    try {
+      const res = await fetch(`/api/coaches/${coachId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusNote: trimmed }),
+      })
+      if (res.ok) {
+        setCoach((prev) => prev ? { ...prev, statusNote: trimmed } : prev)
+      }
+    } catch { /* */ } finally {
+      setEditingStatusNote(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -192,49 +224,81 @@ export default function CoachDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header */}
+      {/* Header — Line 1: 이름 [상태] 메모 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 min-w-0">
           <Link
             href="/coaches"
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            className="shrink-0 text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             &larr;
           </Link>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-[#333]">{coach.name}</h1>
-            <span className="text-sm text-[#F57F17]">&#9733; {coach.avgRating !== null ? coach.avgRating.toFixed(1) : "0.0"}</span>
-            {coach.workType && coach.workType.split(",").map((t: string) => t.trim()).filter(Boolean).map((t: string) => (
-              <span key={t} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-        {activeTab === "profile" && (
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/coaches/${coachId}/edit`}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
-            >
-              수정
-            </Link>
-            <button
-              onClick={() => {
-                setShowDeleteDialog(true)
-                setConfirmEmail("")
-                setDeleteError("")
+          <h1 className="text-lg font-bold text-[#333] shrink-0">{coach.name}</h1>
+          {coach.avgRating !== null && (
+            <span className="shrink-0 text-sm text-[#F57F17]">&#9733; {coach.avgRating.toFixed(1)}</span>
+          )}
+          {/* Status toggle (전체) + 상세 상태 드롭다운 (admin only) */}
+          {(() => {
+            const isActive = coach.status === "active"
+            return (
+              <>
+                <button
+                  onClick={() => handleStatusChange(isActive ? "inactive" : "active")}
+                  disabled={savingStatus}
+                  className="shrink-0 cursor-pointer flex items-center gap-1.5 rounded-full bg-gray-100 p-0.5 transition-colors"
+                >
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${isActive ? "bg-white text-[#2E7D32] shadow-sm" : "text-gray-400"}`}>
+                    활동중
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${!isActive ? "bg-white text-gray-600 shadow-sm" : "text-gray-400"}`}>
+                    비활동
+                  </span>
+                </button>
+                {managerRole === "admin" && !isActive && (
+                  <div className="relative shrink-0">
+                    <select
+                      value={coach.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="cursor-pointer rounded-full bg-gray-50 px-2 py-0.5 pr-5 text-[11px] text-gray-500 border border-gray-200 outline-none appearance-none"
+                    >
+                      <option value="inactive">비활동</option>
+                      <option value="on_leave">휴직</option>
+                      <option value="pending">대기</option>
+                    </select>
+                    <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-2 w-2 text-gray-400" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0l5 6 5-6z"/></svg>
+                  </div>
+                )}
+              </>
+            )
+          })()}
+          {/* Status note */}
+          {editingStatusNote ? (
+            <input
+              autoFocus
+              value={statusNoteValue}
+              onChange={(e) => setStatusNoteValue(e.target.value)}
+              onBlur={() => handleStatusNoteSave(statusNoteValue)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleStatusNoteSave(statusNoteValue)
+                if (e.key === "Escape") setEditingStatusNote(false)
               }}
-              className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+              maxLength={200}
+              placeholder="상태 메모..."
+              className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-sm text-gray-600 outline-none focus:border-blue-300"
+            />
+          ) : (
+            <button
+              onClick={() => { setStatusNoteValue(coach.statusNote || ""); setEditingStatusNote(true) }}
+              className="min-w-0 cursor-pointer truncate text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              title={coach.statusNote || "메모 추가"}
             >
-              삭제
+              {coach.statusNote || <span className="text-gray-300">+ 메모</span>}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      {/* Tab bar */}
-      <div className="mt-5 border-b border-gray-200">
+      {/* Tab bar + context actions */}
+      <div className="mt-5 flex items-center justify-between border-b border-gray-200">
         <div className="flex gap-6">
           {TABS.map((tab) => (
             <button
@@ -252,6 +316,36 @@ export default function CoachDetailPage() {
               {tab.label}
             </button>
           ))}
+        </div>
+        <div className="flex items-center gap-1.5 pb-2.5">
+          {activeTab === "profile" && (
+            <>
+              <Link
+                href={`/coaches/${coachId}/edit`}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                수정
+              </Link>
+              <button
+                onClick={() => {
+                  setShowDeleteDialog(true)
+                  setConfirmEmail("")
+                  setDeleteError("")
+                }}
+                className="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-red-500 hover:bg-red-50 transition-colors"
+              >
+                삭제
+              </button>
+            </>
+          )}
+          {activeTab === "engagement" && (
+            <button
+              onClick={() => setShowEngagementModal(true)}
+              className="cursor-pointer rounded-md bg-[#1976D2] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1565C0] transition-colors"
+            >
+              + 이력 등록
+            </button>
+          )}
         </div>
       </div>
 
@@ -272,7 +366,13 @@ export default function CoachDetailPage() {
           />
         )}
         {activeTab === "engagement" && (
-          <EngagementTab coachId={coachId} currentManagerName={managerName} isAdmin={managerRole === "admin"} />
+          <EngagementTab
+            coachId={coachId}
+            currentManagerName={managerName}
+            isAdmin={managerRole === "admin"}
+            openCreate={showEngagementModal}
+            onCreateOpened={() => setShowEngagementModal(false)}
+          />
         )}
         {/* 문서는 프로필 탭 안에 포함 */}
       </div>

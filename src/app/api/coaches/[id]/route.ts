@@ -74,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       id: true, deletedAt: true,
       name: true, birthDate: true, phone: true, email: true,
       affiliation: true, workType: true,
-      status: true, selfNote: true, managerNote: true,
+      status: true, statusNote: true, selfNote: true, managerNote: true,
     },
   })
   if (!existing || existing.deletedAt) {
@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { name, birthDate, phone, email, affiliation, workType, status, selfNote, managerNote, fields, curriculums } = body as {
+  const { name, birthDate, phone, email, affiliation, workType, status, statusNote, selfNote, managerNote, fields, curriculums } = body as {
     name?: string
     birthDate?: string | null
     phone?: string | null
@@ -96,6 +96,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     affiliation?: string | null
     workType?: string | null
     status?: string
+    statusNote?: string | null
     selfNote?: string | null
     managerNote?: string | null
     fields?: string[]
@@ -111,6 +112,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   if (affiliation !== undefined) updateData.affiliation = affiliation
   if (workType !== undefined) updateData.workType = workType
   if (status !== undefined) updateData.status = status
+  if (statusNote !== undefined) updateData.statusNote = statusNote
   if (selfNote !== undefined) updateData.selfNote = selfNote
   if (managerNote !== undefined) updateData.managerNote = managerNote
 

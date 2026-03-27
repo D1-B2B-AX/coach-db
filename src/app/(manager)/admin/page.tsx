@@ -34,7 +34,7 @@ export default function AdminPage() {
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"managers" | "deleted" | "links" | "sync">("managers")
+  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("managers")
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [managerFilter, setManagerFilter] = useState<string | null>("all")
@@ -45,6 +45,10 @@ export default function AdminPage() {
   const [syncLoading, setSyncLoading] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
   const [showToast, setShowToast] = useState(false)
+  const [pendingCoaches, setPendingCoaches] = useState<any[]>([])
+  const [appSyncLoading, setAppSyncLoading] = useState(false)
+  const [rejectId, setRejectId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
 
   useEscClose(confirmAction !== null, () => setConfirmAction(null))
 
@@ -74,14 +78,24 @@ export default function AdminPage() {
     } catch { /* silently fail */ }
   }, [])
 
+  const fetchPendingCoaches = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/applications")
+      if (res.ok) {
+        const data = await res.json()
+        setPendingCoaches(data.coaches || [])
+      }
+    } catch { /* silently fail */ }
+  }, [])
+
   useEffect(() => {
     async function load() {
       setLoading(true)
-      await Promise.all([fetchManagers(), fetchDeletedCoaches()])
+      await Promise.all([fetchManagers(), fetchDeletedCoaches(), fetchPendingCoaches()])
       setLoading(false)
     }
     load()
-  }, [fetchManagers, fetchDeletedCoaches])
+  }, [fetchManagers, fetchDeletedCoaches, fetchPendingCoaches])
 
   // Filter managers by preset + search
   const filteredManagers = useMemo(() => {
@@ -218,6 +232,7 @@ export default function AdminPage() {
 
   const TABS = [
     { key: "managers" as const, label: `매니저 관리 (${managers.length})` },
+    { key: "applications" as const, label: `신청 관리${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
     { key: "links" as const, label: "코치 관리" },
     { key: "deleted" as const, label: `코치 삭제 내역 (${deletedCoaches.length})` },
     { key: "sync" as const, label: "동기화" },
@@ -562,6 +577,152 @@ export default function AdminPage() {
         )}
 
         {/* Sync tab */}
+        {activeTab === "applications" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-[#333]">코치 신청 목록</span>
+              <button
+                onClick={async () => {
+                  setAppSyncLoading(true)
+                  try {
+                    const res = await fetch("/api/sync/applications", { method: "POST" })
+                    const data = await res.json()
+                    if (res.ok) {
+                      setToastMessage(`신청 동기화: ${data.created}건 생성, ${data.skipped}건 스킵`)
+                      setShowToast(true)
+                      fetchPendingCoaches()
+                    } else {
+                      setToastMessage(`동기화 실패: ${data.error}`)
+                      setShowToast(true)
+                    }
+                  } catch {
+                    setToastMessage("동기화 중 오류 발생")
+                    setShowToast(true)
+                  } finally {
+                    setAppSyncLoading(false)
+                  }
+                }}
+                disabled={appSyncLoading}
+                className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+              >
+                {appSyncLoading ? "동기화 중..." : "구글폼 동기화"}
+              </button>
+            </div>
+
+            {pendingCoaches.length === 0 ? (
+              <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+                대기 중인 신청이 없습니다
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingCoaches.map((coach: any) => (
+                  <div key={coach.id} className="rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-[#333]">{coach.name}</span>
+                          {coach.workType && (
+                            <span className="rounded-full bg-[#F3E5F5] px-2 py-0.5 text-[11px] font-medium text-[#7B1FA2]">{coach.workType}</span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                          {coach.phone && <span>{coach.phone}</span>}
+                          {coach.email && <span>{coach.email}</span>}
+                          {coach.affiliation && <span>{coach.affiliation}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/admin/applications/${coach.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "approve" }),
+                            })
+                            if (res.ok) {
+                              setToastMessage(`${coach.name} 승인 완료`)
+                              setShowToast(true)
+                              fetchPendingCoaches()
+                            }
+                          }}
+                          className="cursor-pointer rounded-lg bg-[#E8F5E9] px-3 py-1.5 text-xs font-semibold text-[#2E7D32] hover:bg-[#C8E6C9] transition-colors"
+                        >
+                          승인
+                        </button>
+                        <button
+                          onClick={() => { setRejectId(coach.id); setRejectReason("") }}
+                          className="cursor-pointer rounded-lg bg-[#FBE9E7] px-3 py-1.5 text-xs font-semibold text-[#D84315] hover:bg-[#FFCCBC] transition-colors"
+                        >
+                          거절
+                        </button>
+                      </div>
+                    </div>
+                    {/* Detail rows */}
+                    {(coach.fields?.length > 0 || coach.curriculums?.length > 0) && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {coach.fields?.map((f: string) => (
+                          <span key={f} className="rounded-full bg-[#E3F2FD] px-2 py-0.5 text-[11px] font-medium text-[#1976D2]">{f}</span>
+                        ))}
+                        {coach.curriculums?.map((c: string) => (
+                          <span key={c} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{c}</span>
+                        ))}
+                      </div>
+                    )}
+                    {coach.selfNote && (
+                      <div className="mt-2 max-h-16 overflow-y-auto whitespace-pre-wrap text-xs text-gray-500">{coach.selfNote}</div>
+                    )}
+                    {coach.availabilityDetail && (
+                      <div className="mt-1 text-xs text-gray-400">{coach.availabilityDetail}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Reject dialog */}
+            {rejectId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                  <h4 className="text-sm font-semibold text-[#333]">신청 거절</h4>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="거절 사유 (선택)"
+                    rows={3}
+                    className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
+                  />
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      onClick={() => setRejectId(null)}
+                      className="cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const res = await fetch(`/api/admin/applications/${rejectId}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "reject", reason: rejectReason || undefined }),
+                        })
+                        if (res.ok) {
+                          setToastMessage("거절 완료")
+                          setShowToast(true)
+                          setRejectId(null)
+                          fetchPendingCoaches()
+                        }
+                      }}
+                      className="cursor-pointer rounded-xl bg-[#D84315] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BF360C] transition-colors"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "sync" && (
           <div className="space-y-4">
             <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">

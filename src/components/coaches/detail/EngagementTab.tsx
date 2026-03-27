@@ -17,6 +17,8 @@ interface Engagement {
   rating: number | null
   feedback: string | null
   rehire: boolean | null
+  hourlyRate: number | null
+  workType: string | null
   hiredBy: string | null
   createdAt: string
 }
@@ -25,6 +27,8 @@ interface EngagementTabProps {
   coachId: string
   currentManagerName?: string // 현재 로그인한 매니저 이름
   isAdmin?: boolean
+  openCreate?: boolean
+  onCreateOpened?: () => void
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; borderClass: string }> = {
@@ -86,7 +90,7 @@ const emptyForm: EngagementFormData = {
   hiredBy: "",
 }
 
-export default function EngagementTab({ coachId, currentManagerName, isAdmin }: EngagementTabProps) {
+export default function EngagementTab({ coachId, currentManagerName, isAdmin, openCreate, onCreateOpened }: EngagementTabProps) {
   const [engagements, setEngagements] = useState<Engagement[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -116,6 +120,13 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
   useEffect(() => {
     fetchEngagements()
   }, [fetchEngagements])
+
+  useEffect(() => {
+    if (openCreate && !showModal) {
+      openCreateModal()
+      onCreateOpened?.()
+    }
+  }, [openCreate])
 
   function openCreateModal() {
     setEditingId(null)
@@ -232,18 +243,6 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-[#333]">
-          투입 이력 ({engagements.length}건)
-        </span>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center rounded-xl bg-[#1976D2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
-        >
-          + 이력 등록
-        </button>
-      </div>
 
       {engagements.length === 0 ? (
         <div className="rounded-2xl bg-white px-5 py-12 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
@@ -258,59 +257,55 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin }: 
             return (
               <div
                 key={eng.id}
-                className={`rounded-xl bg-white border border-gray-100 border-l-[3px] ${statusCfg.borderClass}`}
+                className={`rounded-lg bg-white border border-gray-100 border-l-[3px] ${statusCfg.borderClass}`}
               >
+                {/* 한 줄 요약 */}
                 <div
-                  className="px-4 py-3 cursor-pointer"
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer"
                   onClick={() => setExpandedId(expandedId === eng.id ? null : eng.id)}
                 >
-                  {/* 상단: 상태 + 과정명 + 수정 */}
-                  <div className="flex items-center gap-2">
-                    <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
-                      {statusCfg.label}
-                    </span>
-                    <span className="text-sm font-medium text-[#333] truncate flex-1">{eng.courseName}</span>
-                    {canEdit && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditModal(eng) }}
-                        className="shrink-0 rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
-                      >
-                        수정
-                      </button>
-                    )}
-                    <svg className={`shrink-0 h-3.5 w-3.5 text-gray-300 transition-transform ${expandedId === eng.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-500">
-                    {formatDate(eng.startDate)} ~ {formatDate(eng.endDate)}
-                    {eng.location && <span className="ml-2 text-gray-400">· {eng.location}</span>}
-                  </div>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
+                    {statusCfg.label}
+                  </span>
+                  <span className="shrink-0 text-xs text-gray-400">
+                    {formatDate(eng.startDate)}~{formatDate(eng.endDate)}
+                  </span>
+                  <span className="text-sm text-[#333] truncate flex-1">{eng.courseName}</span>
+                  {canEdit && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditModal(eng) }}
+                      className="shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors"
+                    >
+                      수정
+                    </button>
+                  )}
+                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${expandedId === eng.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
 
-                  {/* 상세: 급여/담당/평가/재섭외 + 피드백 — 클릭으로 토글 */}
-                  {expandedId === eng.id && (
-                    <div className="mt-3 border-t border-gray-100 pt-3 text-sm space-y-2">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <span><span className="text-gray-400">급여</span> <span className="text-gray-300">-</span></span>
-                        <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{eng.hiredBy || "-"}</span></span>
-                        <span><span className="text-gray-400">평가</span> <span className={eng.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{eng.rating !== null ? `★ ${eng.rating}` : "-"}</span></span>
-                        <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {eng.rehire !== null ? (
-                          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${eng.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
-                            {eng.rehire ? "희망" : "비희망"}
-                          </span>
-                        ) : <span className="text-gray-300">-</span>}</span>
-                      </div>
+                {/* 상세 펼침 */}
+                {expandedId === eng.id && (
+                  <div className="border-t border-gray-100 px-3 py-2.5 text-sm space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      {eng.workType && <span><span className="text-gray-400">유형</span> <span className="text-[#333]">{eng.workType}</span></span>}
+                      <span><span className="text-gray-400">시급</span> <span className={eng.hourlyRate ? "text-[#333]" : "text-gray-300"}>{eng.hourlyRate ? `${eng.hourlyRate.toLocaleString()}원` : "-"}</span></span>
+                      <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{eng.hiredBy || "-"}</span></span>
+                      <span><span className="text-gray-400">평가</span> <span className={eng.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{eng.rating !== null ? `★ ${eng.rating}` : "-"}</span></span>
+                      <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {eng.rehire !== null ? (
+                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${eng.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
+                          {eng.rehire ? "희망" : "비희망"}
+                        </span>
+                      ) : <span className="text-gray-300">-</span>}</span>
+                    </div>
+                    {eng.feedback && (
                       <div>
                         <span className="text-gray-400">피드백</span>{" "}
-                        {eng.feedback ? (
-                          <span className="text-[#333] whitespace-pre-wrap">{eng.feedback}</span>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
+                        <span className="text-[#333] whitespace-pre-wrap">{eng.feedback}</span>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}

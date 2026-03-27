@@ -10,6 +10,7 @@ datasource db {
 // ─── 코치 ───
 
 enum CoachStatus {
+  pending
   active
   inactive
   on_leave
@@ -25,6 +26,7 @@ model Coach {
   affiliation String?     @db.VarChar(100)
   workType    String?     @map("work_type") @db.VarChar(200)
   status      CoachStatus @default(active)
+  statusNote  String?     @map("status_note") @db.VarChar(200)
   selfNote           String?  @map("self_note") @db.Text
   portfolioUrl       String?  @map("portfolio_url") @db.Text
   availabilityDetail String?  @map("availability_detail") @db.Text
@@ -148,6 +150,7 @@ model Engagement {
   feedback   String?          @db.Text
   rehire     Boolean?
   hourlyRate Int?             @map("hourly_rate")
+  workType   String?          @map("work_type") @db.VarChar(200)
   hiredBy    String?          @map("hired_by") @db.VarChar(50)
   createdAt  DateTime         @default(now()) @map("created_at")
   coach      Coach            @relation(fields: [coachId], references: [id], onDelete: Cascade)

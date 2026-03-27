@@ -331,6 +331,7 @@ export async function syncEngagements(): Promise<SyncResult> {
     startTime: string | null
     endTime: string | null
     hourlyRate: number | null
+    workType: string | null
     hiredBy: string | null
     status: 'completed' | 'scheduled' | 'in_progress'
     schedules: WorkSchedule[]
@@ -446,6 +447,7 @@ export async function syncEngagements(): Promise<SyncResult> {
       startTime: firstSchedule?.startTime || null,
       endTime: firstSchedule?.endTime || null,
       hourlyRate,
+      workType: workType || null,
       hiredBy: manager || null,
       status,
       schedules,
@@ -480,6 +482,7 @@ export async function syncEngagements(): Promise<SyncResult> {
           startTime: eng.startTime,
           endTime: eng.endTime,
           hourlyRate: eng.hourlyRate,
+          workType: eng.workType,
           hiredBy: eng.hiredBy,
           status: eng.status,
         },

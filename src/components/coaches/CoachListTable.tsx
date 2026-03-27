@@ -37,6 +37,12 @@ interface CoachListTableProps {
   filterSlot?: ReactNode
 }
 
+const WORK_TYPE_COLOR: Record<string, string> = {
+  "실습코치": "bg-[#F3E5F5] text-[#7B1FA2]",
+  "운영조교": "bg-[#E0F2F1] text-[#00695C]",
+  _default: "bg-[#E8EAF6] text-[#283593]",
+}
+
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   active: {
     label: "활동중",
@@ -185,13 +191,20 @@ export default function CoachListTable({
                 />
               </div>
 
-              {/* Name */}
-              <span className="text-sm font-medium text-[#333] truncate">
-                {coach.name}
+              {/* Name + Work Type */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-sm font-medium text-[#333] truncate">
+                  {coach.name}
+                </span>
                 {coach.status === "active" && (
-                  <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#4CAF50]" />
+                  <span className="shrink-0 inline-block h-1.5 w-1.5 rounded-full bg-[#4CAF50]" />
                 )}
-              </span>
+                {coach.workType && coach.workType.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+                  <span key={t} className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>
+                    {t}
+                  </span>
+                ))}
+              </div>
 
               {/* Phone */}
               <span className="hidden sm:block text-sm text-gray-500 truncate">
