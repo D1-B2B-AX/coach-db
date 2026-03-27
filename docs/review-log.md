@@ -409,7 +409,37 @@
 - 노션 임포트 스크립트: `근무 유형` + `유형`(삼전만) 합산, 기존 DB 값과 merge (덮어쓰기 아닌 합침)
 - `기존`/`신규` 노이즈 값 전부 제거 (로컬+프로덕션)
 
+### 코치 상세 — 헤더 리디자인
+- 1줄: 이름 + 평점 + 상태 토글(활동중/비활동) + 비활동 시 복귀 예정월 + 활동 관련 메모(인라인 편집, 60자)
+- 근무유형/평점: 헤더에서 제거, 코치 목록에서 확인
+- 수정/삭제: 탭 바 우측으로 이동, 프로필 탭일 때만 표시
+- 근무이력 탭일 때 탭 바 우측에 "이력 등록" 버튼
+- 상태 토글: 전체 매니저 사용 가능, 비활동 시 복귀 예정월(month picker) 표시
+- 활동중 전환 시 복귀 예정일 자동 초기화
+
+### 코치 상태 관리
+- `CoachStatus` enum: on_leave 제거 → pending / active / inactive
+- `statusNote` 컬럼 추가 (활동 관련 메모, VARCHAR 60)
+- `returnDate` 컬럼 추가 (복귀 예정월, Date nullable)
+
+### 코치 목록 정렬
+- 1차 정렬 (고정): 비활동 코치 하단
+- 2차/3차 정렬: 사용자 선택 (이름순 / 근무일 / 평가), `>` 구분자로 표시
+- 3차 드롭다운에서 2차 선택값 제외
+
 ### 근무이력
 - Engagement에 `workType` 컬럼 추가
-- 상세 펼침: 유형/시급/담당 표시
+- 카드 한 줄 압축: [상태] 기간 과정명 수정 ▾
+- 여러 카드 동시 펼침 가능 (expandedId → expandedIds Set)
+- 펼침 영역: 유형/시급/담당/평가/재섭외/피드백
+- 탭 내부 헤더("투입 이력 N건" + 등록 버튼) 제거, 탭 바로 이동
 - 동기화 시 구글시트 F열(담당직무) → engagement workType 저장
+
+### 인증
+- NextAuth JWT callback 추가: `managerRole`을 토큰에 포함
+- 기존: session callback에서만 설정 → 클라이언트 `useSession()`에서 undefined
+- 수정: jwt callback → token에 저장 → session callback에서 전달
+
+### 인프라
+- 프로덕션 DB schema push (statusNote, returnDate, employee_id 확장, on_leave 제거)
+- 프로덕션 사번 동기화 실행 (3명 업데이트)
