@@ -7,6 +7,7 @@ import ScheduleCalendar from "@/components/coach/ScheduleCalendar"
 import TimePanel, { ALL_SLOTS } from "@/components/coach/TimePanel"
 import ScheduleSummary from "@/components/coach/ScheduleSummary"
 import SaveButton from "@/components/coach/SaveButton"
+import CoachProfileEdit from "@/components/coach/CoachProfileEdit"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -14,7 +15,12 @@ interface CoachInfo {
   id: string
   name: string
   status: string
+  phone: string | null
+  workType: string | null
+  availabilityDetail: string | null
   selfNote: string | null
+  fields: { id: string; name: string }[]
+  curriculums: { id: string; name: string }[]
 }
 
 interface ScheduleSlot {
@@ -571,6 +577,23 @@ function CoachScheduleContent() {
             </div>
 
             <ScheduleSummary engagements={engagements} />
+
+            {coachInfo && token && (
+              <CoachProfileEdit
+                token={token}
+                profile={{
+                  phone: coachInfo.phone,
+                  workType: coachInfo.workType,
+                  availabilityDetail: coachInfo.availabilityDetail,
+                  fields: coachInfo.fields ?? [],
+                  curriculums: coachInfo.curriculums ?? [],
+                }}
+                onSaved={() => {
+                  // Refresh coach info
+                  fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
+                }}
+              />
+            )}
           </div>
         </div>
 
