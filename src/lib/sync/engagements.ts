@@ -370,19 +370,25 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
-    // 날짜 파싱 + 최근 6개월 필터 (코치 매칭보다 먼저)
+    // 날짜 파싱
     const startDate = parseDate(startDateRaw)
     const endDate = parseDate(endDateRaw)
     if (!startDate || !endDate) {
       result.skipped++
       continue
     }
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    sixMonthsAgo.setDate(1) // 6개월 전 1일
-    if (startDate < sixMonthsAgo) {
-      result.skipped++
-      continue
+
+    // DB에 없는 코치는 최근 6개월 계약만 자동 생성
+    // DB에 있는 코치는 기한 무관하게 engagement 추가
+    const isExistingCoach = coachByName.has(name)
+    if (!isExistingCoach) {
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      sixMonthsAgo.setDate(1)
+      if (startDate < sixMonthsAgo) {
+        result.skipped++
+        continue
+      }
     }
 
     // 이메일/연락처 추출

@@ -104,10 +104,16 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   // Compute 6-month work day summary from cache + engagementSchedules
   const workDaySummary = (() => {
     if (scheduleCache.size === 0) return null
-    // Build engagement date set from actual engagement_schedules
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    const sixMAgo = new Date(now)
+    sixMAgo.setMonth(sixMAgo.getMonth() - 6)
+    const cutoff = `${sixMAgo.getFullYear()}-${String(sixMAgo.getMonth() + 1).padStart(2, "0")}-${String(sixMAgo.getDate()).padStart(2, "0")}`
+
+    // Build engagement date set from actual engagement_schedules (cutoff ~ today)
     const engDatesPerMonth = new Map<string, Set<string>>()
     for (const es of engagementSchedules) {
       const key = es.date.slice(0, 10)
+      if (key < cutoff || key > todayStr) continue
       const ym = key.slice(0, 7)
       if (!engDatesPerMonth.has(ym)) engDatesPerMonth.set(ym, new Set())
       engDatesPerMonth.get(ym)!.add(key)
@@ -119,7 +125,11 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
       // Merge: schedule dates + engagement dates
-      const scheduleDates = new Set((scheduleCache.get(ym) || []).map((e) => e.date.slice(0, 10)))
+      const scheduleDates = new Set(
+        (scheduleCache.get(ym) || [])
+          .map((e) => e.date.slice(0, 10))
+          .filter((key) => key >= cutoff && key <= todayStr)
+      )
       const engDates = engDatesPerMonth.get(ym) || new Set()
       const merged = new Set([...scheduleDates, ...engDates])
       const count = merged.size
@@ -339,7 +349,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
           {workDaySummary && (
             <div className="mt-4 rounded-xl bg-gray-50 px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">최근 6개월 근무</span>
+                <span className="text-xs text-gray-400">최근 6개월 누적 근무일 수</span>
                 <span className="text-sm font-bold text-[#1976D2]">{workDaySummary.total}일</span>
               </div>
               <div className="mt-2 flex gap-1">

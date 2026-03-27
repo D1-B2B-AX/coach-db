@@ -96,21 +96,23 @@ export async function GET(request: NextRequest) {
   )
 
   // Compute work days (distinct dates in engagement_schedules) per coach for last 6 months
+  // 범위: 6개월 전 같은 날 ~ 오늘 (미래 제외)
+  const today = toDateOnly(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`)
   const _6m = new Date()
   _6m.setMonth(_6m.getMonth() - 6)
-  const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-01`)
-  const workDayCounts = coachIds.length > 0
-    ? await prisma.engagementSchedule.groupBy({
-        by: ['coachId'],
-        where: {
-          coachId: { in: coachIds },
-          date: { gte: sixMonthsAgo },
-        },
-        _count: { date: true },
-      })
+  const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-${String(_6m.getDate()).padStart(2, '0')}`)
+  const workDayRows = coachIds.length > 0
+    ? await prisma.$queryRaw<{ coach_id: string; days: bigint }[]>`
+        SELECT coach_id, COUNT(DISTINCT date) as days
+        FROM engagement_schedules
+        WHERE coach_id = ANY(${coachIds})
+          AND date >= ${sixMonthsAgo}
+          AND date <= ${today}
+        GROUP BY coach_id
+      `
     : []
   const workDayMap = new Map(
-    workDayCounts.map((r) => [r.coachId, r._count.date])
+    workDayRows.map((r) => [r.coach_id, Number(r.days)])
   )
 
   const result = coaches.map((coach) => {
