@@ -540,6 +540,11 @@ function CoachScheduleContent() {
     ? confirmedSlotsMap.get(selectedDay) ?? new Set<string>()
     : new Set<string>()
 
+  const [coachTab, setCoachTab] = useState<"schedule" | "profile">("schedule")
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [phoneInput, setPhoneInput] = useState("")
+  const [phoneError, setPhoneError] = useState("")
+
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
       <div className="flex w-full max-w-[800px] items-start gap-6 max-md:flex-col max-md:items-center">
@@ -552,6 +557,27 @@ function CoachScheduleContent() {
             onExit={handleExit}
           />
 
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 px-7">
+            {([
+              { key: "schedule" as const, label: "스케줄" },
+              { key: "profile" as const, label: "프로필" },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setCoachTab(tab.key)}
+                className={`cursor-pointer border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  coachTab === tab.key
+                    ? "border-[#1976D2] text-[#1976D2]"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {coachTab === "schedule" && (
           <div className="px-7 pt-5 pb-7">
             <ScheduleCalendar
               year={currentYear}
@@ -577,8 +603,43 @@ function CoachScheduleContent() {
             </div>
 
             <ScheduleSummary engagements={engagements} />
+          </div>
+          )}
 
-            {coachInfo && token && (
+          {coachTab === "profile" && (
+          <div className="px-7 pt-5 pb-7">
+            {!phoneVerified && coachInfo?.phone ? (
+              <div className="py-8">
+                <p className="text-center text-sm text-gray-500">본인 확인을 위해 연락처를 입력해주세요</p>
+                <input
+                  type="text"
+                  value={phoneInput}
+                  onChange={(e) => { setPhoneInput(e.target.value); setPhoneError("") }}
+                  placeholder="010-0000-0000"
+                  className="mt-4 w-full rounded-lg border border-gray-200 px-4 py-3 text-center text-sm focus:outline-none focus:border-[#1976D2]"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const input = phoneInput.replace(/[^\d]/g, "")
+                      const stored = (coachInfo?.phone || "").replace(/[^\d]/g, "")
+                      if (input === stored) setPhoneVerified(true)
+                      else setPhoneError("연락처가 일치하지 않습니다")
+                    }
+                  }}
+                />
+                {phoneError && <p className="mt-2 text-center text-xs text-red-500">{phoneError}</p>}
+                <button
+                  onClick={() => {
+                    const input = phoneInput.replace(/[^\d]/g, "")
+                    const stored = (coachInfo?.phone || "").replace(/[^\d]/g, "")
+                    if (input === stored) setPhoneVerified(true)
+                    else setPhoneError("연락처가 일치하지 않습니다")
+                  }}
+                  className="mt-3 w-full cursor-pointer rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+                >
+                  확인
+                </button>
+              </div>
+            ) : coachInfo && token ? (
               <CoachProfileEdit
                 token={token}
                 profile={{
@@ -590,12 +651,12 @@ function CoachScheduleContent() {
                   curriculums: coachInfo.curriculums ?? [],
                 }}
                 onSaved={() => {
-                  // Refresh coach info
                   fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
                 }}
               />
-            )}
+            ) : null}
           </div>
+          )}
         </div>
 
         {/* Time panel — visible when a day is selected and month is editable */}

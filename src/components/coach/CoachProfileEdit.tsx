@@ -42,7 +42,7 @@ const CURRICULUM_SKILL_OPTIONS = [
 ]
 
 export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [phone, setPhone] = useState(profile.phone ?? "")
   const [email, setEmail] = useState(profile.email ?? "")
   const [affiliation, setAffiliation] = useState(profile.affiliation ?? "")
@@ -50,7 +50,6 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set(profile.fields.map(f => f.name)))
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set(profile.curriculums.map(c => c.name)))
   const [saving, setSaving] = useState(false)
-  const [extraRequest, setExtraRequest] = useState("")
   const [saved, setSaved] = useState(false)
 
   // Reset on profile change
@@ -75,14 +74,12 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
           email: email.trim() || null,
           affiliation: affiliation.trim() || null,
           availabilityDetail: availDetail.trim() || null,
-          extraRequest: extraRequest.trim() || null,
           fields: [...selectedFields],
           curriculums: [...selectedSkills],
         }),
       })
       if (res.ok) {
         setSaved(true)
-        setExtraRequest("")
         onSaved()
         setTimeout(() => setSaved(false), 2000)
       }
@@ -273,18 +270,6 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
               }}
             />
           </div>
-        </div>
-
-        {/* 기타 요청 사항 */}
-        <div>
-          <label className="text-xs text-gray-400">기타 요청 사항</label>
-          <textarea
-            value={extraRequest}
-            onChange={(e) => setExtraRequest(e.target.value)}
-            placeholder="FC 기업교육팀에 요청하실 내용"
-            rows={2}
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
-          />
         </div>
 
         {/* 저장 */}
