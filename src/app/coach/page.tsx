@@ -575,6 +575,9 @@ function CoachScheduleContent() {
   const currentDayConfirmed = selectedDay
     ? confirmedSlotsMap.get(selectedDay) ?? new Set<string>()
     : new Set<string>()
+  const currentDayCourseNames = selectedDay
+    ? [...new Set(engSchedules.filter(es => es.date === selectedDay && (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")).map(es => es.courseName))]
+    : []
 
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
@@ -688,6 +691,7 @@ function CoachScheduleContent() {
             day={selectedDayNum}
             selectedSlots={currentDaySlots}
             confirmedSlots={currentDayConfirmed}
+            confirmedCourseNames={currentDayCourseNames}
             onToggleSlot={handleToggleSlot}
             onSelectAll={handleSelectAll}
             onClear={handleClear}

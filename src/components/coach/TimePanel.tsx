@@ -66,6 +66,7 @@ interface TimePanelProps {
   day: number
   selectedSlots: Set<string>
   confirmedSlots: Set<string>
+  confirmedCourseNames?: string[]
   onToggleSlot: (slot: string) => void
   onSelectAll: () => void
   onClear: () => void
@@ -76,6 +77,7 @@ export default function TimePanel({
   day,
   selectedSlots,
   confirmedSlots,
+  confirmedCourseNames,
   onToggleSlot,
   onSelectAll,
   onClear,
@@ -99,6 +101,13 @@ export default function TimePanel({
       {isFullyConfirmed ? (
         <div className="mb-3 text-center text-[12px] text-[#1976D2]">확정 일정 (변경 불가)</div>
       ) : null}
+      {confirmedCourseNames && confirmedCourseNames.length > 0 && (
+        <div className="mb-3 text-center text-[12px] text-[#1976D2]">
+          {confirmedCourseNames.map((name, i) => (
+            <div key={i}>{name}</div>
+          ))}
+        </div>
+      )}
       <div className="mb-3 text-center text-[12px] text-[#888]">
         가능한 시간을 선택해주세요
       </div>
