@@ -95,28 +95,8 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
     setter(next)
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-4 w-full cursor-pointer rounded-xl border border-gray-200 bg-white py-3 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
-      >
-        프로필 수정
-      </button>
-    )
-  }
-
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-white">
-      <button
-        onClick={() => setOpen(false)}
-        className="flex w-full cursor-pointer items-center justify-between px-5 py-3 text-sm font-semibold text-[#333]"
-      >
-        프로필 수정
-        <span className="text-gray-400">▲</span>
-      </button>
-
-      <div className="border-t border-gray-100 px-5 py-4 space-y-4">
+    <div className="space-y-4">
         {/* 연락처 + 이메일 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -282,7 +262,6 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
         >
           {saving ? "저장 중..." : saved ? "✓ 저장됨" : "프로필 저장"}
         </button>
-      </div>
     </div>
   )
 }

@@ -586,29 +586,9 @@ function CoachScheduleContent() {
             month={currentMonth + 1}
             lastSavedAt={lastSavedAt}
             onExit={handleExit}
+            onProfile={() => setShowProfile(true)}
           />
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 px-7">
-            {([
-              { key: "schedule" as const, label: "스케줄" },
-              { key: "profile" as const, label: "프로필" },
-            ]).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setCoachTab(tab.key)}
-                className={`cursor-pointer border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  coachTab === tab.key
-                    ? "border-[#1976D2] text-[#1976D2]"
-                    : "border-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {coachTab === "schedule" && (
           <div className="px-7 pt-5 pb-7">
             <ScheduleCalendar
               year={currentYear}
@@ -635,60 +615,70 @@ function CoachScheduleContent() {
 
             <ScheduleSummary engagements={engagements} />
           </div>
-          )}
+        </div>
 
-          {coachTab === "profile" && (
-          <div className="px-7 pt-5 pb-7">
-            {!phoneVerified && coachInfo?.phone ? (
-              <div className="py-8">
-                <p className="text-center text-sm text-gray-500">본인 확인을 위해 연락처를 입력해주세요</p>
-                <input
-                  type="text"
-                  value={phoneInput}
-                  onChange={(e) => { setPhoneInput(e.target.value); setPhoneError("") }}
-                  placeholder="010-0000-0000"
-                  className="mt-4 w-full rounded-lg border border-gray-200 px-4 py-3 text-center text-sm focus:outline-none focus:border-[#1976D2]"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+      {/* Profile modal */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-[480px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-[#333]">프로필 수정</h3>
+              <button onClick={() => setShowProfile(false)} className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-5">
+              {!phoneVerified && coachInfo?.phone ? (
+                <div className="py-4">
+                  <p className="text-center text-sm text-gray-500">본인 확인을 위해 연락처를 입력해주세요</p>
+                  <input
+                    type="text"
+                    value={phoneInput}
+                    onChange={(e) => { setPhoneInput(e.target.value); setPhoneError("") }}
+                    placeholder="010-0000-0000"
+                    className="mt-4 w-full rounded-lg border border-gray-200 px-4 py-3 text-center text-sm focus:outline-none focus:border-[#1976D2]"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const input = phoneInput.replace(/[^\d]/g, "")
+                        const stored = (coachInfo?.phone || "").replace(/[^\d]/g, "")
+                        if (input === stored) setPhoneVerified(true)
+                        else setPhoneError("연락처가 일치하지 않습니다")
+                      }
+                    }}
+                  />
+                  {phoneError && <p className="mt-2 text-center text-xs text-red-500">{phoneError}</p>}
+                  <button
+                    onClick={() => {
                       const input = phoneInput.replace(/[^\d]/g, "")
                       const stored = (coachInfo?.phone || "").replace(/[^\d]/g, "")
                       if (input === stored) setPhoneVerified(true)
                       else setPhoneError("연락처가 일치하지 않습니다")
-                    }
+                    }}
+                    className="mt-3 w-full cursor-pointer rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+                  >
+                    확인
+                  </button>
+                </div>
+              ) : coachInfo && token ? (
+                <CoachProfileEdit
+                  token={token}
+                  profile={{
+                    phone: coachInfo.phone,
+                    email: (coachInfo as any).email,
+                    affiliation: (coachInfo as any).affiliation,
+                    availabilityDetail: coachInfo.availabilityDetail,
+                    fields: coachInfo.fields ?? [],
+                    curriculums: coachInfo.curriculums ?? [],
+                  }}
+                  onSaved={() => {
+                    fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
                   }}
                 />
-                {phoneError && <p className="mt-2 text-center text-xs text-red-500">{phoneError}</p>}
-                <button
-                  onClick={() => {
-                    const input = phoneInput.replace(/[^\d]/g, "")
-                    const stored = (coachInfo?.phone || "").replace(/[^\d]/g, "")
-                    if (input === stored) setPhoneVerified(true)
-                    else setPhoneError("연락처가 일치하지 않습니다")
-                  }}
-                  className="mt-3 w-full cursor-pointer rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
-                >
-                  확인
-                </button>
-              </div>
-            ) : coachInfo && token ? (
-              <CoachProfileEdit
-                token={token}
-                profile={{
-                  phone: coachInfo.phone,
-                  email: (coachInfo as any).email,
-                  affiliation: (coachInfo as any).affiliation,
-                  availabilityDetail: coachInfo.availabilityDetail,
-                  fields: coachInfo.fields ?? [],
-                  curriculums: coachInfo.curriculums ?? [],
-                }}
-                onSaved={() => {
-                  fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
-                }}
-              />
-            ) : null}
+              ) : null}
+            </div>
           </div>
-          )}
         </div>
+      )}
 
         {/* Time panel — visible when a day is selected and month is editable */}
         {selectedDay && isEditable && (
