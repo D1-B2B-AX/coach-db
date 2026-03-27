@@ -26,15 +26,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       return true
     },
-    async session({ session }) {
-      if (session.user?.email) {
+    async jwt({ token }) {
+      if (token.email) {
         const manager = await prisma.manager.findUnique({
-          where: { email: session.user.email },
+          where: { email: token.email },
+          select: { id: true, role: true },
         })
         if (manager) {
-          ;(session as any).managerId = manager.id
-          ;(session as any).managerRole = manager.role
+          token.managerId = manager.id
+          token.managerRole = manager.role
         }
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        ;(session as any).managerId = token.managerId
+        ;(session as any).managerRole = token.managerRole
       }
       return session
     },

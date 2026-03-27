@@ -40,6 +40,8 @@ interface CoachListTableProps {
 const WORK_TYPE_COLOR: Record<string, string> = {
   "실습코치": "bg-[#F3E5F5] text-[#7B1FA2]",
   "운영조교": "bg-[#E0F2F1] text-[#00695C]",
+  "삼전 DS": "bg-[#FFF3E0] text-[#E65100]",
+  "삼전 DX": "bg-[#E3F2FD] text-[#0D47A1]",
   _default: "bg-[#E8EAF6] text-[#283593]",
 }
 
@@ -51,10 +53,6 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   inactive: {
     label: "비활동",
     className: "bg-[#FBE9E7] text-[#D84315]",
-  },
-  on_leave: {
-    label: "휴직",
-    className: "bg-[#FFF8E1] text-[#F57F17]",
   },
 }
 
@@ -87,15 +85,17 @@ export default function CoachListTable({
   if (loading) {
     return (
       <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        <div className="hidden sm:grid grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
-          <div className="w-4" /><div>이름</div><div>연락처</div><div>분야</div><div>최근 근무일</div><div>평가</div>
+        <div className="hidden sm:grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
+          <div className="w-4" /><div>이름</div><div>근무유형</div><div>연락처</div><div>이메일</div><div>분야</div><div>누적 근무일</div><div>평가</div>
         </div>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 px-4 py-3 border-b border-gray-100">
+          <div key={i} className="grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 px-4 py-3 border-b border-gray-100">
             <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-4 w-12" />
             <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-28" />
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
             <Skeleton className="h-4 w-10" />
             <Skeleton className="h-4 w-8" />
           </div>
@@ -151,7 +151,7 @@ export default function CoachListTable({
         )}
       </div>
       {/* Table header */}
-      <div className="hidden sm:grid grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
+      <div className="hidden sm:grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
         <div className="w-4 flex items-center justify-center">
           <input
             type="checkbox"
@@ -161,9 +161,11 @@ export default function CoachListTable({
           />
         </div>
         <div>이름</div>
+        <div>근무유형</div>
         <div>연락처</div>
+        <div>이메일</div>
         <div>분야</div>
-        <div>최근 근무일</div>
+        <div className="whitespace-nowrap">누적 근무일</div>
         <div>평가</div>
       </div>
 
@@ -177,7 +179,7 @@ export default function CoachListTable({
             <div
               key={coach.id}
               onClick={() => router.push(`/coaches/${coach.id}`)}
-              className={`grid grid-cols-[auto_1fr] sm:grid-cols-[auto_80px_120px_1fr_72px_56px] items-center gap-4 px-4 py-3 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
+              className={`grid grid-cols-[auto_1fr] sm:grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
                 isSelected ? "bg-[#E3F2FD]/20" : ""
               }`}
             >
@@ -191,19 +193,17 @@ export default function CoachListTable({
                 />
               </div>
 
-              {/* Name + Work Type */}
+              {/* Name + status dot */}
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-sm font-medium text-[#333] truncate">
-                  {coach.name}
-                </span>
-                {coach.status === "active" && (
-                  <span className="shrink-0 inline-block h-1.5 w-1.5 rounded-full bg-[#4CAF50]" />
-                )}
-                {coach.workType && coach.workType.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
-                  <span key={t} className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>
-                    {t}
-                  </span>
-                ))}
+                <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                <span className={`shrink-0 inline-block h-1.5 w-1.5 rounded-full ${coach.status === "active" ? "bg-[#4CAF50]" : "bg-gray-300"}`} />
+              </div>
+
+              {/* Work Type */}
+              <div className="hidden sm:flex flex-wrap gap-0.5">
+                {coach.workType ? coach.workType.split(",").map(t => t.trim()).filter(Boolean).map(t => (
+                  <span key={t} className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>{t}</span>
+                )) : <span className="text-xs text-gray-300">-</span>}
               </div>
 
               {/* Phone */}
@@ -211,8 +211,13 @@ export default function CoachListTable({
                 {coach.phone || "-"}
               </span>
 
+              {/* Email */}
+              <span className="hidden sm:block text-xs text-gray-500 truncate">
+                {coach.email || "-"}
+              </span>
+
               {/* Fields */}
-              <span className="hidden sm:block text-sm text-gray-500 truncate">
+              <span className="hidden sm:block text-xs text-gray-500 truncate">
                 {coach.fields.length > 0
                   ? coach.fields.map((f) => f.name).join(", ")
                   : "-"}

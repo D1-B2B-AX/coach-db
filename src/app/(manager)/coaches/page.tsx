@@ -14,7 +14,6 @@ const STATUS_OPTIONS = [
   { value: "", label: "전체" },
   { value: "active", label: "활동중" },
   { value: "inactive", label: "비활동" },
-  { value: "on_leave", label: "휴직" },
 ]
 
 export default function CoachesPage() {
@@ -27,7 +26,8 @@ export default function CoachesPage() {
   const [fields, setFields] = useState<FieldOption[]>([])
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [sortBy, setSortBy] = useState("workDays")
+  const [sort1, setSort1] = useState("workDays")
+  const [sort2, setSort2] = useState("rating")
   const [workTypeFilter, setWorkTypeFilter] = useState<Set<string>>(new Set())
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -75,14 +75,7 @@ export default function CoachesPage() {
         const coachList = data.coaches || []
         setCoaches(coachList)
         setTotal(data.total || 0)
-        // Initialize filters with all values on first load
-        if (workTypeFilter.size === 0) {
-          const types = new Set<string>()
-          for (const c of coachList) {
-            if (c.workType) c.workType.split(",").forEach((t: string) => { const trimmed = t.trim(); if (trimmed) types.add(trimmed) })
-          }
-          setWorkTypeFilter(types)
-        }
+        // workTypeFilter: 빈 set = 전체 표시, 선택 시 해당 유형만 필터
         // fieldFilter는 빈 상태 = 전체 표시, 선택 시 해당 분야만 필터
         // Clear selections that are no longer in the results
         setSelectedIds((prev) => {
@@ -180,13 +173,20 @@ export default function CoachesPage() {
     return true
   })
 
-  const sortedCoaches = sortBy === "workDays"
-    ? [...filtered].sort((a, b) => ((b as any).workDays ?? 0) - ((a as any).workDays ?? 0) || (b.avgRating ?? 0) - (a.avgRating ?? 0))
-    : sortBy === "rating"
-    ? [...filtered].sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0) || ((b as any).workDays ?? 0) - ((a as any).workDays ?? 0))
-    : sortBy === "nameDesc"
-    ? [...filtered].reverse()
-    : filtered
+  // 1차: 비활동 하단 고정, 2차/3차: 사용자 선택
+  function compareBy(key: string, a: CoachListItem, b: CoachListItem): number {
+    if (key === "workDays") return ((b as any).workDays ?? 0) - ((a as any).workDays ?? 0)
+    if (key === "rating") return (b.avgRating ?? 0) - (a.avgRating ?? 0)
+    if (key === "name") return a.name.localeCompare(b.name)
+    if (key === "nameDesc") return b.name.localeCompare(a.name)
+    return 0
+  }
+
+  const sortedCoaches = [...filtered].sort((a, b) => {
+    const activeA = a.status === "active" ? 0 : 1
+    const activeB = b.status === "active" ? 0 : 1
+    return (activeA - activeB) || compareBy(sort1, a, b) || compareBy(sort2, a, b)
+  })
 
   const allSelected = sortedCoaches.length > 0 && selectedIds.size === sortedCoaches.length
 
@@ -201,8 +201,6 @@ export default function CoachesPage() {
           onToggleAll={handleToggleAll}
           allSelected={allSelected}
           loading={loading}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
           search={search}
           onSearchChange={setSearch}
           onExport={handleExport}
@@ -220,7 +218,9 @@ export default function CoachesPage() {
                 onChange={setWorkTypeFilter}
               />
               <span className="text-gray-200">|</span>
-              <SortSelect value={sortBy} onChange={setSortBy} />
+              <SortSelect value={sort1} onChange={setSort1} />
+              <span className="text-gray-300">&gt;</span>
+              <SortSelect value={sort2} onChange={setSort2} excludeValue={sort1} />
               <div className="flex-1" />
               <Link
                 href="/coaches/new"
@@ -239,40 +239,37 @@ export default function CoachesPage() {
 // ─── Sort Select Dropdown ───
 
 const SORT_OPTIONS = [
-  { value: "", label: "이름순" },
-  { value: "nameDesc", label: "이름 역순" },
-  { value: "workDays", label: "최근 6개월 누적 근무일 많은 순" },
+  { value: "name", label: "이름순" },
+  { value: "workDays", label: "근무일 많은 순" },
   { value: "rating", label: "평가 높은 순" },
 ]
 
 function SortSelect({
   value,
   onChange,
+  excludeValue,
 }: {
   value: string
   onChange: (v: string) => void
+  excludeValue?: string
 }) {
   const [open, setOpen] = useState(false)
   const current = SORT_OPTIONS.find((o) => o.value === value)
-  const isActive = value !== ""
+  const options = excludeValue ? SORT_OPTIONS.filter((o) => o.value !== excludeValue) : SORT_OPTIONS
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-          isActive
-            ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-        }`}
+        className="cursor-pointer rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
       >
-        {current?.label ?? "정렬"} ▾
+        {current?.label ?? "선택"} ▾
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-52 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
-            {SORT_OPTIONS.map((opt) => (
+          <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+            {options.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => { onChange(opt.value); setOpen(false) }}

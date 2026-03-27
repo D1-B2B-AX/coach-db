@@ -98,7 +98,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
   const [form, setForm] = useState<EngagementFormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   useEscClose(showModal, () => setShowModal(false))
 
@@ -262,7 +262,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                 {/* 한 줄 요약 */}
                 <div
                   className="flex items-center gap-2 px-3 py-2 cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === eng.id ? null : eng.id)}
+                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(eng.id)) next.delete(eng.id); else next.add(eng.id); return next })}
                 >
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
                     {statusCfg.label}
@@ -279,13 +279,13 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       수정
                     </button>
                   )}
-                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${expandedId === eng.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`shrink-0 h-3 w-3 text-gray-300 transition-transform ${expandedIds.has(eng.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
 
                 {/* 상세 펼침 */}
-                {expandedId === eng.id && (
+                {expandedIds.has(eng.id) && (
                   <div className="border-t border-gray-100 px-3 py-2.5 text-sm space-y-2">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                       {eng.workType && <span><span className="text-gray-400">유형</span> <span className="text-[#333]">{eng.workType}</span></span>}

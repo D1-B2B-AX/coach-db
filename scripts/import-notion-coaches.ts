@@ -74,6 +74,14 @@ function parseContact25(raw: string): { phone: string; email: string } {
   return { phone, email }
 }
 
+// Merge workType: combine existing DB value and notion value, deduplicate
+function mergeWorkTypes(existing: string | null, notion: string | null): string | null {
+  const parts = new Set<string>()
+  if (existing) existing.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
+  if (notion) notion.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
+  return parts.size > 0 ? [...parts].join(', ') : null
+}
+
 // Parse birthDate from text — "YYYY-MM-DD", "YYYY.MM.DD", "YYMMDD", etc.
 function parseBirthDate(raw: string): Date | null {
   const s = raw.trim()
@@ -126,7 +134,10 @@ async function main() {
     const birthDateRaw = getText(p26['생년월일']) || (p25 ? getText(p25['생년월일']) : '')
     const birthDate = parseBirthDate(birthDateRaw)
     const affiliation = getText(p26['소속']) || (p25 ? getText(p25['소속']) : '') || null
-    const workType = getText(p26['근무 유형']) || (p25 ? getText(p25['유형']) : '') || null
+    const wt26 = getText(p26['근무 유형'])
+    const wt26type = getMultiSelect(p26['유형']).filter(v => v.includes('삼전')).join(', ') // 삼전 DS/DX만
+    const wt25 = p25 ? getText(p25['유형']) : ''
+    const workType = mergeWorkTypes(mergeWorkTypes(wt26 || null, wt26type || null), wt25 || null)
 
     // Fields: 26년 교육 및 가능 분야 + 전문 분야, fallback 25년
     const fields26 = [...getMultiSelect(p26['교육 및 가능 분야']), ...getMultiSelect(p26['전문 분야'])]
@@ -172,7 +183,7 @@ async function main() {
           email: email ?? existing.email,
           birthDate: birthDate ?? existing.birthDate,
           affiliation: affiliation ?? existing.affiliation,
-          workType: workType ?? existing.workType,
+          workType: mergeWorkTypes(existing.workType, workType),
           portfolioUrl: portfolioUrl ?? existing.portfolioUrl,
           selfNote: selfNote ?? existing.selfNote,
           availabilityDetail: availabilityDetail ?? existing.availabilityDetail,

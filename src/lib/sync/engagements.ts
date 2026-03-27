@@ -363,6 +363,18 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
+    // 날짜 파싱 + 2026년 필터 (코치 매칭보다 먼저)
+    const startDate = parseDate(startDateRaw)
+    const endDate = parseDate(endDateRaw)
+    if (!startDate || !endDate) {
+      result.skipped++
+      continue
+    }
+    if (startDate.getFullYear() < 2026) {
+      result.skipped++
+      continue
+    }
+
     // 이메일/연락처 추출
     const email = emailRaw.match(/[\w.+-]+@[\w.-]+\.\w+/)?.[0] || null
     // 전화번호: 하이픈/공백/점 등 구분자 모두 제거 후 숫자만 추출, 010 형식으로 정규화
@@ -371,27 +383,20 @@ export async function syncEngagements(): Promise<SyncResult> {
 
     let coachId = coachByName.get(name)
     if (!coachId) {
-      // 2026년 계약자만 자동 생성
-      const startDate = parseDate(startDateRaw)
-      if (startDate && startDate.getFullYear() >= 2026) {
-        const created = await prisma.coach.create({
-          data: {
-            name,
-            status: 'active',
-            accessToken: generateAccessToken(),
-            email,
-            phone,
-            workType: workType || null,
-            employeeId: resolvedEmployeeId.get(name) || null,
-          },
-        })
-        coachId = created.id
-        coachByName.set(name, coachId)
-      } else {
-        result.errors++
-        unmatchedNames.add(name)
-        continue
-      }
+      // 26년 계약자 자동 생성
+      const created = await prisma.coach.create({
+        data: {
+          name,
+          status: 'active',
+          accessToken: generateAccessToken(),
+          email,
+          phone,
+          workType: workType || null,
+          employeeId: resolvedEmployeeId.get(name) || null,
+        },
+      })
+      coachId = created.id
+      coachByName.set(name, coachId)
     } else {
       // 기존 코치: 이메일/연락처/근무유형 비어있으면 보완, 사번은 항상 시트 기준으로 갱신
       const resolvedEid = resolvedEmployeeId.get(name) || null
@@ -406,20 +411,6 @@ export async function syncEngagements(): Promise<SyncResult> {
           await prisma.coach.update({ where: { id: coachId }, data: updates })
         }
       }
-    }
-
-    const startDate = parseDate(startDateRaw)
-    const endDate = parseDate(endDateRaw)
-
-    if (!startDate || !endDate) {
-      result.skipped++
-      continue
-    }
-
-    // 2026년 계약만 동기화
-    if (startDate.getFullYear() < 2026) {
-      result.skipped++
-      continue
     }
 
     // Determine status based on dates
