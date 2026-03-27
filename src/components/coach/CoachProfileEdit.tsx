@@ -6,7 +6,8 @@ interface MasterItem { id: string; name: string }
 
 interface CoachProfile {
   phone: string | null
-  workType: string | null
+  email: string | null
+  affiliation: string | null
   availabilityDetail: string | null
   fields: MasterItem[]
   curriculums: MasterItem[]
@@ -37,17 +38,20 @@ const SKILL_OPTIONS = [
 export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
   const [open, setOpen] = useState(false)
   const [phone, setPhone] = useState(profile.phone ?? "")
-  const [workType, setWorkType] = useState(profile.workType ?? "")
+  const [email, setEmail] = useState(profile.email ?? "")
+  const [affiliation, setAffiliation] = useState(profile.affiliation ?? "")
   const [availDetail, setAvailDetail] = useState(profile.availabilityDetail ?? "")
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set(profile.fields.map(f => f.name)))
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set(profile.curriculums.map(c => c.name)))
   const [saving, setSaving] = useState(false)
+  const [extraRequest, setExtraRequest] = useState("")
   const [saved, setSaved] = useState(false)
 
   // Reset on profile change
   useEffect(() => {
     setPhone(profile.phone ?? "")
-    setWorkType(profile.workType ?? "")
+    setEmail(profile.email ?? "")
+    setAffiliation(profile.affiliation ?? "")
     setAvailDetail(profile.availabilityDetail ?? "")
     setSelectedFields(new Set(profile.fields.map(f => f.name)))
     setSelectedSkills(new Set(profile.curriculums.map(c => c.name)))
@@ -62,14 +66,17 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: phone.trim() || null,
-          workType: workType || null,
+          email: email.trim() || null,
+          affiliation: affiliation.trim() || null,
           availabilityDetail: availDetail.trim() || null,
+          extraRequest: extraRequest.trim() || null,
           fields: [...selectedFields],
           curriculums: [...selectedSkills],
         }),
       })
       if (res.ok) {
         setSaved(true)
+        setExtraRequest("")
         onSaved()
         setTimeout(() => setSaved(false), 2000)
       }
@@ -107,49 +114,76 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
       </button>
 
       <div className="border-t border-gray-100 px-5 py-4 space-y-4">
-        {/* 연락처 */}
+        {/* 연락처 + 이메일 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-400">연락처</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-0000-0000"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="coach@email.com"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
+            />
+          </div>
+        </div>
+
+        {/* 소속 */}
         <div>
-          <label className="text-xs text-gray-400">연락처</label>
+          <label className="text-xs text-gray-400">소속</label>
           <input
             type="text"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="010-0000-0000"
+            value={affiliation}
+            onChange={(e) => setAffiliation(e.target.value)}
+            placeholder="소속 (대학생일 경우 학과, 학년)"
             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
           />
         </div>
 
-        {/* 수행 업무 */}
-        <div>
-          <label className="text-xs text-gray-400">수행 업무</label>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {["실습코치", "운영조교"].map(t => (
-              <button
-                key={t}
-                onClick={() => {
-                  const types = workType ? workType.split(",").map(s => s.trim()).filter(Boolean) : []
-                  if (types.includes(t)) setWorkType(types.filter(x => x !== t).join(", "))
-                  else setWorkType([...types, t].join(", "))
-                }}
-                className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  workType?.includes(t) ? "bg-[#F3E5F5] text-[#7B1FA2]" : "bg-gray-100 text-gray-400"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* 근무 가능 기간 */}
         <div>
-          <label className="text-xs text-gray-400">근무 가능 기간 / 세부</label>
+          <label className="text-xs text-gray-400">근무 가능 기간</label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {["1~3개월", "4~6개월", "8~9개월", "9~12개월"].map(p => {
+              const current = availDetail.split("\n")[0] || ""
+              const isSelected = current === p
+              return (
+                <button
+                  key={p}
+                  onClick={() => {
+                    const lines = availDetail.split("\n")
+                    lines[0] = isSelected ? "" : p
+                    setAvailDetail(lines.join("\n").trim())
+                  }}
+                  className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    isSelected ? "bg-[#E3F2FD] text-[#1976D2]" : "bg-gray-50 text-gray-400"
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            })}
+          </div>
           <textarea
-            value={availDetail}
-            onChange={(e) => setAvailDetail(e.target.value)}
-            placeholder="예: 3~6월 가능 (주말 불가)"
+            value={availDetail.split("\n").slice(1).join("\n")}
+            onChange={(e) => {
+              const period = availDetail.split("\n")[0] || ""
+              const detail = e.target.value
+              setAvailDetail([period, detail].filter(Boolean).join("\n"))
+            }}
+            placeholder="세부 사항 (주말 불가, 특정 요일 등)"
             rows={2}
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
+            className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
           />
         </div>
 
@@ -187,6 +221,18 @@ export default function CoachProfileEdit({ token, profile, onSaved }: Props) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 기타 요청 사항 */}
+        <div>
+          <label className="text-xs text-gray-400">기타 요청 사항</label>
+          <textarea
+            value={extraRequest}
+            onChange={(e) => setExtraRequest(e.target.value)}
+            placeholder="FC 기업교육팀에 요청하실 내용"
+            rows={2}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#1976D2]"
+          />
         </div>
 
         {/* 저장 */}

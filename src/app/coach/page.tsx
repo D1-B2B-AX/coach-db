@@ -583,7 +583,8 @@ function CoachScheduleContent() {
                 token={token}
                 profile={{
                   phone: coachInfo.phone,
-                  workType: coachInfo.workType,
+                  email: (coachInfo as any).email,
+                  affiliation: (coachInfo as any).affiliation,
                   availabilityDetail: coachInfo.availabilityDetail,
                   fields: coachInfo.fields ?? [],
                   curriculums: coachInfo.curriculums ?? [],

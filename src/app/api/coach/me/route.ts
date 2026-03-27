@@ -43,18 +43,29 @@ export async function PUT(request: NextRequest) {
   if (!coach) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await request.json()
-  const { phone, workType, availabilityDetail, fields, curriculums } = body as {
+  const { phone, email, affiliation, availabilityDetail, extraRequest, fields, curriculums } = body as {
     phone?: string | null
-    workType?: string | null
+    email?: string | null
+    affiliation?: string | null
     availabilityDetail?: string | null
+    extraRequest?: string | null
     fields?: string[]
     curriculums?: string[]
   }
 
   const updateData: Record<string, unknown> = {}
   if (phone !== undefined) updateData.phone = phone
-  if (workType !== undefined) updateData.workType = workType
+  if (email !== undefined) updateData.email = email
+  if (affiliation !== undefined) updateData.affiliation = affiliation
   if (availabilityDetail !== undefined) updateData.availabilityDetail = availabilityDetail
+
+  // 기타 요청: selfNote에 날짜와 함께 append
+  if (extraRequest) {
+    const existing = await prisma.coach.findUnique({ where: { id: coach.id }, select: { selfNote: true } })
+    const date = new Date().toLocaleDateString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" })
+    const entry = `[기타 요청 ${date}] ${extraRequest}`
+    updateData.selfNote = [existing?.selfNote, entry].filter(Boolean).join("\n")
+  }
 
   // Resolve field/curriculum IDs outside transaction
   const fieldIds: string[] = []
