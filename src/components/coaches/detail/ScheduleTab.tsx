@@ -54,20 +54,21 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([])
-  const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
+  const engSchedules = engagementSchedules
   const [accessLog, setAccessLog] = useState<AccessLog | null>(null)
   const [loading, setLoading] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  )
   const [scheduleCache, setScheduleCache] = useState<Map<string, ScheduleEntry[]>>(new Map())
 
   const yearMonth = `${year}-${String(month + 1).padStart(2, "0")}`
 
-  const fetchSchedules = useCallback(async () => {
-    // Use cache if available
-    if (scheduleCache.has(yearMonth)) {
+  const fetchSchedules = useCallback(async (skipCache = false) => {
+    // Use cache if available and not forced refresh
+    if (!skipCache && scheduleCache.has(yearMonth)) {
       setSchedules(scheduleCache.get(yearMonth)!)
       setLoading(false)
-      // Still fetch access log
       try {
         const res = await fetch(`/api/coaches/${coachId}/schedules?yearMonth=${yearMonth}`)
         if (res.ok) {
@@ -86,6 +87,8 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
         const data = await res.json()
         setSchedules(data.schedules || [])
         setAccessLog(data.accessLog || null)
+        // Update cache
+        setScheduleCache(prev => new Map(prev).set(yearMonth, data.schedules || []))
       }
     } catch {
       // silently fail
@@ -170,13 +173,13 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   const availableDates = new Set<string>()
   for (const [key] of scheduleMap) availableDates.add(key)
 
-  // Confirmed dates: engagement_schedules의 실제 근무일만 표시
-  const engagementDateMap = new Map<string, string[]>() // dateKey → courseName[]
+  // Confirmed dates: engagement_schedules의 실제 근무일 + 시간
+  const engagementDateMap = new Map<string, { courseName: string; startTime: string; endTime: string }[]>()
 
-  for (const es of engagementSchedules) {
+  for (const es of engSchedules) {
     const key = es.date.slice(0, 10)
     const list = engagementDateMap.get(key) || []
-    list.push(es.engagement.courseName)
+    list.push({ courseName: es.engagement.courseName, startTime: es.startTime, endTime: es.endTime })
     engagementDateMap.set(key, list)
   }
 
@@ -227,7 +230,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
             </div>
             <div className="flex justify-end">
               <button
-                onClick={fetchSchedules}
+                onClick={() => fetchSchedules(true)}
                 className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
                 title="새로고침"
               >
@@ -356,11 +359,11 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
         </div>
 
         {/* Right panel — availability detail + selected day */}
-        <div className="w-full md:flex-1 space-y-4">
+        <div className="w-full max-w-[400px] space-y-4">
           {availabilityDetail && (
             <div className="rounded-xl bg-white border border-gray-200 px-4 py-3">
               <div className="text-xs font-semibold text-gray-400 mb-1">근무 가능 세부 내용</div>
-              <div className="text-sm text-[#333] whitespace-pre-wrap">{availabilityDetail}</div>
+              <div className="max-h-24 overflow-y-auto text-sm text-[#333] whitespace-pre-wrap">{availabilityDetail}</div>
             </div>
           )}
           {selectedDay && (
@@ -368,29 +371,37 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
               <div className="mb-2 text-sm font-semibold text-[#333]">
                 {parseInt(selectedDay.split("-")[1])}월 {parseInt(selectedDay.split("-")[2])}일
               </div>
-              {selectedSchedules.length > 0 ? (
-                <div className="space-y-1">
-                  {(() => {
-                    const engNames = engagementDateMap.has(selectedDay)
-                      ? [...new Set(engagementDateMap.get(selectedDay)!)].map(n => n.replace(/^\[.*?\]\s*/, '').replace(/^\(B2B\)\s*/, ''))
-                      : []
-                    return selectedSchedules.map((s, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <span className="shrink-0 text-[#333]">{s.startTime}~{s.endTime}</span>
-                        {i === 0 && engNames.length > 0 && (
-                          <span className="font-medium text-[#1976D2] truncate">{engNames.join(", ")}</span>
-                        )}
+              {(() => {
+                const dayEngs = engagementDateMap.get(selectedDay) || []
+                const hasCoachSchedule = selectedSchedules.length > 0
+                const hasEngagement = dayEngs.length > 0
+
+                if (!hasCoachSchedule && !hasEngagement) {
+                  return <div className="text-xs text-gray-400">등록된 스케줄 없음</div>
+                }
+
+                // Merge and sort by startTime
+                const merged: { startTime: string; endTime: string; type: "avail" | "eng"; label?: string }[] = [
+                  ...selectedSchedules.map(s => ({ startTime: s.startTime, endTime: s.endTime, type: "avail" as const })),
+                  ...dayEngs.map(e => ({ startTime: e.startTime, endTime: e.endTime, type: "eng" as const, label: e.courseName.replace(/^\[.*?\]\s*/, '').replace(/^\(B2B\)\s*/, '') })),
+                ]
+                merged.sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+                return (
+                  <div className="space-y-1">
+                    {merged.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <span className={`shrink-0 ${item.type === "avail" ? "text-[#2E7D32]" : "text-[#1976D2]"}`}>
+                          {item.startTime}~{item.endTime}
+                        </span>
+                        <span className={`truncate ${item.type === "avail" ? "text-[#2E7D32]" : "font-medium text-[#333]"}`}>
+                          {item.type === "avail" ? "가용" : item.label}
+                        </span>
                       </div>
-                    ))
-                  })()}
-                </div>
-              ) : engagementDateMap.has(selectedDay) ? (
-                <div className="text-xs font-medium text-[#1976D2]">
-                  {[...new Set(engagementDateMap.get(selectedDay)!)].map(n => n.replace(/^\[.*?\]\s*/, '').replace(/^\(B2B\)\s*/, '')).join(", ")}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-400">등록된 스케줄 없음</div>
-              )}
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
