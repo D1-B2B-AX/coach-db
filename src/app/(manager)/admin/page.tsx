@@ -78,7 +78,7 @@ export default function AdminPage() {
         const data = await res.json()
         setDeletedCoaches(data.coaches || [])
       }
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to fetch deleted coaches:", err) }
   }, [])
 
   const fetchPendingCoaches = useCallback(async () => {
@@ -88,7 +88,7 @@ export default function AdminPage() {
         const data = await res.json()
         setPendingCoaches(data.coaches || [])
       }
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to fetch pending coaches:", err) }
   }, [])
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function AdminPage() {
         })
       }
       fetchDeletedCoaches()
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to process coach action:", err) }
     finally {
       setActionLoading(false)
       setConfirmAction(null)
@@ -522,7 +522,7 @@ export default function AdminPage() {
                             const data = await res.json()
                             setDeletedCoaches(data.coaches || [])
                           }
-                        } catch { /* silently fail */ }
+                        } catch (err) { console.error("Failed to bulk action:", err) }
                         finally { setActionLoading(false) }
                       }}
                       disabled={actionLoading}
@@ -896,7 +896,7 @@ function CoachManagementTab() {
       }
       setTokenMap(tMap)
 
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to fetch send-links data:", err) }
     finally { setLoading(false) }
   }, [yearMonth, currentMonth])
 
@@ -1003,7 +1003,7 @@ function CoachManagementTab() {
       a.download = `mail-merge_${yearMonth}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to download mail-merge:", err) }
   }
 
   const filteredByStatus = selectedCard ? selectedCard.list : allCoaches

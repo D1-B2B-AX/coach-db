@@ -10,6 +10,7 @@ export default auth((req) => {
   // Public routes + static files
   if (
     pathname === "/login" ||
+    pathname === "/api/health" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||

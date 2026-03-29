@@ -5,11 +5,12 @@ import { useEscClose } from "@/lib/useEscClose"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import ProfileTab from "@/components/coaches/detail/ProfileTab"
-import ScheduleTab from "@/components/coaches/detail/ScheduleTab"
-import EngagementTab from "@/components/coaches/detail/EngagementTab"
-import DocumentTab from "@/components/coaches/detail/DocumentTab"
+import dynamic from "next/dynamic"
 import { Skeleton, SkeletonCard } from "@/components/Skeleton"
+
+const ProfileTab = dynamic(() => import("@/components/coaches/detail/ProfileTab"))
+const ScheduleTab = dynamic(() => import("@/components/coaches/detail/ScheduleTab"))
+const EngagementTab = dynamic(() => import("@/components/coaches/detail/EngagementTab"))
 
 type TabKey = "profile" | "schedule" | "engagement"
 
@@ -153,7 +154,7 @@ export default function CoachDetailPage() {
       if (res.ok) {
         setCoach((prev) => prev ? { ...prev, status: newStatus } : prev)
       }
-    } catch { /* */ } finally {
+    } catch (err) { console.error("Failed to update status:", err) } finally {
       setSavingStatus(false)
     }
   }
@@ -168,7 +169,7 @@ export default function CoachDetailPage() {
       if (res.ok) {
         setCoach((prev) => prev ? { ...prev, returnDate: date } : prev)
       }
-    } catch { /* */ }
+    } catch (err) { console.error("Failed to save return date:", err) }
   }
 
   async function handleStatusNoteSave(note: string) {
@@ -182,7 +183,7 @@ export default function CoachDetailPage() {
       if (res.ok) {
         setCoach((prev) => prev ? { ...prev, statusNote: trimmed } : prev)
       }
-    } catch { /* */ } finally {
+    } catch (err) { console.error("Failed to save status note:", err) } finally {
       setEditingStatusNote(false)
     }
   }

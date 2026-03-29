@@ -88,7 +88,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
         const data = await res.json()
         setDocs(data.documents || [])
       }
-    } catch { /* silently fail */ }
+    } catch (err) { console.error("Failed to fetch documents:", err) }
   }, [coach.id])
 
   useEffect(() => { fetchDocs() }, [fetchDocs])

@@ -75,7 +75,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
           const data = await res.json()
           setAccessLog(data.accessLog || null)
         }
-      } catch {}
+      } catch (err) { console.error("Failed to fetch access log:", err) }
       return
     }
     setLoading(true)

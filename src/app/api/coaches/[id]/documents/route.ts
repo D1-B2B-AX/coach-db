@@ -75,7 +75,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Read file content
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
   const arrayBuffer = await file.arrayBuffer()
+  if (arrayBuffer.byteLength > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: '파일 크기는 50MB 이하여야 합니다' }, { status: 413 })
+  }
   const buffer = Buffer.from(arrayBuffer)
 
   // Generate R2 key

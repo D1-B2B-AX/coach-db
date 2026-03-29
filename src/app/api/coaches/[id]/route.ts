@@ -182,11 +182,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   })
 }
 
-// DELETE /api/coaches/:id — soft delete
+// DELETE /api/coaches/:id — soft delete (admin only)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const auth = await requireManager()
   if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (auth.manager.role !== 'admin') {
+    return NextResponse.json({ error: '관리자만 삭제할 수 있습니다' }, { status: 403 })
   }
 
   const { id } = await params
