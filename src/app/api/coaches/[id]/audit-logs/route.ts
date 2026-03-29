@@ -16,20 +16,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const threeMonthsAgo = new Date()
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
 
+  const engagementIds = (await prisma.engagement.findMany({
+    where: { coachId: id },
+    select: { id: true },
+  })).map(e => e.id)
+
   const logs = await prisma.auditLog.findMany({
     where: {
       createdAt: { gte: threeMonthsAgo },
       OR: [
         { tableName: 'coaches', recordId: id },
-        {
-          tableName: 'engagements',
-          recordId: {
-            in: (await prisma.engagement.findMany({
-              where: { coachId: id },
-              select: { id: true },
-            })).map(e => e.id),
-          },
-        },
+        ...(engagementIds.length > 0
+          ? [{ tableName: 'engagements' as const, recordId: { in: engagementIds } }]
+          : []),
       ],
     },
     orderBy: { createdAt: 'desc' },
