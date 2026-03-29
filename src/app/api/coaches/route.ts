@@ -48,7 +48,23 @@ export async function GET(request: NextRequest) {
     where.status = status as Prisma.CoachWhereInput['status']
   }
 
-  const [coaches, total] = await Promise.all([
+  // 날짜 범위를 미리 계산 (쿼리 병렬화에 필요)
+  const now = new Date()
+  const today = toDateOnly(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`)
+  const _6m = new Date()
+  _6m.setMonth(_6m.getMonth() - 6)
+  const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-${String(_6m.getDate()).padStart(2, '0')}`)
+
+  // 코치 목록 + 카운트 + 평점 + 근무일수를 모두 병렬 실행
+  const coachIdsForStats = prisma.coach.findMany({
+    where,
+    skip,
+    take: limit,
+    orderBy: [{ status: 'asc' }, { name: 'asc' }],
+    select: { id: true },
+  })
+
+  const [coaches, total, coachIdsResult] = await Promise.all([
     prisma.coach.findMany({
       where,
       skip,
@@ -76,41 +92,38 @@ export async function GET(request: NextRequest) {
       },
     }),
     prisma.coach.count({ where }),
+    coachIdsForStats,
   ])
 
-  // Compute average rating per coach from all engagements
-  const coachIds = coaches.map((c) => c.id)
-  const ratingAggregates = coachIds.length > 0
-    ? await prisma.engagement.groupBy({
-        by: ['coachId'],
-        where: {
-          coachId: { in: coachIds },
-          rating: { not: null },
-        },
-        _avg: { rating: true },
-      })
-    : []
+  const coachIds = coachIdsResult.map((c) => c.id)
+
+  // rating + workDay 쿼리를 병렬 실행 (메인 쿼리 결과에 의존하지 않음)
+  const [ratingAggregates, workDayRows] = await Promise.all([
+    coachIds.length > 0
+      ? prisma.engagement.groupBy({
+          by: ['coachId'],
+          where: {
+            coachId: { in: coachIds },
+            rating: { not: null },
+          },
+          _avg: { rating: true },
+        })
+      : [],
+    coachIds.length > 0
+      ? prisma.$queryRaw<{ coach_id: string; days: bigint }[]>`
+          SELECT coach_id, COUNT(DISTINCT date) as days
+          FROM engagement_schedules
+          WHERE coach_id = ANY(${coachIds})
+            AND date >= ${sixMonthsAgo}
+            AND date <= ${today}
+          GROUP BY coach_id
+        `
+      : [],
+  ])
 
   const ratingMap = new Map(
     ratingAggregates.map((r) => [r.coachId, r._avg.rating])
   )
-
-  // Compute work days (distinct dates in engagement_schedules) per coach for last 6 months
-  // 범위: 6개월 전 같은 날 ~ 오늘 (미래 제외)
-  const today = toDateOnly(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`)
-  const _6m = new Date()
-  _6m.setMonth(_6m.getMonth() - 6)
-  const sixMonthsAgo = toDateOnly(`${_6m.getFullYear()}-${String(_6m.getMonth() + 1).padStart(2, '0')}-${String(_6m.getDate()).padStart(2, '0')}`)
-  const workDayRows = coachIds.length > 0
-    ? await prisma.$queryRaw<{ coach_id: string; days: bigint }[]>`
-        SELECT coach_id, COUNT(DISTINCT date) as days
-        FROM engagement_schedules
-        WHERE coach_id = ANY(${coachIds})
-          AND date >= ${sixMonthsAgo}
-          AND date <= ${today}
-        GROUP BY coach_id
-      `
-    : []
   const workDayMap = new Map(
     workDayRows.map((r) => [r.coach_id, Number(r.days)])
   )
@@ -190,8 +203,8 @@ export async function POST(request: NextRequest) {
         phone: phone || undefined,
         email: email || undefined,
         affiliation: affiliation || undefined,
-        workType: workType as any || undefined,
-        status: (status as any) || 'active',
+        workType: workType || undefined,
+        status: (status && ['active', 'inactive', 'pending'].includes(status)) ? status as 'active' | 'inactive' | 'pending' : 'active',
         selfNote: selfNote || undefined,
         managerNote: managerNote || undefined,
         accessToken,

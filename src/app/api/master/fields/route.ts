@@ -14,7 +14,9 @@ export async function GET() {
     select: { id: true, name: true },
   })
 
-  return NextResponse.json({ fields })
+  return NextResponse.json({ fields }, {
+    headers: { 'Cache-Control': 'private, max-age=3600' },
+  })
 }
 
 // POST /api/master/fields — create if not exists, return field

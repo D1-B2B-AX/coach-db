@@ -14,7 +14,9 @@ export async function GET() {
     select: { id: true, name: true },
   })
 
-  return NextResponse.json({ curriculums })
+  return NextResponse.json({ curriculums }, {
+    headers: { 'Cache-Control': 'private, max-age=3600' },
+  })
 }
 
 // POST /api/master/curriculums — create if not exists, return curriculum

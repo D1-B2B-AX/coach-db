@@ -156,6 +156,7 @@ model Engagement {
   coach      Coach            @relation(fields: [coachId], references: [id], onDelete: Cascade)
   engagementSchedules EngagementSchedule[]
 
+  @@index([coachId])
   @@map("engagements")
 }
 
@@ -169,6 +170,8 @@ model EngagementSchedule {
   engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
   coach        Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
 
+  @@index([coachId, date])
+  @@index([date])
   @@map("engagement_schedules")
 }
 
@@ -183,6 +186,7 @@ model CoachSchedule {
   updatedAt DateTime @updatedAt @map("updated_at")
   coach     Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
 
+  @@index([coachId, date])
   @@map("coach_schedules")
 }
 
@@ -221,6 +225,7 @@ model AuditLog {
 
   @@index([tableName, recordId])
   @@index([changedBy])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 

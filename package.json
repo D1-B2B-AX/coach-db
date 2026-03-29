@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "seed": "npx tsx scripts/seed-master-data.ts",
     "migrate:coaches": "npx tsx scripts/migrate-coaches.ts",
     "db:migrate": "prisma migrate deploy",
-    "db:push": "prisma db push"
+    "db:push": "node -e \"if(process.env.DATABASE_URL?.includes('proxy.rlwy.net')){console.error('\\x1b[31m프로덕션 DB에는 db push를 사용할 수 없습니다. prisma migrate deploy를 사용하세요.\\x1b[0m');process.exit(1)}\" && prisma db push"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
