@@ -3,7 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' https://accounts.google.com https://browser.sentry-cdn.com",
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com https://browser.sentry-cdn.com",
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
   "font-src 'self' https://cdn.jsdelivr.net",
   "img-src 'self' data:",
