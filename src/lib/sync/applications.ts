@@ -7,6 +7,7 @@ import { toDateOnly } from '@/lib/date-utils'
 export interface ApplicationSyncResult {
   totalRows: number
   created: number
+  updated: number
   skipped: number
   errors: number
   errorDetail: string[]
@@ -15,7 +16,7 @@ export interface ApplicationSyncResult {
 const APPLICATION_SHEET_ID = '1xrkRqw3niREpZRIYuB6cEjOGm7Y45bEWkqP02vESR20'
 
 export async function syncApplications(): Promise<ApplicationSyncResult> {
-  const result: ApplicationSyncResult = { totalRows: 0, created: 0, skipped: 0, errors: 0, errorDetail: [] }
+  const result: ApplicationSyncResult = { totalRows: 0, created: 0, updated: 0, skipped: 0, errors: 0, errorDetail: [] }
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -39,12 +40,18 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][]
   result.totalRows = rows.length - 1
 
-  // 기존 코치 조회 (이름+연락처 중복 체크용)
+  // 기존 코치 조회 (이름+연락처 중복 체크 + 업데이트용)
   const existingCoaches = await prisma.coach.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, status: { not: 'pending' } },
     select: { id: true, name: true, phone: true },
   })
-  const existingSet = new Set(existingCoaches.map(c => `${c.name}|${normalizePhone(c.phone)}`))
+  const existingMap = new Map(existingCoaches.map(c => [`${c.name}|${normalizePhone(c.phone)}`, c.id]))
+  // pending 코치도 중복 방지 (같은 신청 2번 동기화 방지)
+  const pendingCoaches = await prisma.coach.findMany({
+    where: { deletedAt: null, status: 'pending' },
+    select: { name: true, phone: true },
+  })
+  const pendingSet = new Set(pendingCoaches.map(c => `${c.name}|${normalizePhone(c.phone)}`))
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
@@ -69,9 +76,23 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
 
     const phone = normalizePhone(phoneRaw)
 
-    // 중복 체크
     const key = `${name}|${phone}`
-    if (existingSet.has(key)) { result.skipped++; continue }
+
+    // 기존 활성 코치와 매칭 → 정보 업데이트
+    const existingCoachId = existingMap.get(key)
+    if (existingCoachId) {
+      try {
+        await updateExistingCoach(existingCoachId, { email, affiliation, workType, availPeriod, availDetail, fieldRaw1, fieldRaw2, skillRaw, eduForm, career, portfolioUrl, extraRequest })
+        result.updated++
+      } catch (err) {
+        result.errors++
+        result.errorDetail.push(`${name}(업데이트): ${err instanceof Error ? err.message : String(err)}`)
+      }
+      continue
+    }
+
+    // pending 중복 방지
+    if (pendingSet.has(key)) { result.skipped++; continue }
 
     const birthDate = parseBirthDate(birthRaw)
     const availabilityDetail = [availPeriod, availDetail].filter(Boolean).join('\n') || null
@@ -141,7 +162,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
         })
       }
 
-      existingSet.add(key)
+      pendingSet.add(key)
       result.created++
     } catch (err) {
       result.errors++
@@ -176,4 +197,61 @@ function parseBirthDate(raw: string): string | null {
 function splitMulti(raw: string): string[] {
   if (!raw) return []
   return raw.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+}
+
+interface UpdateData {
+  email: string | null
+  affiliation: string | null
+  workType: string | null
+  availPeriod: string
+  availDetail: string
+  fieldRaw1: string
+  fieldRaw2: string
+  skillRaw: string
+  eduForm: string
+  career: string
+  portfolioUrl: string | null
+  extraRequest: string
+}
+
+async function updateExistingCoach(coachId: string, data: UpdateData) {
+  const availabilityDetail = [data.availPeriod, data.availDetail].filter(Boolean).join('\n') || null
+
+  const selfNoteParts: string[] = []
+  if (data.eduForm) selfNoteParts.push(`[희망 교육 형태] ${data.eduForm}`)
+  if (data.career) selfNoteParts.push(`[교육 경력] ${data.career}`)
+  if (data.extraRequest) selfNoteParts.push(`[기타 요청] ${data.extraRequest}`)
+  const selfNote = selfNoteParts.join('\n') || null
+
+  // 기본 정보 업데이트
+  await prisma.coach.update({
+    where: { id: coachId },
+    data: {
+      ...(data.email ? { email: data.email } : {}),
+      ...(data.affiliation ? { affiliation: data.affiliation } : {}),
+      ...(data.workType ? { workType: data.workType } : {}),
+      ...(availabilityDetail ? { availabilityDetail } : {}),
+      ...(selfNote ? { selfNote } : {}),
+    },
+  })
+
+  // Fields 교체
+  const fieldNames = splitMulti(data.fieldRaw1)
+  if (fieldNames.length > 0) {
+    await prisma.coachField.deleteMany({ where: { coachId } })
+    for (const fname of fieldNames) {
+      const field = await prisma.field.upsert({ where: { name: fname }, create: { name: fname }, update: {} })
+      await prisma.coachField.create({ data: { coachId, fieldId: field.id } })
+    }
+  }
+
+  // Curriculums 교체
+  const curriculumNames = [...new Set([...splitMulti(data.fieldRaw2), ...splitMulti(data.skillRaw)])]
+  if (curriculumNames.length > 0) {
+    await prisma.coachCurriculum.deleteMany({ where: { coachId } })
+    for (const cname of curriculumNames) {
+      const curr = await prisma.curriculum.upsert({ where: { name: cname }, create: { name: cname }, update: {} })
+      await prisma.coachCurriculum.create({ data: { coachId, curriculumId: curr.id } })
+    }
+  }
 }

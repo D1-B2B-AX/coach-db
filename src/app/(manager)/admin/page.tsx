@@ -793,7 +793,7 @@ export default function AdminPage() {
                       const res = await fetch("/api/sync/applications", { method: "POST" })
                       const data = await res.json()
                       if (res.ok) {
-                        setToastMessage(`동기화 완료: ${data.created}건 생성, ${data.skipped}건 기존`)
+                        setToastMessage(`동기화 완료: ${data.created}건 생성, ${data.updated || 0}건 업데이트, ${data.skipped}건 스킵`)
                         setShowToast(true)
                         fetchPendingCoaches()
                       } else {

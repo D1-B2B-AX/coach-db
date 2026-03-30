@@ -153,11 +153,14 @@ export default function TimePanel({
           )
         })}
         <button
-          onClick={onToggleUnavailable}
-          className={`cursor-pointer rounded-lg border py-2 text-[12px] font-semibold transition-all ${
-            isUnavailable
-              ? "border-[#D84315] bg-[#FBE9E7] text-[#D84315]"
-              : "border-[#e0e0e0] bg-white text-[#999] hover:bg-gray-50"
+          onClick={confirmedSlots.size > 0 ? undefined : onToggleUnavailable}
+          disabled={confirmedSlots.size > 0}
+          className={`rounded-lg border py-2 text-[12px] font-semibold transition-all ${
+            confirmedSlots.size > 0
+              ? "cursor-not-allowed border-[#e0e0e0] bg-gray-50 text-[#ccc]"
+              : isUnavailable
+                ? "cursor-pointer border-[#E53935] bg-[#E53935] text-white"
+                : "cursor-pointer border-[#e0e0e0] bg-white text-[#999] hover:bg-gray-50"
           }`}
         >
           불가

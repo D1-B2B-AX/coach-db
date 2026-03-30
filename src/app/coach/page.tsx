@@ -249,6 +249,7 @@ function CoachScheduleContent() {
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [phoneInput, setPhoneInput] = useState("")
   const [phoneError, setPhoneError] = useState("")
+  const [showFormPrompt, setShowFormPrompt] = useState(false)
 
   // Only current month and next month are editable
   const isEditable = useMemo(() => {
@@ -354,6 +355,9 @@ function CoachScheduleContent() {
           fetchSchedule(ym),
         ])
         setCoachInfo(coach)
+        if (!coach.fields || coach.fields.length === 0) {
+          setShowFormPrompt(true)
+        }
 
         const { slotMap, unavailableDates: unavail } = schedulesToSlotMap(scheduleData.schedules)
         setSchedules(slotMap)
@@ -662,6 +666,36 @@ function CoachScheduleContent() {
             <ScheduleSummary engagements={engagements} />
           </div>
         </div>
+
+      {/* Google Form prompt — shown when profile fields are empty */}
+      {showFormPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#E3F2FD]">
+              <svg className="h-6 w-6 text-[#1976D2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <h3 className="text-base font-semibold text-[#333]">프로필을 입력해주세요</h3>
+            <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+              프로필을 입력하면 과정 매칭 시 우선 배정됩니다.<br />
+              아래 구글폼을 작성하여 제출해주세요.
+            </p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSc6Mt8e1n0mOLEeiDiVVbNZvUFcRWJzHcyzH7a8LE5vib_4fA/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-block w-full rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+            >
+              구글폼 작성하기
+            </a>
+            <button
+              onClick={() => setShowFormPrompt(false)}
+              className="mt-2 w-full cursor-pointer rounded-lg bg-transparent py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              나중에 하기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Profile modal */}
       {showProfile && (
