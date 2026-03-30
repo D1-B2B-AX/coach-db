@@ -180,7 +180,7 @@ export default function CoachListTable({
               key={coach.id}
               onClick={() => router.push(`/coaches/${coach.id}`)}
               className={`grid grid-cols-[auto_1fr] sm:grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
-                isSelected ? "bg-[#E3F2FD]/20" : ""
+                isSelected ? "bg-[#E3F2FD]/50" : ""
               }`}
             >
               {/* Checkbox */}
@@ -196,13 +196,13 @@ export default function CoachListTable({
               {/* Name + status dot */}
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
-                <span className={`shrink-0 inline-block h-1.5 w-1.5 rounded-full ${coach.status === "active" ? "bg-[#4CAF50]" : "bg-gray-300"}`} />
+                <span className={`shrink-0 inline-block h-2 w-2 rounded-full ${coach.status === "active" ? "bg-[#4CAF50]" : "bg-gray-300"}`} />
               </div>
 
               {/* Work Type */}
               <div className="hidden sm:flex flex-wrap gap-0.5">
                 {coach.workType ? coach.workType.split(",").map(t => t.trim()).filter(Boolean).map(t => (
-                  <span key={t} className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>{t}</span>
+                  <span key={t} className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>{t}</span>
                 )) : <span className="text-xs text-gray-300">-</span>}
               </div>
 

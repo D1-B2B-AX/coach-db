@@ -165,7 +165,7 @@ function MultiSelectCombobox({
         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
       />
 
       {/* Dropdown */}
@@ -176,7 +176,7 @@ function MultiSelectCombobox({
               key={opt.id}
               type="button"
               onClick={() => addItem(opt.name)}
-              className="block w-full px-3 py-1.5 text-left text-base text-gray-700 hover:bg-gray-50 transition-colors"
+              className="block w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
               {opt.name}
             </button>
@@ -185,7 +185,7 @@ function MultiSelectCombobox({
             <button
               type="button"
               onClick={() => addItem(inputValue.trim())}
-              className="block w-full px-3 py-1.5 text-left text-base text-[#1976D2] hover:bg-[#E3F2FD]/50 transition-colors"
+              className="block w-full px-3 py-1.5 text-left text-sm text-[#1976D2] hover:bg-[#E3F2FD]/50 transition-colors"
             >
               &quot;{inputValue.trim()}&quot; 추가
             </button>
@@ -287,7 +287,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-base text-red-700">
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -309,7 +309,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
                 if (nameError) setNameError("")
               }}
               placeholder="코치 이름"
-              className={`w-full px-3.5 py-2.5 border rounded-xl text-base focus:outline-none ${
+              className={`w-full px-3.5 py-2.5 border rounded-lg text-sm focus:outline-none ${
                 nameError
                   ? "border-red-300 focus:border-red-500"
                   : "border-gray-200 focus:border-[#1976D2]"
@@ -327,7 +327,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
 
@@ -339,7 +339,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="010-0000-0000"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
 
@@ -351,7 +351,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="coach@example.com"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
 
@@ -363,7 +363,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               value={affiliation}
               onChange={(e) => setAffiliation(e.target.value)}
               placeholder="소속"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
 
@@ -375,7 +375,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               value={workType}
               onChange={(e) => setWorkType(e.target.value)}
               placeholder="실습코치, 운영조교 등"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
 
@@ -416,7 +416,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               onChange={(e) => setSelfNote(e.target.value)}
               rows={3}
               placeholder="특이사항 / 히스토리"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
           <div>
@@ -426,7 +426,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
               onChange={(e) => setManagerNote(e.target.value)}
               rows={3}
               placeholder="메모"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
             />
           </div>
         </div>
@@ -440,7 +440,7 @@ export default function CoachForm({ initialData, onSubmit, isEdit = false, formI
             <button
               type="submit"
               disabled={submitting}
-              className="cursor-pointer rounded-lg bg-[#1976D2] px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-[#1565C0] disabled:opacity-50 transition-all"
+              className="cursor-pointer rounded-lg bg-[#1976D2] px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
             >
               {submitting ? "저장 중..." : "등록"}
             </button>

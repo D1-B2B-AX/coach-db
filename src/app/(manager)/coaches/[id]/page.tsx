@@ -266,12 +266,12 @@ export default function CoachDetailPage() {
                     }
                   }}
                   disabled={savingStatus}
-                  className="shrink-0 cursor-pointer flex items-center gap-1.5 rounded-full bg-gray-100 p-0.5 transition-colors"
+                  className="shrink-0 cursor-pointer flex items-center gap-1 rounded-full bg-gray-100 p-1 transition-colors"
                 >
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${isActive ? "bg-white text-[#2E7D32] shadow-sm" : "text-gray-400"}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${isActive ? "bg-white text-[#2E7D32] shadow-sm" : "text-gray-400"}`}>
                     활동중
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${!isActive ? "bg-white text-gray-600 shadow-sm" : "text-gray-400"}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${!isActive ? "bg-white text-gray-600 shadow-sm" : "text-gray-400"}`}>
                     비활동
                   </span>
                 </button>
@@ -282,7 +282,7 @@ export default function CoachDetailPage() {
                       type="month"
                       value={coach.returnDate?.slice(0, 7) || ""}
                       onChange={(e) => handleReturnDateSave(e.target.value ? `${e.target.value}-01` : null)}
-                      className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-500 outline-none focus:border-blue-300"
+                      className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-sm text-gray-500 outline-none focus:border-blue-300"
                     />
                   </span>
                 )}
@@ -338,7 +338,7 @@ export default function CoachDetailPage() {
             <>
               <Link
                 href={`/coaches/${coachId}/edit`}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+                className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
               >
                 수정
               </Link>
@@ -348,7 +348,7 @@ export default function CoachDetailPage() {
                   setConfirmEmail("")
                   setDeleteError("")
                 }}
-                className="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                className="cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
               >
                 삭제
               </button>
@@ -357,7 +357,7 @@ export default function CoachDetailPage() {
           {activeTab === "engagement" && (
             <button
               onClick={() => setShowEngagementModal(true)}
-              className="cursor-pointer rounded-md bg-[#1976D2] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1565C0] transition-colors"
+              className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1565C0] transition-colors"
             >
               + 이력 등록
             </button>

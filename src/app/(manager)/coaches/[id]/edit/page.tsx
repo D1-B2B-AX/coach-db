@@ -149,7 +149,7 @@ export default function EditCoachPage() {
           type="submit"
           form="coach-edit-form"
           disabled={submitting}
-          className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? "저장 중..." : "수정 확인"}
         </button>

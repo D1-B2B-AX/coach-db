@@ -367,7 +367,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     type="text"
                     value={form.courseName}
                     onChange={(e) => updateForm("courseName", e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                   />
                 </div>
 
@@ -379,7 +379,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       type="date"
                       value={form.startDate}
                       onChange={(e) => updateForm("startDate", e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                     />
                   </div>
                   <div>
@@ -388,7 +388,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       type="date"
                       value={form.endDate}
                       onChange={(e) => updateForm("endDate", e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                     />
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       type="time"
                       value={form.startTime}
                       onChange={(e) => updateForm("startTime", e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                     />
                   </div>
                   <div>
@@ -410,7 +410,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       type="time"
                       value={form.endTime}
                       onChange={(e) => updateForm("endTime", e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                     />
                   </div>
                 </div>
@@ -422,7 +422,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     type="text"
                     value={form.location}
                     onChange={(e) => updateForm("location", e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                   />
                 </div>
 
@@ -432,7 +432,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                   <select
                     value={form.status}
                     onChange={(e) => updateForm("status", e.target.value)}
-                    className="w-full appearance-none cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-base font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
+                    className="w-full appearance-none cursor-pointer rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
                   >
                     {STATUS_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -448,7 +448,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                   <select
                     value={form.rating}
                     onChange={(e) => updateForm("rating", e.target.value)}
-                    className="w-full appearance-none cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-base font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
+                    className="w-full appearance-none cursor-pointer rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
                   >
                     <option value="">미평가</option>
                     {[1, 2, 3, 4, 5].map((n) => (
@@ -471,7 +471,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     }}
                     maxLength={FEEDBACK_MAX_LENGTH}
                     rows={3}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                   />
                   <div className="mt-1 flex justify-between text-xs">
                     {containsProfanity(form.feedback) ? (
@@ -489,7 +489,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                   <select
                     value={form.rehire}
                     onChange={(e) => updateForm("rehire", e.target.value)}
-                    className="w-full appearance-none cursor-pointer rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-base font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
+                    className="w-full appearance-none cursor-pointer rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1976D2] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem]"
                   >
                     <option value="">미입력</option>
                     <option value="true">희망</option>
@@ -504,7 +504,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                     type="text"
                     value={form.hiredBy}
                     onChange={(e) => updateForm("hiredBy", e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#1976D2]"
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1976D2]"
                   />
                 </div>
               </div>
@@ -513,14 +513,14 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-[#1976D2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                  className="rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
                 >
                   {saving ? "저장 중..." : "저장"}
                 </button>

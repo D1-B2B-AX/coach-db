@@ -281,7 +281,7 @@ export default function DashboardCoachList({
                   key={coach.id}
                   onClick={() => router.push(`/coaches/${coach.id}`)}
                   className={`grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
-                    selectedIds.has(coach.id) ? "bg-[#E3F2FD]/20" : ""
+                    selectedIds.has(coach.id) ? "bg-[#E3F2FD]/50" : ""
                   }`}
                 >
                   <div className="w-4 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>

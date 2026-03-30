@@ -60,7 +60,7 @@ export default function NewCoachPage() {
                   type="text"
                   readOnly
                   value={successData.coachLink}
-                  className="flex-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
                 />
                 <button
                   type="button"
@@ -71,7 +71,7 @@ export default function NewCoachPage() {
                       // fallback
                     }
                   }}
-                  className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   복사
                 </button>

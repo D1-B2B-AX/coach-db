@@ -245,7 +245,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {coach.fields.length > 0 ? (
                 coach.fields.map((f) => (
-                  <span key={f.id} className="rounded-full bg-[#E3F2FD] px-2.5 py-0.5 text-sm font-medium text-[#1976D2]">
+                  <span key={f.id} className="rounded-full bg-[#E3F2FD] px-2 py-0.5 text-xs font-medium text-[#1976D2]">
                     {f.name}
                   </span>
                 ))
@@ -259,7 +259,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {coach.curriculums.length > 0 ? (
                 groupCurriculums(coach.curriculums).map((c) => (
-                  <span key={c.id} className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${c.color}`}>
+                  <span key={c.id} className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.color}`}>
                     {c.name}
                   </span>
                 ))
@@ -296,13 +296,13 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                   value={selfNote}
                   onChange={(e) => setSelfNote(e.target.value)}
                   rows={3}
-                  className="block w-full rounded-lg border border-gray-200 px-3 py-2 text-base text-gray-900 focus:border-[#1976D2] focus:outline-none"
+                  className="block w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#1976D2] focus:outline-none"
                 />
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => saveNote("selfNote", selfNote)}
                     disabled={savingField === "selfNote"}
-                    className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50"
+                    className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
                   >
                     {savingField === "selfNote" ? "저장 중..." : "저장"}
                   </button>
@@ -345,13 +345,13 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                   value={managerNote}
                   onChange={(e) => setManagerNote(e.target.value)}
                   rows={3}
-                  className="block w-full rounded-lg border border-gray-200 px-3 py-2 text-base text-gray-900 focus:border-[#1976D2] focus:outline-none"
+                  className="block w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#1976D2] focus:outline-none"
                 />
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => saveNote("managerNote", managerNote)}
                     disabled={savingField === "managerNote"}
-                    className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50"
+                    className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
                   >
                     {savingField === "managerNote" ? "저장 중..." : "저장"}
                   </button>

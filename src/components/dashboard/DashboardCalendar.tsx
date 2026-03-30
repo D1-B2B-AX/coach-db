@@ -229,7 +229,7 @@ export default function DashboardCalendar({
           } else if (isInRange) {
             cellClasses += " bg-[#E3F2FD] text-[#1976D2]"
           } else if (isPast) {
-            cellClasses += " opacity-35"
+            cellClasses += " opacity-35 hover:opacity-60"
           } else if (isToday) {
             cellClasses += " ring-2 ring-[#1565C0] hover:bg-gray-50"
           } else {
