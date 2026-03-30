@@ -64,7 +64,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: '삭제된 코치만 완전 삭제할 수 있습니다' }, { status: 400 })
   }
 
-  await prisma.coach.delete({ where: { id } })
+  await prisma.$transaction([
+    prisma.coachSchedule.deleteMany({ where: { coachId: id } }),
+    prisma.coach.delete({ where: { id } }),
+  ])
 
   return NextResponse.json({ success: true })
 }

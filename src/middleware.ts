@@ -29,6 +29,11 @@ export default auth((req) => {
     return NextResponse.next()
   }
 
+  // Cron/webhook API routes: Bearer token auth (pass through)
+  if (pathname.startsWith("/api/sync/") || pathname === "/api/admin/backup") {
+    return NextResponse.next()
+  }
+
   // Manager routes: require session
   if (!req.auth) {
     return NextResponse.redirect(new URL("/login", req.url))

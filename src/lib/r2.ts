@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
 const r2 = new S3Client({
   region: 'auto',
@@ -23,6 +23,17 @@ export async function deleteFile(key: string): Promise<void> {
   await r2.send(new DeleteObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME!,
     Key: key,
+  }))
+}
+
+export async function listFiles(prefix: string): Promise<{ key: string; lastModified?: Date }[]> {
+  const res = await r2.send(new ListObjectsV2Command({
+    Bucket: process.env.R2_BUCKET_NAME!,
+    Prefix: prefix,
+  }))
+  return (res.Contents || []).map((obj) => ({
+    key: obj.Key!,
+    lastModified: obj.LastModified,
   }))
 }
 

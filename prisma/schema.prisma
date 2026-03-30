@@ -184,7 +184,7 @@ model CoachSchedule {
   startTime String   @map("start_time") @db.VarChar(5)
   endTime   String   @map("end_time") @db.VarChar(5)
   updatedAt DateTime @updatedAt @map("updated_at")
-  coach     Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  coach     Coach    @relation(fields: [coachId], references: [id], onDelete: Restrict)
 
   @@index([coachId, date])
   @@map("coach_schedules")
