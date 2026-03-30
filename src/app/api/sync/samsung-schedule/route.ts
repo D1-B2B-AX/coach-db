@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { requireManager } from '@/lib/api-auth'
 import { syncSamsungSchedule } from '@/lib/sync/samsung-schedule'
 import { prisma } from '@/lib/prisma'
+
+const CRON_SLUG = 'samsung-schedule-sync'
 
 async function authenticate(request: NextRequest): Promise<{ triggeredBy: string } | null> {
   // 1) Bearer token (GitHub Actions)
@@ -27,6 +30,14 @@ export async function POST(request: NextRequest) {
   if (!authResult) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const checkInId = Sentry.captureCheckIn(
+    { monitorSlug: CRON_SLUG, status: 'in_progress' },
+    {
+      schedule: { type: 'crontab', value: '0 0 * * 1' },
+      timezone: 'Asia/Seoul',
+    },
+  )
 
   const log = await prisma.syncLog.create({
     data: {
@@ -54,6 +65,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    Sentry.captureCheckIn({ checkInId, monitorSlug: CRON_SLUG, status: 'ok' })
     return NextResponse.json(result)
   } catch (error) {
     await prisma.syncLog.update({
@@ -64,6 +76,7 @@ export async function POST(request: NextRequest) {
         finishedAt: new Date(),
       },
     })
+    Sentry.captureCheckIn({ checkInId, monitorSlug: CRON_SLUG, status: 'error' })
     return NextResponse.json({ error: 'Sync failed' }, { status: 500 })
   }
 }
