@@ -290,8 +290,15 @@ function TimeRangeDropdown({
   const [open, setOpen] = useState(false)
   const [start, setStart] = useState(customStart)
   const [end, setEnd] = useState(customEnd)
+  const [prevStart, setPrevStart] = useState(customStart)
+  const [prevEnd, setPrevEnd] = useState(customEnd)
 
-  useEffect(() => { setStart(customStart); setEnd(customEnd) }, [customStart, customEnd])
+  if (customStart !== prevStart || customEnd !== prevEnd) {
+    setStart(customStart)
+    setEnd(customEnd)
+    setPrevStart(customStart)
+    setPrevEnd(customEnd)
+  }
 
   return (
     <div className="relative">

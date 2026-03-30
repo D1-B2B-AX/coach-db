@@ -443,20 +443,23 @@ function AuditLogSection({ coachId }: { coachId: string }) {
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    fetch(`/api/coaches/${coachId}/audit-logs`)
-      .then((r) => r.json())
-      .then((d) => setLogs(d.logs || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [coachId, open])
+  const handleToggle = useCallback(() => {
+    const willOpen = !open
+    setOpen(willOpen)
+    if (willOpen && logs.length === 0) {
+      setLoading(true)
+      fetch(`/api/coaches/${coachId}/audit-logs`)
+        .then((r) => r.json())
+        .then((d) => setLogs(d.logs || []))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    }
+  }, [coachId, open, logs.length])
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
         className="flex w-full cursor-pointer items-center justify-between text-sm font-semibold text-gray-400"
       >
         수정 이력
