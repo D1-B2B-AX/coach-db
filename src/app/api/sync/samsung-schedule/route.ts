@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
         finishedAt: new Date(),
       },
     })
+    Sentry.captureException(error)
     Sentry.captureCheckIn({ checkInId, monitorSlug: CRON_SLUG, status: 'error' })
-    return NextResponse.json({ error: 'Sync failed' }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Sync failed', detail: message }, { status: 500 })
   }
 }
