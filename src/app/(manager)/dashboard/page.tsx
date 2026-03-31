@@ -170,16 +170,7 @@ export default function DashboardPage() {
     } else {
       setCurrentMonth((m) => m - 1)
     }
-    // Auto-select: if navigating to the month containing today, select today; otherwise clear
-    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
-    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
-    if (prevYear === now.getFullYear() && prevMonth === now.getMonth()) {
-      setSelectedStart(formatDate(now))
-    } else {
-      setSelectedStart(
-        `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-01`
-      )
-    }
+    setSelectedStart(null)
     setSelectedEnd(null)
     setTimeFilter("all")
   }
@@ -192,15 +183,7 @@ export default function DashboardPage() {
     } else {
       setCurrentMonth((m) => m + 1)
     }
-    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1
-    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear
-    if (nextYear === now.getFullYear() && nextMonth === now.getMonth()) {
-      setSelectedStart(formatDate(now))
-    } else {
-      setSelectedStart(
-        `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`
-      )
-    }
+    setSelectedStart(null)
     setSelectedEnd(null)
     setTimeFilter("all")
   }

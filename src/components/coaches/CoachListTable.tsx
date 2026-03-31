@@ -207,12 +207,18 @@ export default function CoachListTable({
               </div>
 
               {/* Phone */}
-              <span className="hidden sm:block text-sm text-gray-500 truncate">
+              <span
+                className={`hidden sm:block text-sm text-gray-500 truncate ${coach.phone ? "cursor-pointer hover:text-[#1976D2] active:text-[#1565C0]" : ""}`}
+                onClick={coach.phone ? (e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(coach.phone!); const el = e.currentTarget; el.dataset.orig = el.textContent || ""; el.textContent = "복사됨!"; setTimeout(() => { el.textContent = el.dataset.orig || "" }, 1000) } : undefined}
+              >
                 {coach.phone || "-"}
               </span>
 
               {/* Email */}
-              <span className="hidden sm:block text-xs text-gray-500 truncate">
+              <span
+                className={`hidden sm:block text-xs text-gray-500 truncate ${coach.email ? "cursor-pointer hover:text-[#1976D2] active:text-[#1565C0]" : ""}`}
+                onClick={coach.email ? (e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(coach.email!); const el = e.currentTarget; el.dataset.orig = el.textContent || ""; el.textContent = "복사됨!"; setTimeout(() => { el.textContent = el.dataset.orig || "" }, 1000) } : undefined}
+              >
                 {coach.email || "-"}
               </span>
 

@@ -317,7 +317,7 @@ export async function syncEngagements(): Promise<SyncResult> {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
     const name = String(row[4] || '').trim()
-    const eid = String(row[3] || '').trim().replace(/-\d+$/, '')
+    const eid = String(row[3] || '').trim().replace(/-\d+$/, '').replace(/\(.*?\)/g, '').trim()
     if (!name || !eid || NOISE.includes(eid)) continue
     if (!employeeIdsByName.has(name)) employeeIdsByName.set(name, new Set())
     employeeIdsByName.get(name)!.add(eid)

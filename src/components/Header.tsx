@@ -5,6 +5,8 @@ import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
+
 export default function Header() {
   const { data: session } = useSession()
   const pathname = usePathname()
@@ -23,7 +25,7 @@ export default function Header() {
   }, [session])
 
   return (
-    <header className="bg-white border-b border-gray-100">
+    <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>
       <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-12 sm:h-14">
           {/* Left: logo + nav */}

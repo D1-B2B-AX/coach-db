@@ -185,7 +185,9 @@ export default function CoachesPage() {
   const sortedCoaches = [...filtered].sort((a, b) => {
     const activeA = a.status === "active" ? 0 : 1
     const activeB = b.status === "active" ? 0 : 1
-    return (activeA - activeB) || compareBy(sort1, a, b) || compareBy(sort2, a, b)
+    const contactA = (a.phone && a.email) ? 0 : 1
+    const contactB = (b.phone && b.email) ? 0 : 1
+    return (activeA - activeB) || (contactA - contactB) || compareBy(sort1, a, b) || compareBy(sort2, a, b)
   })
 
   const allSelected = sortedCoaches.length > 0 && selectedIds.size === sortedCoaches.length
