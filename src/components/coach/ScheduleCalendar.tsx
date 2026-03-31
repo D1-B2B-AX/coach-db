@@ -21,6 +21,8 @@ interface ScheduleCalendarProps {
   onSelectDay: (dateKey: string, day: number) => void
   onConfirmedClick: (dateKey: string) => void
   onToggleSlot: (slot: string) => void
+  onBulkToggle?: (start: string, end: string) => void
+  bulkStatus?: boolean[]
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -37,6 +39,8 @@ export default function ScheduleCalendar({
   onSelectDay,
   onConfirmedClick,
   onToggleSlot,
+  onBulkToggle,
+  bulkStatus,
   onPrevMonth,
   onNextMonth,
   canGoPrev = true,
@@ -213,21 +217,25 @@ export default function ScheduleCalendar({
         </div>
       )}
 
-      {/* Legend */}
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-[#888]">
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-[4px] border border-[#A5D6A7] bg-[#E8F5E9]" />
-          가용
+      {/* Bulk toggle */}
+      {onBulkToggle && bulkStatus && (
+        <div className="mt-5 flex items-center justify-center gap-1.5">
+          <span className="text-xs text-gray-400">전체</span>
+          {TIME_RANGES.map(({ label, start, end }, i) => (
+            <button
+              key={label}
+              onClick={() => onBulkToggle(start, end)}
+              className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                bulkStatus[i]
+                  ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                  : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-[4px] bg-[#1976D2]" />
-          확정
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-[4px] border-2 border-[#FF9800] bg-[#FFF3E0]" />
-          선택 중
-        </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -401,6 +401,20 @@ function CoachScheduleContent() {
       const targetYM = newYear * 12 + newMonth
       if (targetYM < currentYM || targetYM > decemberYM) return
 
+      // 저장하지 않은 변경사항 확인
+      const hasUnsaved = (() => {
+        for (const [key, slots] of editingSlots) {
+          const saved = schedules.get(key)
+          if (!saved && slots.size > 0) return true
+          if (saved && (slots.size !== saved.size || [...slots].some(s => !saved.has(s)))) return true
+        }
+        for (const [key, saved] of schedules) {
+          if (saved.size > 0 && !editingSlots.has(key)) return true
+        }
+        return false
+      })()
+      if (hasUnsaved && !window.confirm("저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?")) return
+
       setSelectedDay(null)
       setCurrentYear(newYear)
       setCurrentMonth(newMonth)
@@ -421,7 +435,7 @@ function CoachScheduleContent() {
         showToast("일정을 불러오지 못했습니다")
       }
     },
-    [currentYear, currentMonth, fetchSchedule]
+    [currentYear, currentMonth, fetchSchedule, editingSlots, schedules]
   )
 
   // ─── Day selection ──────────────────────────────────────────────
@@ -745,6 +759,8 @@ function CoachScheduleContent() {
               onSelectDay={handleSelectDay}
               onConfirmedClick={handleConfirmedClick}
               onToggleSlot={handleToggleSlot}
+              onBulkToggle={handleBulkToggle}
+              bulkStatus={bulkStatus}
               selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
               confirmedSlots={currentDayConfirmed}
               onPrevMonth={() => changeMonth(-1)}
@@ -867,50 +883,20 @@ function CoachScheduleContent() {
       {/* Save — mobile: full-width bottom bar, desktop: inline under calendar */}
       {isEditable ? (
         <>
-          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 shrink-0">전체</span>
-              {BULK_RANGES.map(({ label, start, end }, i) => (
-                <button
-                  key={label}
-                  onClick={() => handleBulkToggle(start, end)}
-                  className={`cursor-pointer rounded-lg border px-2.5 py-2 text-xs font-semibold transition-all ${
-                    bulkStatus[i]
-                      ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
-                      : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className={`shrink-0 cursor-pointer rounded-lg border-none px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
-                  saved
-                    ? "bg-[#2E7D32] text-white"
-                    : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
-                }`}
-              >
-                {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장"}
-              </button>
-            </div>
+          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:hidden">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={`block w-full cursor-pointer rounded-lg border-none py-3 text-sm font-semibold transition-all disabled:opacity-50 ${
+                saved
+                  ? "bg-[#2E7D32] text-white"
+                  : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
+              }`}
+            >
+              {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장하기"}
+            </button>
           </div>
-          <div className="hidden md:flex fixed bottom-5 right-5 z-10 items-center gap-2 rounded-xl bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm border border-gray-200">
-            <span className="text-xs text-gray-400 shrink-0">전체</span>
-            {BULK_RANGES.map(({ label, start, end }, i) => (
-              <button
-                key={label}
-                onClick={() => handleBulkToggle(start, end)}
-                className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
-                  bulkStatus[i]
-                    ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
-                    : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="hidden md:block fixed bottom-5 right-5 z-10">
             <SaveButton
               onSave={handleSave}
               saving={saving}
