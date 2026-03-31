@@ -160,7 +160,7 @@ export default function DashboardPage() {
 
   // Navigate months
   const canGoPrev = currentYear * 12 + currentMonth > now.getFullYear() * 12 + now.getMonth()
-  const canGoNext = currentYear * 12 + currentMonth < now.getFullYear() * 12 + now.getMonth() + 3
+  const canGoNext = currentYear * 12 + currentMonth < now.getFullYear() * 12 + 11
 
   function handlePrevMonth() {
     if (!canGoPrev) return

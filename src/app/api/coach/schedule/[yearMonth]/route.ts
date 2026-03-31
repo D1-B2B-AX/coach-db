@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { toDateOnly } from '@/lib/date-utils'
+import { uploadFile } from '@/lib/r2'
 
 type RouteParams = { params: Promise<{ yearMonth: string }> }
 
@@ -145,13 +146,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   const { year, month, startDate, endDate } = parsed
 
-  // Only allow saving for current month + 3 months (4 months total)
+  // Only allow saving up to December of current year
   const now = new Date()
   const currentYM = now.getFullYear() * 12 + now.getMonth()
   const targetYM = year * 12 + (month - 1)
-  if (targetYM < currentYM || targetYM > currentYM + 3) {
+  const decemberYM = now.getFullYear() * 12 + 11
+  if (targetYM < currentYM || targetYM > decemberYM) {
     return NextResponse.json(
-      { error: '당월 포함 4개월까지만 스케줄 입력이 가능합니다' },
+      { error: '올해 12월까지만 스케줄 입력이 가능합니다' },
       { status: 403 }
     )
   }
@@ -231,5 +233,23 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return slots.length
   })
 
+  // 스케줄 백업 (비동기 — 응답 블로킹 안 함)
+  backupSchedules().catch(() => {})
+
   return NextResponse.json({ saved: true, count: result })
+}
+
+async function backupSchedules() {
+  const schedules = await prisma.coachSchedule.findMany({
+    include: { coach: { select: { name: true } } },
+    orderBy: [{ coachId: 'asc' }, { date: 'asc' }],
+  })
+  const json = JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    count: schedules.length,
+    data: schedules,
+  })
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const timeStr = new Date().toISOString().slice(11, 16).replace(':', '')
+  await uploadFile(`backups/schedules/${dateStr}_${timeStr}.json`, Buffer.from(json, 'utf-8'), 'application/json')
 }

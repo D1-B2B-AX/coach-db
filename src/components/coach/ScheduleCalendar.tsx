@@ -1,5 +1,14 @@
 "use client"
 
+import { ALL_SLOTS, formatRanges } from "./TimePanel"
+
+const TIME_RANGES = [
+  { label: "오전", start: "08:00", end: "13:00" },
+  { label: "오후", start: "13:00", end: "18:00" },
+  { label: "야간", start: "18:00", end: "22:00" },
+  { label: "종일", start: "08:00", end: "22:00" },
+] as const
+
 interface ScheduleCalendarProps {
   year: number
   month: number // 0-based (JS Date convention)
@@ -7,8 +16,11 @@ interface ScheduleCalendarProps {
   availableDates: Set<string> // dates with schedule entries
   confirmedDates: Set<string> // dates with confirmed engagements
   unavailableDates: Set<string> // dates marked as unavailable
+  selectedSlots: Set<string> // currently selected slots for the selected day
+  confirmedSlots: Set<string> // confirmed engagement slots for the selected day
   onSelectDay: (dateKey: string, day: number) => void
   onConfirmedClick: (dateKey: string) => void
+  onToggleSlot: (slot: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -24,10 +36,13 @@ export default function ScheduleCalendar({
   unavailableDates,
   onSelectDay,
   onConfirmedClick,
+  onToggleSlot,
   onPrevMonth,
   onNextMonth,
   canGoPrev = true,
   canGoNext = true,
+  selectedSlots,
+  confirmedSlots,
 }: ScheduleCalendarProps) {
   const firstDayOfWeek = new Date(year, month, 1).getDay()
   const lastDate = new Date(year, month + 1, 0).getDate()
@@ -123,13 +138,11 @@ export default function ScheduleCalendar({
             cellClass += " cursor-pointer hover:bg-gray-100"
           }
 
-          // Weekday color (don't override confirmed white text)
           if (!isConfirmed && !past && !isSelected) {
             if (dayOfWeek === 0) cellClass += " text-[#E53935]"
             if (dayOfWeek === 6) cellClass += " text-[#1565C0]"
           }
 
-          // Today border
           if (isToday && !isSelected) {
             cellClass += " border-2 border-[#333]"
           }
@@ -151,6 +164,55 @@ export default function ScheduleCalendar({
         })}
       </div>
 
+      {/* Time buttons — below calendar, fixed position */}
+      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && (
+        <div className="mt-4">
+          <div className="grid grid-cols-4 gap-1.5">
+            {TIME_RANGES.map(({ label, start, end }) => {
+              const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)
+              const allSelected = rangeSlots.every(
+                (s) => selectedSlots.has(s) || confirmedSlots.has(s)
+              )
+              const allConfirmed = rangeSlots.every((s) => confirmedSlots.has(s))
+              return (
+                <button
+                  key={label}
+                  disabled={allConfirmed}
+                  onClick={() => {
+                    if (allSelected) {
+                      for (const s of rangeSlots) {
+                        if (!confirmedSlots.has(s) && selectedSlots.has(s)) onToggleSlot(s)
+                      }
+                    } else {
+                      for (const s of rangeSlots) {
+                        if (!confirmedSlots.has(s) && !selectedSlots.has(s)) onToggleSlot(s)
+                      }
+                    }
+                  }}
+                  className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
+                    allConfirmed
+                      ? "cursor-not-allowed border-[#e0e0e0] bg-gray-50 text-[#ccc]"
+                      : allSelected
+                        ? "cursor-pointer border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                        : "cursor-pointer border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          {(() => {
+            const allSlots = [...selectedSlots].filter(s => !confirmedSlots.has(s)).sort()
+            return allSlots.length > 0 ? (
+              <div className="mt-2 text-center text-xs text-[#2E7D32]">
+                {formatRanges(allSlots)}
+              </div>
+            ) : null
+          })()}
+        </div>
+      )}
+
       {/* Legend */}
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-[#888]">
         <div className="flex items-center gap-1.5">
@@ -164,10 +226,6 @@ export default function ScheduleCalendar({
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded-[4px] border-2 border-[#FF9800] bg-[#FFF3E0]" />
           선택 중
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-[4px] bg-[#E53935]" />
-          불가
         </div>
       </div>
     </div>

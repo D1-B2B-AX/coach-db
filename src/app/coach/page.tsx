@@ -256,7 +256,8 @@ function CoachScheduleContent() {
     const now = new Date()
     const currentYM = now.getFullYear() * 12 + now.getMonth()
     const viewingYM = currentYear * 12 + currentMonth
-    return viewingYM >= currentYM && viewingYM <= currentYM + 2
+    const decemberYM = now.getFullYear() * 12 + 11
+    return viewingYM >= currentYM && viewingYM <= decemberYM
   }, [currentYear, currentMonth])
 
   // Derived: all dates that have schedule entries (for cross-referencing with engagements)
@@ -393,11 +394,12 @@ function CoachScheduleContent() {
         newYear--
       }
 
-      // 이동 범위 제한: 당월 포함 4개월
+      // 이동 범위 제한: 올해 12월까지
       const now = new Date()
       const currentYM = now.getFullYear() * 12 + now.getMonth()
+      const decemberYM = now.getFullYear() * 12 + 11
       const targetYM = newYear * 12 + newMonth
-      if (targetYM < currentYM || targetYM > currentYM + 3) return
+      if (targetYM < currentYM || targetYM > decemberYM) return
 
       setSelectedDay(null)
       setCurrentYear(newYear)
@@ -652,14 +654,17 @@ function CoachScheduleContent() {
               unavailableDates={unavailableDates}
               onSelectDay={handleSelectDay}
               onConfirmedClick={handleConfirmedClick}
+              onToggleSlot={handleToggleSlot}
+              selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
+              confirmedSlots={currentDayConfirmed}
               onPrevMonth={() => changeMonth(-1)}
               onNextMonth={() => changeMonth(1)}
               canGoPrev={currentYear * 12 + currentMonth > new Date().getFullYear() * 12 + new Date().getMonth()}
-              canGoNext={currentYear * 12 + currentMonth < new Date().getFullYear() * 12 + new Date().getMonth() + 3}
+              canGoNext={currentYear * 12 + currentMonth < new Date().getFullYear() * 12 + 11}
             />
 
-            {/* Day count */}
-            {savedDayCount > 0 && (
+            {/* Day count — removed, time summary shown inline in calendar */}
+            {false && savedDayCount > 0 && (
               <div className="mt-4 text-center text-sm text-[#666]">
                 <span className="font-semibold text-[#2E7D32]">{savedDayCount}일</span> 선택됨
               </div>
@@ -767,21 +772,6 @@ function CoachScheduleContent() {
         </div>
       )}
 
-        {/* Time panel — visible when a day is selected and month is editable */}
-        {selectedDay && isEditable && (
-          <TimePanel
-            month={currentMonth + 1}
-            day={selectedDayNum}
-            selectedSlots={currentDaySlots}
-            confirmedSlots={currentDayConfirmed}
-            confirmedCourseNames={currentDayCourseNames}
-            isUnavailable={selectedDay ? unavailableDates.has(selectedDay) : false}
-            onToggleSlot={handleToggleSlot}
-            onSelectAll={handleSelectAll}
-            onClear={handleClear}
-            onToggleUnavailable={handleToggleUnavailable}
-          />
-        )}
       </div>
 
       {/* Save — mobile: full-width bottom bar, desktop: inline under calendar */}

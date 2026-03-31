@@ -1053,6 +1053,26 @@ function CoachManagementTab() {
             {selectedCoachIds.size > 0 && (
               <>
                 <button
+                  onClick={async () => {
+                    if (!confirm(`선택한 ${selectedCoachIds.size}명의 링크를 재생성하시겠습니까? 기존 링크는 무효화됩니다.`)) return
+                    let success = 0
+                    for (const id of selectedCoachIds) {
+                      try {
+                        const res = await fetch(`/api/coaches/${id}/regenerate-token`, { method: "POST" })
+                        if (res.ok) {
+                          const { accessToken } = await res.json()
+                          setTokenMap((prev) => { const next = new Map(prev); next.set(id, accessToken); return next })
+                          success++
+                        }
+                      } catch {}
+                    }
+                    alert(`${success}명의 링크가 재생성되었습니다`)
+                  }}
+                  className="cursor-pointer rounded-md bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  링크 재생성
+                </button>
+                <button
                   onClick={copyEmails}
                   className="cursor-pointer rounded-md bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
                 >
