@@ -5,7 +5,7 @@ import { ALL_SLOTS, formatRanges } from "./TimePanel"
 const TIME_RANGES = [
   { label: "오전", start: "08:00", end: "13:00" },
   { label: "오후", start: "13:00", end: "18:00" },
-  { label: "야간", start: "18:00", end: "22:00" },
+  { label: "저녁", start: "18:00", end: "22:00" },
   { label: "종일", start: "08:00", end: "22:00" },
 ] as const
 

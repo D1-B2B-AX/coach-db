@@ -539,6 +539,96 @@ function CoachScheduleContent() {
     })
   }, [selectedDay])
 
+  // ─── Fill all future dates as 종일 ──────────────────────────────
+
+  const BULK_RANGES = [
+    { label: "오전", start: "08:00", end: "13:00" },
+    { label: "오후", start: "13:00", end: "18:00" },
+    { label: "저녁", start: "18:00", end: "22:00" },
+    { label: "종일", start: "08:00", end: "22:00" },
+  ] as const
+
+  const handleBulkToggle = useCallback((start: string, end: string) => {
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const lastDate = new Date(currentYear, currentMonth + 1, 0).getDate()
+    const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`
+    const rangeSlots = ALL_SLOTS.filter(s => s >= start && s < end)
+
+    // Check if all future dates already have this range
+    let allFilled = true
+    for (let d = 1; d <= lastDate; d++) {
+      const date = new Date(currentYear, currentMonth, d)
+      if (date < todayStart) continue
+      const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
+      const confirmed = confirmedSlotsMap.get(dateKey) ?? new Set()
+      const daySlots = editingSlots.get(dateKey) ?? new Set()
+      for (const s of rangeSlots) {
+        if (!confirmed.has(s) && !daySlots.has(s)) { allFilled = false; break }
+      }
+      if (!allFilled) break
+    }
+
+    setEditingSlots((prev) => {
+      const next = new Map(prev)
+      for (let d = 1; d <= lastDate; d++) {
+        const date = new Date(currentYear, currentMonth, d)
+        if (date < todayStart) continue
+        const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
+        const confirmed = confirmedSlotsMap.get(dateKey) ?? new Set()
+        const daySlots = new Set(next.get(dateKey) ?? [])
+        for (const s of rangeSlots) {
+          if (!confirmed.has(s)) {
+            if (allFilled) daySlots.delete(s)
+            else daySlots.add(s)
+          }
+        }
+        next.set(dateKey, daySlots)
+      }
+      return next
+    })
+
+    if (!allFilled) {
+      // 불가 날짜도 해제
+      setUnavailableDates((prev) => {
+        const next = new Set(prev)
+        for (let d = 1; d <= lastDate; d++) {
+          const date = new Date(currentYear, currentMonth, d)
+          if (date < todayStart) continue
+          const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
+          next.delete(dateKey)
+        }
+        return next
+      })
+    }
+  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots])
+
+  const bulkStatus = useMemo(() => {
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const lastDate = new Date(currentYear, currentMonth + 1, 0).getDate()
+    const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`
+
+    return BULK_RANGES.map(({ start, end }) => {
+      const rangeSlots = ALL_SLOTS.filter(s => s >= start && s < end)
+      let allFilled = true
+      let hasFutureDays = false
+      for (let d = 1; d <= lastDate; d++) {
+        const date = new Date(currentYear, currentMonth, d)
+        if (date < todayStart) continue
+        hasFutureDays = true
+        const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
+        const confirmed = confirmedSlotsMap.get(dateKey) ?? new Set()
+        const daySlots = editingSlots.get(dateKey) ?? new Set()
+        for (const s of rangeSlots) {
+          if (!confirmed.has(s) && !daySlots.has(s)) { allFilled = false; break }
+        }
+        if (!allFilled) break
+      }
+      return hasFutureDays && allFilled
+    })
+  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots, BULK_RANGES])
+
   // ─── Save ───────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
@@ -777,20 +867,50 @@ function CoachScheduleContent() {
       {/* Save — mobile: full-width bottom bar, desktop: inline under calendar */}
       {isEditable ? (
         <>
-          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:hidden">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className={`block w-full cursor-pointer rounded-lg border-none py-3 text-sm font-semibold transition-all disabled:opacity-50 ${
-                saved
-                  ? "bg-[#2E7D32] text-white"
-                  : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
-              }`}
-            >
-              {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장하기"}
-            </button>
+          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-2.5 backdrop-blur-sm md:hidden">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 shrink-0">전체</span>
+              {BULK_RANGES.map(({ label, start, end }, i) => (
+                <button
+                  key={label}
+                  onClick={() => handleBulkToggle(start, end)}
+                  className={`cursor-pointer rounded-lg border px-2.5 py-2 text-xs font-semibold transition-all ${
+                    bulkStatus[i]
+                      ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                      : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className={`shrink-0 cursor-pointer rounded-lg border-none px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
+                  saved
+                    ? "bg-[#2E7D32] text-white"
+                    : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
+                }`}
+              >
+                {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장"}
+              </button>
+            </div>
           </div>
-          <div className="hidden md:block fixed bottom-5 right-5 z-10">
+          <div className="hidden md:flex fixed bottom-5 right-5 z-10 items-center gap-2 rounded-xl bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm border border-gray-200">
+            <span className="text-xs text-gray-400 shrink-0">전체</span>
+            {BULK_RANGES.map(({ label, start, end }, i) => (
+              <button
+                key={label}
+                onClick={() => handleBulkToggle(start, end)}
+                className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                  bulkStatus[i]
+                    ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                    : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
             <SaveButton
               onSave={handleSave}
               saving={saving}
