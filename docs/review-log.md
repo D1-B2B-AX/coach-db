@@ -467,3 +467,23 @@
 - run-samsung-sync.ts: static import → dynamic import 수정 (dotenv 로드 타이밍)
 - 로컬 DB 비밀번호 설정 (pg 드라이버 SCRAM 인증 대응)
 - .env.local DATABASE_URL 프로덕션→로컬 전환 (dev 서버 재시작 필요)
+
+## 2026-03-30
+
+### Sentry 에러 트래킹 연동
+- @sentry/nextjs SDK 설치 및 클라이언트/서버/엣지 초기화
+- withSentryConfig 래핑, CSP에 Sentry 도메인 추가
+- error.tsx, global-error.tsx에 Sentry.captureException 추가
+- Railway 환경변수 설정 (DSN, AUTH_TOKEN, ORG, PROJECT)
+
+### 코치뷰 UX 개선
+- 프로필 미입력 시 구글폼 안내 팝업 (fields 비어있으면 자동 표시)
+- 과정명 정리: [부가세별도], (B2B) 등 내부 태그 제거, _ → 공백
+- 확정 일정 있는 날 불가 버튼 비활성화
+- 불가 버튼 색상 강화 (빨간 배경 + 흰 텍스트)
+- 스케줄 목록에서 시간 제거, 날짜+과정명만 표시
+- 장소 없으면 숨김, 안내문구 "문의: 담당 매니저"로 간소화
+- 나가기 버튼 제거 (window.close 브라우저 제한)
+- 마지막 저장 시간: 헤더 → 나의 스케줄 섹션 하단으로 이동
+- 활동 중단 신청 기능 추가 (프로필 모달 하단, 사유 입력 → status inactive)
+- 달력 이동 범위 제한 (당월~2개월 후)

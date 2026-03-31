@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
 
@@ -30,11 +31,12 @@ const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
 }
 
 export default function AdminPage() {
+  const router = useRouter()
   const [managers, setManagers] = useState<Manager[]>([])
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("managers")
+  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("links")
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [managerFilter, setManagerFilter] = useState<string | null>("all")
@@ -86,7 +88,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/applications")
       if (res.ok) {
         const data = await res.json()
-        setPendingCoaches(data.coaches || [])
+        setPendingCoaches((data.coaches || []).sort((a: any, b: any) => a.name.localeCompare(b.name, 'ko')))
       }
     } catch (err) { console.error("Failed to fetch pending coaches:", err) }
   }, [])
@@ -234,10 +236,10 @@ export default function AdminPage() {
   }
 
   const TABS = [
-    { key: "managers" as const, label: `매니저 관리 (${managers.length})` },
-    { key: "applications" as const, label: `코치 신청 목록${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
-    { key: "links" as const, label: "코치 관리" },
-    { key: "deleted" as const, label: `코치 삭제 내역 (${deletedCoaches.length})` },
+    { key: "links" as const, label: "일정 등록 링크" },
+    { key: "applications" as const, label: `코치 신청${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
+    { key: "deleted" as const, label: `삭제 내역 (${deletedCoaches.length})` },
+    { key: "managers" as const, label: `매니저 (${managers.length})` },
     { key: "sync" as const, label: "동기화" },
   ]
 
@@ -614,7 +616,7 @@ export default function AdminPage() {
                             })()}
                             <span className="text-xs text-gray-500">{coach.phone}</span>
                             {coach.createdAt && (
-                              <span className="text-[11px] text-gray-300">{new Date(coach.createdAt).toLocaleDateString("ko-KR")}</span>
+                              <span className="text-[11px] text-gray-500">{new Date(coach.createdAt).toLocaleDateString("ko-KR")}</span>
                             )}
                           </div>
                           {coach.fields?.length > 0 && (
@@ -641,16 +643,13 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2 shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={async () => {
-                              if (!confirm(`${coach.name} 코치를 승인하시겠습니까?`)) return
                               const res = await fetch(`/api/admin/applications/${coach.id}`, {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ action: "approve" }),
                               })
                               if (res.ok) {
-                                setToastMessage(`${coach.name} 승인 완료`)
-                                setShowToast(true)
-                                fetchPendingCoaches()
+                                router.push(`/coaches/${coach.id}/edit`)
                               }
                             }}
                             className="cursor-pointer rounded-lg bg-[#E8F5E9] px-3 py-1.5 text-xs font-semibold text-[#2E7D32] hover:bg-[#C8E6C9] transition-colors"
@@ -681,10 +680,15 @@ export default function AdminPage() {
                           {coach.documents?.length > 0 && (
                             <div className="flex gap-2">
                               <span className="shrink-0 w-28 text-xs text-gray-400">포트폴리오</span>
-                              <div className="flex flex-wrap gap-1">
-                                {coach.documents.map((d: any) => (
-                                  <a key={d.id} href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">{d.fileName}</a>
-                                ))}
+                              <div className="flex flex-wrap gap-1.5">
+                                {coach.documents.flatMap((d: any, di: number) => {
+                                  const urls = d.fileUrl.match(/https?:\/\/[^\s,]+/g) || [d.fileUrl]
+                                  return urls.map((url: string, ui: number) => (
+                                    <a key={`${di}-${ui}`} href={url.trim()} target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">
+                                      {urls.length > 1 ? `${d.fileName} (${ui + 1})` : d.fileName}
+                                    </a>
+                                  ))
+                                })}
                               </div>
                             </div>
                           )}
@@ -914,16 +918,18 @@ function CoachManagementTab() {
 
   const total = data.status.notAccessed + data.status.accessedOnly + data.status.completed
 
-  const allCoaches = [
+  const sortByName = (list: any[]) => [...list].sort((a: any, b: any) => a.name.localeCompare(b.name, 'ko'))
+
+  const allCoaches = sortByName([
     ...(data.completedCoaches || []),
     ...(data.accessedOnlyCoaches || []),
     ...(data.notAccessedCoaches || []),
-  ]
+  ])
 
   const cards = [
-    { key: "completed", label: "입력완료", count: data.status.completed, chipColor: "bg-[#E8F5E9] text-[#2E7D32]", activeColor: "bg-[#2E7D32] text-white", list: data.completedCoaches || [] },
-    { key: "accessedOnly", label: "접속만", count: data.status.accessedOnly, chipColor: "bg-[#FFF8E1] text-[#F57F17]", activeColor: "bg-[#F57F17] text-white", list: data.accessedOnlyCoaches || [] },
-    { key: "notAccessed", label: "미확인", count: data.status.notAccessed, chipColor: "bg-[#FBE9E7] text-[#D84315]", activeColor: "bg-[#D84315] text-white", list: data.notAccessedCoaches || [] },
+    { key: "completed", label: "입력완료", count: data.status.completed, chipColor: "bg-[#E8F5E9] text-[#2E7D32]", activeColor: "bg-[#2E7D32] text-white", list: sortByName(data.completedCoaches || []) },
+    { key: "accessedOnly", label: "접속만", count: data.status.accessedOnly, chipColor: "bg-[#FFF8E1] text-[#F57F17]", activeColor: "bg-[#F57F17] text-white", list: sortByName(data.accessedOnlyCoaches || []) },
+    { key: "notAccessed", label: "미확인", count: data.status.notAccessed, chipColor: "bg-[#FBE9E7] text-[#D84315]", activeColor: "bg-[#D84315] text-white", list: sortByName(data.notAccessedCoaches || []) },
     { key: "all", label: "전체", count: total, chipColor: "bg-gray-100 text-gray-500", activeColor: "bg-[#333] text-white", list: allCoaches },
   ]
 
@@ -1117,7 +1123,7 @@ function CoachManagementTab() {
               title={getLink(c.id)}
               onClick={(e) => { e.stopPropagation(); copyCell(`link-${c.id}`, getLink(c.id)) }}
               className="text-sm text-gray-400 truncate cursor-pointer hover:text-[#1976D2] transition-colors"
-            >{copiedCell === `link-${c.id}` ? "복사됨!" : (getLink(c.id) || "-")}</span>
+            >{copiedCell === `link-${c.id}` ? "복사됨!" : (() => { const link = getLink(c.id); if (!link) return "-"; const token = tokenMap.get(c.id) || ""; return token.length > 12 ? `https://....${token.slice(-8)}` : link })()}</span>
           </div>
         ))}
         {visibleCoaches.length === 0 && (

@@ -11,6 +11,8 @@ interface ScheduleCalendarProps {
   onConfirmedClick: (dateKey: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
+  canGoPrev?: boolean
+  canGoNext?: boolean
 }
 
 export default function ScheduleCalendar({
@@ -24,6 +26,8 @@ export default function ScheduleCalendar({
   onConfirmedClick,
   onPrevMonth,
   onNextMonth,
+  canGoPrev = true,
+  canGoNext = true,
 }: ScheduleCalendarProps) {
   const firstDayOfWeek = new Date(year, month, 1).getDay()
   const lastDate = new Date(year, month + 1, 0).getDate()
@@ -44,21 +48,25 @@ export default function ScheduleCalendar({
     <div>
       {/* Month navigation */}
       <div className="mb-4 flex items-center justify-between">
-        <button
-          onClick={onPrevMonth}
-          className="cursor-pointer rounded-lg border border-[#e0e0e0] bg-transparent px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
-        >
-          &#8249; 이전
-        </button>
+        {canGoPrev ? (
+          <button
+            onClick={onPrevMonth}
+            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
+          >
+            &#8249; 이전
+          </button>
+        ) : <div className="w-[72px]" />}
         <span className="text-base font-semibold text-[#333]">
           {year}년 {month + 1}월
         </span>
-        <button
-          onClick={onNextMonth}
-          className="cursor-pointer rounded-lg border border-[#e0e0e0] bg-transparent px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
-        >
-          다음 &#8250;
-        </button>
+        {canGoNext ? (
+          <button
+            onClick={onNextMonth}
+            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
+          >
+            다음 &#8250;
+          </button>
+        ) : <div className="w-[72px]" />}
       </div>
 
       {/* Weekday headers */}
@@ -158,8 +166,8 @@ export default function ScheduleCalendar({
           선택 중
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-[4px] border border-[#e0e0e0] bg-gray-100" />
-          미선택
+          <div className="h-3 w-3 rounded-[4px] bg-[#E53935]" />
+          불가
         </div>
       </div>
     </div>

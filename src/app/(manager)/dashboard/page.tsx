@@ -159,7 +159,11 @@ export default function DashboardPage() {
   }, [fetchCoaches])
 
   // Navigate months
+  const canGoPrev = currentYear * 12 + currentMonth > now.getFullYear() * 12 + now.getMonth()
+  const canGoNext = currentYear * 12 + currentMonth < now.getFullYear() * 12 + now.getMonth() + 3
+
   function handlePrevMonth() {
+    if (!canGoPrev) return
     if (currentMonth === 0) {
       setCurrentYear((y) => y - 1)
       setCurrentMonth(11)
@@ -181,6 +185,7 @@ export default function DashboardPage() {
   }
 
   function handleNextMonth() {
+    if (!canGoNext) return
     if (currentMonth === 11) {
       setCurrentYear((y) => y + 1)
       setCurrentMonth(0)
@@ -283,6 +288,8 @@ export default function DashboardPage() {
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
+          canGoPrev={canGoPrev}
+          canGoNext={canGoNext}
           onToday={handleToday}
           onRefresh={handleSyncAndRefresh}
           syncing={syncing}

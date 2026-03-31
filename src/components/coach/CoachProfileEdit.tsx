@@ -18,6 +18,7 @@ interface Props {
   profile: CoachProfile
   onSaved: () => void
   onClose?: () => void
+  onDeactivated?: () => void
 }
 
 // 구글폼 7-1. 교육 분야 → DB: CoachField (가능 분야)
@@ -42,9 +43,12 @@ const CURRICULUM_SKILL_OPTIONS = [
   "Docker/Kubernetes", "AWS/Azure/GCP", "Figma", "Photoshop",
 ]
 
-export default function CoachProfileEdit({ token, profile, onSaved, onClose }: Props) {
+export default function CoachProfileEdit({ token, profile, onSaved, onClose, onDeactivated }: Props) {
   const [open, setOpen] = useState(true)
   const [phone, setPhone] = useState(profile.phone ?? "")
+  const [showDeactivate, setShowDeactivate] = useState(false)
+  const [deactivateReason, setDeactivateReason] = useState("")
+  const [deactivating, setDeactivating] = useState(false)
   const [email, setEmail] = useState(profile.email ?? "")
   const [affiliation, setAffiliation] = useState(profile.affiliation ?? "")
   const [availDetail, setAvailDetail] = useState(profile.availabilityDetail ?? "")
@@ -276,6 +280,57 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose }: P
             </button>
           )
         })()}
+
+        {/* 활동 중단 */}
+        <div className="mt-6 border-t border-gray-100 pt-4">
+          {!showDeactivate ? (
+            <button
+              onClick={() => setShowDeactivate(true)}
+              className="w-full cursor-pointer text-center text-xs text-gray-400 hover:text-red-400 transition-colors"
+            >
+              활동 중단 신청
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">중단 사유를 입력해주세요</p>
+              <textarea
+                value={deactivateReason}
+                onChange={(e) => setDeactivateReason(e.target.value)}
+                placeholder="사유 입력"
+                rows={2}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-red-300"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowDeactivate(false); setDeactivateReason("") }}
+                  className="flex-1 cursor-pointer rounded-lg border border-gray-200 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!deactivateReason.trim()) return
+                    setDeactivating(true)
+                    try {
+                      const res = await fetch(`/api/coach/me?token=${token}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: "inactive", statusNote: deactivateReason.trim() }),
+                      })
+                      if (res.ok) onDeactivated?.()
+                    } finally {
+                      setDeactivating(false)
+                    }
+                  }}
+                  disabled={!deactivateReason.trim() || deactivating}
+                  className="flex-1 cursor-pointer rounded-lg bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {deactivating ? "처리 중..." : "중단 신청"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
     </div>
   )
 }

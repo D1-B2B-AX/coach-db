@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import CoachHeader from "@/components/coach/CoachHeader"
 import ScheduleCalendar from "@/components/coach/ScheduleCalendar"
 import TimePanel, { ALL_SLOTS } from "@/components/coach/TimePanel"
-import ScheduleSummary from "@/components/coach/ScheduleSummary"
+import ScheduleSummary, { cleanCourseName } from "@/components/coach/ScheduleSummary"
 import SaveButton from "@/components/coach/SaveButton"
 import CoachProfileEdit from "@/components/coach/CoachProfileEdit"
 
@@ -256,7 +256,7 @@ function CoachScheduleContent() {
     const now = new Date()
     const currentYM = now.getFullYear() * 12 + now.getMonth()
     const viewingYM = currentYear * 12 + currentMonth
-    return viewingYM >= currentYM && viewingYM <= currentYM + 1
+    return viewingYM >= currentYM && viewingYM <= currentYM + 2
   }, [currentYear, currentMonth])
 
   // Derived: all dates that have schedule entries (for cross-referencing with engagements)
@@ -393,6 +393,12 @@ function CoachScheduleContent() {
         newYear--
       }
 
+      // 이동 범위 제한: 당월 포함 4개월
+      const now = new Date()
+      const currentYM = now.getFullYear() * 12 + now.getMonth()
+      const targetYM = newYear * 12 + newMonth
+      if (targetYM < currentYM || targetYM > currentYM + 3) return
+
       setSelectedDay(null)
       setCurrentYear(newYear)
       setCurrentMonth(newMonth)
@@ -421,8 +427,17 @@ function CoachScheduleContent() {
   const handleSelectDay = useCallback(
     (dateKey: string, day: number) => {
       if (selectedDay === dateKey) {
-        // Deselect
-        setSelectedDay(null)
+        // 불가 날짜를 다시 클릭하면 불가 해제
+        if (unavailableDates.has(dateKey)) {
+          setUnavailableDates((prev) => {
+            const next = new Set(prev)
+            next.delete(dateKey)
+            return next
+          })
+        } else {
+          // Deselect
+          setSelectedDay(null)
+        }
         return
       }
       setSelectedDay(dateKey)
@@ -438,7 +453,7 @@ function CoachScheduleContent() {
         return prev
       })
     },
-    [selectedDay]
+    [selectedDay, unavailableDates]
   )
 
   const handleConfirmedClick = useCallback(
@@ -556,7 +571,7 @@ function CoachScheduleContent() {
     } finally {
       setSaving(false)
     }
-  }, [currentYear, currentMonth, editingSlots, headers])
+  }, [currentYear, currentMonth, editingSlots, unavailableDates, headers])
 
   // ─── Toast ──────────────────────────────────────────────────────
 
@@ -564,14 +579,6 @@ function CoachScheduleContent() {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(null), 2500)
   }
-
-  // ─── Exit ───────────────────────────────────────────────────────
-
-  const handleExit = useCallback(() => {
-    if (window.confirm("나가시겠습니까? 저장하지 않은 변경사항은 사라집니다.")) {
-      window.close()
-    }
-  }, [])
 
   // ─── Saved stats ────────────────────────────────────────────────
 
@@ -622,7 +629,7 @@ function CoachScheduleContent() {
     ? confirmedSlotsMap.get(selectedDay) ?? new Set<string>()
     : new Set<string>()
   const currentDayCourseNames = selectedDay
-    ? [...new Set(engSchedules.filter(es => es.date === selectedDay && (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")).map(es => es.courseName))]
+    ? [...new Set(engSchedules.filter(es => es.date === selectedDay && (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")).map(es => cleanCourseName(es.courseName)))]
     : []
 
   return (
@@ -632,9 +639,6 @@ function CoachScheduleContent() {
         <div className="w-[480px] overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] max-md:w-full max-md:max-w-[480px]">
           <CoachHeader
             coachName={coachInfo?.name ?? ""}
-            month={currentMonth + 1}
-            lastSavedAt={lastSavedAt}
-            onExit={handleExit}
             onProfile={() => setShowProfile(true)}
           />
 
@@ -650,20 +654,18 @@ function CoachScheduleContent() {
               onConfirmedClick={handleConfirmedClick}
               onPrevMonth={() => changeMonth(-1)}
               onNextMonth={() => changeMonth(1)}
+              canGoPrev={currentYear * 12 + currentMonth > new Date().getFullYear() * 12 + new Date().getMonth()}
+              canGoNext={currentYear * 12 + currentMonth < new Date().getFullYear() * 12 + new Date().getMonth() + 3}
             />
 
             {/* Day count */}
-            <div className="mt-4 text-center text-sm text-[#666]">
-              {savedDayCount > 0 ? (
-                <>
-                  <span className="font-semibold text-[#2E7D32]">{savedDayCount}일</span> 선택됨
-                </>
-              ) : (
-                '날짜를 클릭하여 가능한 일정을 선택해주세요'
-              )}
-            </div>
+            {savedDayCount > 0 && (
+              <div className="mt-4 text-center text-sm text-[#666]">
+                <span className="font-semibold text-[#2E7D32]">{savedDayCount}일</span> 선택됨
+              </div>
+            )}
 
-            <ScheduleSummary engagements={engagements} />
+            <ScheduleSummary engagements={engagements} lastSavedAt={lastSavedAt} />
           </div>
         </div>
 
@@ -754,6 +756,10 @@ function CoachScheduleContent() {
                     fetch(`/api/coach/me?token=${token}`).then(r => r.json()).then(setCoachInfo)
                   }}
                   onClose={() => setShowProfile(false)}
+                  onDeactivated={() => {
+                    setShowProfile(false)
+                    setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
+                  }}
                 />
               ) : null}
             </div>

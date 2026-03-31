@@ -11,6 +11,8 @@ interface DashboardCalendarProps {
   onSelectDate: (dateStr: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
+  canGoPrev?: boolean
+  canGoNext?: boolean
   onToday: () => void
   onRefresh: () => void
   syncing?: boolean
@@ -46,6 +48,8 @@ export default function DashboardCalendar({
   onSelectDate,
   onPrevMonth,
   onNextMonth,
+  canGoPrev = true,
+  canGoNext = true,
   onRefresh,
   syncing = false,
   timeFilter,
@@ -147,25 +151,29 @@ export default function DashboardCalendar({
       {/* Header row */}
       <div className="relative mb-5 flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onPrevMonth}
-            className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+          {canGoPrev ? (
+            <button
+              onClick={onPrevMonth}
+              className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          ) : <div className="w-7" />}
           <h2 className="w-28 text-center text-sm font-semibold tabular-nums text-[#333] sm:w-32 sm:text-sm">
             {yearMonthLabel}
           </h2>
-          <button
-            onClick={onNextMonth}
-            className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          {canGoNext ? (
+            <button
+              onClick={onNextMonth}
+              className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : <div className="w-7" />}
         </div>
       </div>
 
@@ -186,20 +194,6 @@ export default function DashboardCalendar({
           </span>
         ))}
       </div>
-
-      {/* Not-yet-open notice for months beyond next month */}
-      {(() => {
-        const currentYM = today.getFullYear() * 12 + today.getMonth()
-        const viewingYM = year * 12 + month
-        if (viewingYM > currentYM + 1) {
-          return (
-            <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2 text-center text-xs text-gray-400">
-              아직 입력이 열리지 않은 달입니다
-            </div>
-          )
-        }
-        return null
-      })()}
 
       {/* Day cells grid — always 42 cells (6 rows) for stable layout */}
       <div className="grid grid-cols-7 gap-1.5">

@@ -145,13 +145,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   const { year, month, startDate, endDate } = parsed
 
-  // Only allow saving for current month and next month
+  // Only allow saving for current month + 3 months (4 months total)
   const now = new Date()
   const currentYM = now.getFullYear() * 12 + now.getMonth()
   const targetYM = year * 12 + (month - 1)
-  if (targetYM < currentYM || targetYM > currentYM + 1) {
+  if (targetYM < currentYM || targetYM > currentYM + 3) {
     return NextResponse.json(
-      { error: '현재월과 다음달만 스케줄 입력이 가능합니다' },
+      { error: '당월 포함 4개월까지만 스케줄 입력이 가능합니다' },
       { status: 403 }
     )
   }

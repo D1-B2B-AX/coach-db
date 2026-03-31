@@ -43,12 +43,14 @@ export async function PUT(request: NextRequest) {
   if (!coach) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await request.json()
-  const { phone, email, affiliation, availabilityDetail, extraRequest, fields, curriculums } = body as {
+  const { phone, email, affiliation, availabilityDetail, extraRequest, status, statusNote, fields, curriculums } = body as {
     phone?: string | null
     email?: string | null
     affiliation?: string | null
     availabilityDetail?: string | null
     extraRequest?: string | null
+    status?: string
+    statusNote?: string | null
     fields?: string[]
     curriculums?: string[]
   }
@@ -58,6 +60,8 @@ export async function PUT(request: NextRequest) {
   if (email !== undefined) updateData.email = email
   if (affiliation !== undefined) updateData.affiliation = affiliation
   if (availabilityDetail !== undefined) updateData.availabilityDetail = availabilityDetail
+  if (status === "inactive") updateData.status = "inactive"
+  if (statusNote !== undefined) updateData.statusNote = statusNote
 
   // 기타 요청: selfNote에 날짜와 함께 append
   if (extraRequest) {

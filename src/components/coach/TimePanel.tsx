@@ -107,7 +107,7 @@ export default function TimePanel({
       </div>
       {/* Course names now shown inline with confirmed time range */}
       <div className="mb-3 text-center text-[12px] text-[#888]">
-        가능한 시간을 선택해주세요
+        시간을 선택하거나 불가를 눌러주세요
       </div>
 
       {/* Quick select: time-of-day + clear */}
@@ -121,13 +121,15 @@ export default function TimePanel({
           ] as const
         ).map(({ label, start, end }) => {
           const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)
-          const allSelected = rangeSlots.every(
+          const allSelected = !isUnavailable && rangeSlots.every(
             (s) => selectedSlots.has(s) || confirmedSlots.has(s)
           )
           return (
             <button
               key={label}
+              disabled={isUnavailable}
               onClick={() => {
+                if (isUnavailable) return
                 if (allSelected) {
                   for (const s of rangeSlots) {
                     if (!confirmedSlots.has(s) && selectedSlots.has(s)) {
@@ -142,10 +144,12 @@ export default function TimePanel({
                   }
                 }
               }}
-              className={`cursor-pointer rounded-lg border py-2 text-[12px] font-semibold transition-all ${
-                allSelected
-                  ? "border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
-                  : "border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+              className={`rounded-lg border py-2 text-[12px] font-semibold transition-all ${
+                isUnavailable
+                  ? "cursor-not-allowed border-[#e0e0e0] bg-gray-50 text-[#ccc]"
+                  : allSelected
+                    ? "cursor-pointer border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                    : "cursor-pointer border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
               }`}
             >
               {label}
@@ -159,8 +163,8 @@ export default function TimePanel({
             confirmedSlots.size > 0
               ? "cursor-not-allowed border-[#e0e0e0] bg-gray-50 text-[#ccc]"
               : isUnavailable
-                ? "cursor-pointer border-[#E53935] bg-[#E53935] text-white"
-                : "cursor-pointer border-[#e0e0e0] bg-white text-[#999] hover:bg-gray-50"
+                ? "cursor-pointer border-[#E53935] bg-[#E53935] text-white hover:bg-[#C62828]"
+                : "cursor-pointer border-[#E53935]/30 bg-white text-[#E53935] hover:bg-red-50"
           }`}
         >
           불가
@@ -171,6 +175,7 @@ export default function TimePanel({
       {isUnavailable ? (
         <div className="rounded-lg bg-[#FBE9E7] px-4 py-8 text-center text-sm text-[#D84315]">
           이 날은 불가로 표시되었습니다
+          <p className="mt-2 text-xs text-[#D84315]/60">위의 불가 버튼을 다시 누르면 해제됩니다</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-1.5">
@@ -207,20 +212,16 @@ export default function TimePanel({
         </div>
       )}
 
-      {/* Summary */}
-      <div className="mt-3 rounded-lg bg-[#f9f9f9] px-2.5 py-2 text-[11px] leading-relaxed text-[#666]">
-        {isUnavailable ? (
-          <div><strong>불가</strong></div>
-        ) : summaryParts.length > 0 ? (
-          summaryParts.map((p, i) => (
+      {/* Summary — 확정 과정명 + 가용시간만 표시 */}
+      {summaryParts.length > 0 && !isUnavailable && (
+        <div className="mt-3 rounded-lg bg-[#f9f9f9] px-2.5 py-2 text-[11px] leading-relaxed text-[#666]">
+          {summaryParts.map((p, i) => (
             <div key={i}>
               <strong>{p.label}:</strong> {p.text}
             </div>
-          ))
-        ) : (
-          "시간을 선택해주세요"
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

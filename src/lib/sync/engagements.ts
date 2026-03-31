@@ -347,7 +347,8 @@ export async function syncEngagements(): Promise<SyncResult> {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
     const name = String(row[4] || '').trim() // E: 근무자 성명
-    const workType = String(row[5] || '').trim() // F: 담당직무 (실습코치/운영조교 등)
+    const workTypeRaw = String(row[5] || '').trim() // F: 담당직무 (실습코치/운영조교 등)
+    const workType = workTypeRaw ? workTypeRaw.split(',').map(p => p.replace(/\s*\(.*?\)/g, '').trim()).filter(Boolean).join(', ') || null : null
     const courseName = String(row[7] || '').trim() // H: 과정명
     const rateRaw = row[8] // I: 시급
     const startDateRaw = row[9] // J: 고용시작일
@@ -378,17 +379,10 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
-    // DB에 없는 코치는 최근 6개월 계약만 자동 생성
-    // DB에 있는 코치는 기한 무관하게 engagement 추가
-    const isExistingCoach = coachByName.has(name)
-    if (!isExistingCoach) {
-      const sixMonthsAgo = new Date()
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-      sixMonthsAgo.setDate(1)
-      if (startDate < sixMonthsAgo) {
-        result.skipped++
-        continue
-      }
+    // 2025년 9월 이전 계약은 스킵
+    if (startDate < new Date('2025-09-01')) {
+      result.skipped++
+      continue
     }
 
     // 이메일/연락처 추출

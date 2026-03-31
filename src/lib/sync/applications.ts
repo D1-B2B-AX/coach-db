@@ -61,7 +61,8 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
     const birthRaw = String(row[4] || '').trim()
     const email = String(row[5] || '').trim() || null
     const affiliation = String(row[6] || '').trim() || null
-    const workType = String(row[7] || '').trim() || null
+    const workTypeRaw = String(row[7] || '').trim()
+    const workType = workTypeRaw ? workTypeRaw.split(',').map(p => p.replace(/\s*\(.*?\)/g, '').trim()).filter(Boolean).join(', ') || null : null
     const availPeriod = String(row[8] || '').trim()
     const availDetail = String(row[9] || '').trim()
     const fieldRaw1 = String(row[10] || '').trim()

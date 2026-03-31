@@ -16,6 +16,7 @@ interface Engagement {
 
 interface ScheduleSummaryProps {
   engagements: Engagement[]
+  lastSavedAt?: string | null
 }
 
 function formatDateRange(startDate: string, endDate: string): string {
@@ -39,6 +40,16 @@ function formatTimeRange(startTime: string | null, endTime: string | null): stri
   return ` (${startTime}~${endTime})`
 }
 
+/** Remove internal tags like [부가세별도], (B2B) from course names shown to coaches */
+export function cleanCourseName(name: string): string {
+  return name
+    .replace(/\[.*?\]/g, "")
+    .replace(/\(.*?\)/g, " ")
+    .replace(/_/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+}
+
 function statusBadge(status: string) {
   if (status === "scheduled" || status === "in_progress") {
     return (
@@ -50,7 +61,7 @@ function statusBadge(status: string) {
   return null
 }
 
-export default function ScheduleSummary({ engagements }: ScheduleSummaryProps) {
+export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSummaryProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [popupEngagement, setPopupEngagement] = useState<Engagement | null>(null)
 
@@ -97,8 +108,7 @@ export default function ScheduleSummary({ engagements }: ScheduleSummaryProps) {
             onClick={() => setPopupEngagement(eng)}
           >
             <span className="text-[#bbb]">· </span>
-            {formatDateRange(eng.startDate, eng.endDate)} {eng.courseName}
-            {formatTimeRange(eng.startTime, eng.endTime)}
+            {formatDateRange(eng.startDate, eng.endDate)} {cleanCourseName(eng.courseName)}
             {statusBadge(eng.status)}
           </div>
         ))}
@@ -115,19 +125,24 @@ export default function ScheduleSummary({ engagements }: ScheduleSummaryProps) {
           <div>
             <span className="text-xs text-[#999]">- 마지막 투입:</span>{" "}
             {lastEngagement
-              ? `${formatDateRange(lastEngagement.startDate, lastEngagement.endDate)} ${lastEngagement.courseName}`
+              ? `${formatDateRange(lastEngagement.startDate, lastEngagement.endDate)} ${cleanCourseName(lastEngagement.courseName)}`
               : "-"}
           </div>
           <div>
             <span className="text-xs text-[#999]">- 다음 예정:</span>{" "}
             {nextEngagement
-              ? `${formatDateRange(nextEngagement.startDate, nextEngagement.endDate)} ${nextEngagement.courseName}`
+              ? `${formatDateRange(nextEngagement.startDate, nextEngagement.endDate)} ${cleanCourseName(nextEngagement.courseName)}`
               : "-"}
           </div>
           <div>
             <span className="text-xs text-[#999]">- 이번 달 투입:</span> {thisMonthCount}회
           </div>
         </div>
+        {lastSavedAt && (
+          <div className="mt-2 text-right text-[10px] text-[#bbb]">
+            마지막 저장: {(() => { const d = new Date(lastSavedAt); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` })()}
+          </div>
+        )}
       </div>
 
       {/* Confirmed detail popup */}
@@ -139,7 +154,7 @@ export default function ScheduleSummary({ engagements }: ScheduleSummaryProps) {
           />
           <div className="fixed top-1/2 left-1/2 z-20 w-80 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
             <h3 className="mb-3 text-[15px] font-semibold text-[#333]">
-              {popupEngagement.courseName}
+              {cleanCourseName(popupEngagement.courseName)}
             </h3>
             <div className="text-sm text-[#555] leading-relaxed">
               <div>
@@ -147,12 +162,14 @@ export default function ScheduleSummary({ engagements }: ScheduleSummaryProps) {
                 {formatDateRange(popupEngagement.startDate, popupEngagement.endDate)}
                 {formatTimeRange(popupEngagement.startTime, popupEngagement.endTime)}
               </div>
-              <div>
-                <span className="text-sm text-[#999]">장소:</span>{" "}
-                {popupEngagement.location || "-"}
-              </div>
+              {popupEngagement.location && (
+                <div>
+                  <span className="text-sm text-[#999]">장소:</span>{" "}
+                  {popupEngagement.location}
+                </div>
+              )}
               <div className="mt-2 text-xs text-[#bbb]">
-                * 읽기 전용 -- 변경은 담당 OM에게 문의해주세요
+                문의: 담당 매니저
               </div>
             </div>
             <button

@@ -150,12 +150,20 @@ export async function syncSamsungSchedule(): Promise<SyncResult> {
           data: {
             name,
             status: 'active',
+            workType: '삼전 DS',
             accessToken: generateAccessToken(),
           },
         })
         coachId = created.id
         coachByName.set(name, coachId)
         coachesCreated++
+      } else {
+        // 기존 코치: workType에 삼전 DS 없으면 추가
+        const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { workType: true } })
+        if (existing && (!existing.workType || !existing.workType.includes('삼전 DS'))) {
+          const newType = existing.workType ? `${existing.workType}, 삼전 DS` : '삼전 DS'
+          await prisma.coach.update({ where: { id: coachId }, data: { workType: newType } })
+        }
       }
 
       entries.push({ coachId, coachName: name, startDate, endDate: endDate! })
