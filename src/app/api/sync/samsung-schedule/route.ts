@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const checkInId = Sentry.captureCheckIn(
     { monitorSlug: CRON_SLUG, status: 'in_progress' },
     {
-      schedule: { type: 'crontab', value: '0 0 * * 1' },
+      schedule: { type: 'crontab', value: '0 0 * * 2' },
       timezone: 'Asia/Seoul',
     },
   )
