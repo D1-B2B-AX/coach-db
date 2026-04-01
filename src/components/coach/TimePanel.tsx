@@ -25,7 +25,7 @@ function slotLabel(slot: string): string {
 /** Group consecutive 30-min slots into time range strings */
 export function formatRanges(slots: string[]): string {
   if (slots.length === 0) return ""
-  if (slots.length === ALL_SLOTS.length) return "종일 (08:00~22:00)"
+  if (slots.length === ALL_SLOTS.length) return "전일 (08:00~22:00)"
 
   const sorted = [...slots].sort()
   const ranges: string[] = []
@@ -94,7 +94,7 @@ export default function TimePanel({
       const courseText = confirmedCourseNames?.length ? ` · ${confirmedCourseNames.join(", ")}` : ""
       parts.push({ label: "확정", text: formatRanges(confirmedArr) + courseText })
     }
-    if (selectedArr.length > 0) parts.push({ label: "가용", text: formatRanges(selectedArr) })
+    if (selectedArr.length > 0) parts.push({ label: "가능", text: "약 " + formatRanges(selectedArr) })
     return parts
   }, [selectedSlots, confirmedSlots, confirmedCourseNames])
 
@@ -117,7 +117,7 @@ export default function TimePanel({
             { label: "오전", start: "07:00", end: "13:00" },
             { label: "오후", start: "13:00", end: "18:00" },
             { label: "야간", start: "18:00", end: "22:00" },
-            { label: "종일", start: "07:00", end: "22:00" },
+            { label: "전일", start: "07:00", end: "22:00" },
           ] as const
         ).map(({ label, start, end }) => {
           const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)

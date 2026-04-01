@@ -30,8 +30,6 @@ interface DashboardCoachListProps {
   loading: boolean
   timeFilter: string
   onTimeFilterChange: (filter: string) => void
-  customStart: string
-  customEnd: string
   fieldFilter: string
   onFieldFilterChange: (filter: string) => void
   ratingFilter: string
@@ -40,6 +38,8 @@ interface DashboardCoachListProps {
   onStatusFilterChange: (filter: string) => void
   engagementFilter: string
   onEngagementFilterChange: (filter: string) => void
+  scoutedCoachIds?: Set<string>
+  onScoutToggle?: (coachId: string) => void
 }
 
 const RATING_FILTERS = [
@@ -58,10 +58,24 @@ function formatDateLabel(dateStr: string): string {
   return `${m}/${day} (${dow})`
 }
 
-function formatTimeRange(s: CoachSchedule): string {
-  const start = s.startTime.slice(0, 5).replace(/^0/, '')
-  const end = s.endTime.slice(0, 5).replace(/^0/, '')
-  return `${start}~${end}`
+function formatScheduleLabel(schedules: CoachSchedule[]): string {
+  if (schedules.length === 0) return "-"
+  // Merge all schedules to find overall earliest start and latest end
+  let minStart = 24
+  let maxEnd = 0
+  for (const s of schedules) {
+    const sh = parseInt(s.startTime.slice(0, 2), 10)
+    const eh = parseInt(s.endTime.slice(0, 2), 10)
+    if (sh < minStart) minStart = sh
+    if (eh > maxEnd) maxEnd = eh
+  }
+  if (minStart < 13 && maxEnd <= 13) return "오전"
+  if (minStart >= 13 && maxEnd <= 18) return "오후"
+  if (minStart >= 18) return "저녁"
+  if (minStart < 13 && maxEnd > 13 && maxEnd <= 18) return "오전·오후"
+  if (minStart < 13 && maxEnd > 18) return "전일"
+  if (minStart >= 13 && maxEnd > 18) return "오후·저녁"
+  return "오전"
 }
 
 function formatEngagement(eng: { courseName: string; endDate: string } | null): string {
@@ -96,14 +110,14 @@ export default function DashboardCoachList({
   loading,
   timeFilter,
   onTimeFilterChange,
-  customStart,
-  customEnd,
   fieldFilter,
   onFieldFilterChange,
   ratingFilter,
   onRatingFilterChange,
   engagementFilter,
   onEngagementFilterChange,
+  scoutedCoachIds,
+  onScoutToggle,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -122,9 +136,7 @@ export default function DashboardCoachList({
   const filteredCoaches = useMemo(() => {
     return coaches.filter((c) => {
       // Time filter
-      if (timeFilter === "custom") {
-        if (!hasTimeOverlap(c.schedules, customStart, customEnd)) return false
-      } else if (timeFilter !== "all") {
+      if (timeFilter !== "all") {
         const [s, e] = timeFilter.split("-")
         if (!hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)) return false
       }
@@ -152,7 +164,7 @@ export default function DashboardCoachList({
       }
       return true
     })
-  }, [coaches, timeFilter, customStart, customEnd, fieldFilter, ratingFilter, engagementFilter])
+  }, [coaches, timeFilter, fieldFilter, ratingFilter, engagementFilter])
 
   const toggleId = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -201,11 +213,9 @@ export default function DashboardCoachList({
     }
 
     let timePart = ""
-    if (timeFilter === "custom") {
-      timePart = `${customStart.replace(/^0/, "")}~${customEnd.replace(/^0/, "")}`
-    } else if (timeFilter !== "all") {
-      const [s, e] = timeFilter.split("-")
-      timePart = `${s}:00~${e}:00`
+    if (timeFilter !== "all") {
+      const presetLabels: Record<string, string> = { "08-13": "오전", "13-18": "오후", "18-22": "저녁" }
+      timePart = presetLabels[timeFilter] || (() => { const [s, e] = timeFilter.split("-"); return `${s}:00~${e}:00` })()
     }
 
     return (
@@ -237,14 +247,14 @@ export default function DashboardCoachList({
       <div>
         {loading ? (
           <div>
-            <div className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
-              <div className="w-4" /><div>이름</div><div>가용 시간</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
+            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+              <div className="w-4" /><div>이름</div><div>가능 시간대</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
             </div>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+              <div key={i} className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
                 <Skeleton className="h-4 w-4" />
-                <Skeleton className="h-4 w-10" />
-                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-12" />
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-8 mx-auto" />
                 <Skeleton className="h-4 w-6 mx-auto" />
@@ -256,7 +266,7 @@ export default function DashboardCoachList({
         ) : (
           <>
             {/* Table header */}
-            <div className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
               <div className="w-4 flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -266,7 +276,7 @@ export default function DashboardCoachList({
                 />
               </div>
               <div>이름</div>
-              <div>가용 시간</div>
+              <div>가능 시간대</div>
               <div>최근 근무 과정명</div>
               <div className="whitespace-nowrap">누적 근무일</div>
               <div>평점</div>
@@ -280,7 +290,7 @@ export default function DashboardCoachList({
                 <div
                   key={coach.id}
                   onClick={() => router.push(`/coaches/${coach.id}`)}
-                  className={`grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
+                  className={`grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
                     selectedIds.has(coach.id) ? "bg-[#E3F2FD]/50" : ""
                   }`}
                 >
@@ -292,9 +302,24 @@ export default function DashboardCoachList({
                       className="h-4 w-4 rounded border-gray-300 accent-[#1976D2]"
                     />
                   </div>
-                  <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                    {onScoutToggle && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onScoutToggle(coach.id) }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className={`shrink-0 cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                          scoutedCoachIds?.has(coach.id)
+                            ? "bg-[#FFF3E0] text-[#E65100] border border-[#FFB74D]"
+                            : "bg-gray-50 text-gray-300 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        컨택중
+                      </button>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-400 truncate">
-                    {coach.schedules.map(formatTimeRange).join(", ") || "-"}
+                    {formatScheduleLabel(coach.schedules)}
                   </span>
                   <span className="text-xs text-gray-400 truncate">
                     {courseName || "-"}

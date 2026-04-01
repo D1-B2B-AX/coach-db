@@ -1,12 +1,13 @@
 "use client"
 
 import { ALL_SLOTS, formatRanges } from "./TimePanel"
+import { isOff } from "@/lib/holidays"
 
 const TIME_RANGES = [
   { label: "오전", start: "08:00", end: "13:00" },
   { label: "오후", start: "13:00", end: "18:00" },
   { label: "저녁", start: "18:00", end: "22:00" },
-  { label: "종일", start: "08:00", end: "22:00" },
+  { label: "전일", start: "08:00", end: "22:00" },
 ] as const
 
 interface ScheduleCalendarProps {
@@ -23,6 +24,7 @@ interface ScheduleCalendarProps {
   onToggleSlot: (slot: string) => void
   onBulkToggle?: (start: string, end: string) => void
   bulkStatus?: boolean[]
+  scoutingDates?: Map<string, string>
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -41,6 +43,7 @@ export default function ScheduleCalendar({
   onToggleSlot,
   onBulkToggle,
   bulkStatus,
+  scoutingDates,
   onPrevMonth,
   onNextMonth,
   canGoPrev = true,
@@ -119,6 +122,7 @@ export default function ScheduleCalendar({
           const isConfirmed = confirmedDates.has(key)
           const isAvailable = availableDates.has(key)
           const isUnavailable = unavailableDates.has(key)
+          const isScouted = scoutingDates?.has(key) ?? false
           const isSelected = selectedDay === key
 
           let cellClass =
@@ -128,10 +132,16 @@ export default function ScheduleCalendar({
             cellClass += " text-[#ccc] cursor-default"
           } else if (isSelected) {
             cellClass +=
-              " bg-[#FFF3E0] border-2 border-[#FF9800] font-semibold cursor-pointer"
+              " bg-[#ECEFF1] border-2 border-[#546E7A] font-semibold cursor-pointer"
           } else if (isConfirmed) {
             cellClass +=
               " bg-[#1976D2] text-white font-semibold cursor-pointer hover:bg-[#1565C0]"
+          } else if (isScouted && isAvailable) {
+            cellClass +=
+              " bg-[#E8F5E9] border-2 border-[#FFB74D] text-[#2E7D32] font-semibold cursor-pointer hover:bg-[#C8E6C9]"
+          } else if (isScouted) {
+            cellClass +=
+              " border-2 border-[#FFB74D] font-semibold cursor-pointer hover:bg-gray-100"
           } else if (isUnavailable) {
             cellClass +=
               " bg-[#FBE9E7] text-[#D84315] font-semibold cursor-pointer hover:bg-[#FFCCBC]"
@@ -143,12 +153,12 @@ export default function ScheduleCalendar({
           }
 
           if (!isConfirmed && !past && !isSelected) {
-            if (dayOfWeek === 0) cellClass += " text-[#E53935]"
-            if (dayOfWeek === 6) cellClass += " text-[#1565C0]"
+            if (isOff(key, dayOfWeek)) cellClass += " text-[#E53935]"
+            else if (dayOfWeek === 6) cellClass += " text-[#1565C0]"
           }
 
           if (isToday && !isSelected) {
-            cellClass += " border-2 border-[#333]"
+            cellClass += " text-base font-bold underline underline-offset-2"
           }
 
           const handleClick = () => {
@@ -161,12 +171,22 @@ export default function ScheduleCalendar({
           }
 
           return (
-            <div key={key} className={cellClass} onClick={handleClick}>
+            <div key={key} className={cellClass} onClick={handleClick} title={isScouted ? `컨택 예정 (${scoutingDates!.get(key)} 매니저)` : undefined}>
               {d}
             </div>
           )
         })}
       </div>
+
+      {/* Scouting notice for selected day */}
+      {selectedDay && scoutingDates?.has(selectedDay) && (
+        <div className="mt-3 rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2 text-sm">
+          <span className="font-semibold text-[#E65100]">컨택 예정</span>
+          {scoutingDates.get(selectedDay) && (
+            <span className="text-[#795548]"> — {scoutingDates.get(selectedDay)} 매니저</span>
+          )}
+        </div>
+      )}
 
       {/* Time buttons — below calendar, fixed position */}
       {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && (
@@ -177,11 +197,14 @@ export default function ScheduleCalendar({
               const allSelected = rangeSlots.every(
                 (s) => selectedSlots.has(s) || confirmedSlots.has(s)
               )
-              const allConfirmed = rangeSlots.every((s) => confirmedSlots.has(s))
+              const isFullDay = label === "전일"
+              const confirmed = isFullDay
+                ? rangeSlots.every((s) => confirmedSlots.has(s))
+                : rangeSlots.some((s) => confirmedSlots.has(s))
               return (
                 <button
                   key={label}
-                  disabled={allConfirmed}
+                  disabled={confirmed}
                   onClick={() => {
                     if (allSelected) {
                       for (const s of rangeSlots) {
@@ -194,8 +217,8 @@ export default function ScheduleCalendar({
                     }
                   }}
                   className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
-                    allConfirmed
-                      ? "cursor-not-allowed border-[#e0e0e0] bg-gray-50 text-[#ccc]"
+                    confirmed
+                      ? "cursor-not-allowed border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
                       : allSelected
                         ? "cursor-pointer border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
                         : "cursor-pointer border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
@@ -210,7 +233,7 @@ export default function ScheduleCalendar({
             const allSlots = [...selectedSlots].filter(s => !confirmedSlots.has(s)).sort()
             return allSlots.length > 0 ? (
               <div className="mt-2 text-center text-xs text-[#2E7D32]">
-                {formatRanges(allSlots)}
+                약 {formatRanges(allSlots)}
               </div>
             ) : null
           })()}
@@ -220,7 +243,7 @@ export default function ScheduleCalendar({
       {/* Bulk toggle */}
       {onBulkToggle && bulkStatus && (
         <div className="mt-5 flex items-center justify-center gap-1.5">
-          <span className="text-xs text-gray-400">전체</span>
+          <span className="text-xs text-gray-400">모두 선택</span>
           {TIME_RANGES.map(({ label, start, end }, i) => (
             <button
               key={label}

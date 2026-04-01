@@ -167,7 +167,7 @@ export default function DashboardCalendar({
           } else if (isPast) {
             cellClasses += " opacity-35 hover:opacity-60"
           } else if (isToday) {
-            cellClasses += " ring-2 ring-[#1565C0] hover:bg-gray-50"
+            cellClasses += " hover:bg-gray-50"
           } else {
             cellClasses += " hover:bg-gray-50"
           }
@@ -184,7 +184,7 @@ export default function DashboardCalendar({
               onClick={() => onSelectDate(key)}
             >
               <span
-                className={`text-sm font-medium ${dayColor}`}
+                className={`text-sm font-medium ${dayColor}${isToday && !isSelected ? " text-base font-bold underline underline-offset-2" : ""}`}
               >
                 {dayNum}
               </span>

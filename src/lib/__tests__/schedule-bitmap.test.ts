@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ALL_SLOTS, toBitmap, subtractBitmap, toIntervals, hasAvailability } from '../schedule-bitmap'
+import { ALL_SLOTS, toBitmap, subtractBitmap, clearOverlappingPeriods, toIntervals, hasAvailability } from '../schedule-bitmap'
 
 describe('ALL_SLOTS', () => {
   it('has 30 slots from 07:00 to 21:30', () => {
@@ -55,5 +55,45 @@ describe('subtractBitmap + toIntervals', () => {
     const result = subtractBitmap(avail, busy)
     expect(hasAvailability(result)).toBe(false)
     expect(toIntervals(result)).toEqual([])
+  })
+})
+
+describe('clearOverlappingPeriods', () => {
+  it('clears entire 오전 when engagement partially overlaps', () => {
+    // Available 08:00-18:00, busy 09:00-18:00 → remaining 08:00-09:00
+    const avail = toBitmap([{ startTime: '08:00', endTime: '18:00' }])
+    const busy = toBitmap([{ startTime: '09:00', endTime: '18:00' }])
+    const remain = subtractBitmap(avail, busy)
+    const result = clearOverlappingPeriods(remain, busy)
+    // 오전 has busy overlap → cleared, 오후 has busy → cleared
+    expect(toIntervals(result)).toEqual([])
+  })
+
+  it('keeps 저녁 when only 오전+오후 have engagement', () => {
+    // Available 08:00-22:00, busy 09:00-18:00
+    const avail = toBitmap([{ startTime: '08:00', endTime: '22:00' }])
+    const busy = toBitmap([{ startTime: '09:00', endTime: '18:00' }])
+    const remain = subtractBitmap(avail, busy)
+    const result = clearOverlappingPeriods(remain, busy)
+    // 오전 cleared, 오후 cleared, 저녁 untouched
+    expect(toIntervals(result)).toEqual([{ startTime: '18:00', endTime: '22:00' }])
+  })
+
+  it('clears period even for 1-slot overlap', () => {
+    // Available 08:00-18:00, busy 12:30-13:30
+    const avail = toBitmap([{ startTime: '08:00', endTime: '18:00' }])
+    const busy = toBitmap([{ startTime: '12:30', endTime: '13:30' }])
+    const remain = subtractBitmap(avail, busy)
+    const result = clearOverlappingPeriods(remain, busy)
+    // 12:30 is 오전 slot → 오전 cleared, 13:00 is 오후 slot → 오후 cleared
+    expect(toIntervals(result)).toEqual([])
+  })
+
+  it('no engagement = no change', () => {
+    const avail = toBitmap([{ startTime: '08:00', endTime: '18:00' }])
+    const busy = toBitmap([])
+    const remain = subtractBitmap(avail, busy)
+    const result = clearOverlappingPeriods(remain, busy)
+    expect(toIntervals(result)).toEqual([{ startTime: '08:00', endTime: '18:00' }])
   })
 })

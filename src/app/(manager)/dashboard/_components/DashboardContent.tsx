@@ -46,10 +46,11 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
-  const [selectedStart, setSelectedStart] = useState<string | null>(formatDate(now))
+  const [selectedStart, setSelectedStart] = useState<string | null>(null)
   const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
+  const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
   const [statusData, setStatusData] = useState<StatusData | null>(null)
   const [timeFilter, setTimeFilter] = useState<string>(variant === "samsung" ? "08-18" : "all")
   const [fieldFilter, setFieldFilter] = useState<string>("all")
@@ -111,6 +112,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const fetchCoaches = useCallback(async () => {
     if (!selectedStart) {
       setCoaches([])
+      setScoutedCoachIds(new Set())
       return
     }
     setCoachLoading(true)
@@ -125,10 +127,25 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       if (variant === "general") params.set("coachFilter", "exclude-samsung")
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
       const qs = params.toString() ? `?${params}` : ""
-      const res = await fetch(`/api/schedules/${ym}/${day}${qs}`)
-      if (res.ok) {
-        const data = await res.json()
+
+      const scoutParams = new URLSearchParams({ date: selectedStart })
+      if (selectedEnd) scoutParams.set("endDate", selectedEnd)
+
+      const [coachRes, scoutRes] = await Promise.all([
+        fetch(`/api/schedules/${ym}/${day}${qs}`),
+        fetch(`/api/scoutings?${scoutParams}`),
+      ])
+      if (coachRes.ok) {
+        const data = await coachRes.json()
         setCoaches(data.coaches || [])
+      }
+      if (scoutRes.ok) {
+        const data = await scoutRes.json()
+        setScoutedCoachIds(new Set(
+          (data.scoutings || [])
+            .filter((s: { status?: string }) => s.status !== 'cancelled')
+            .map((s: { coachId: string }) => s.coachId)
+        ))
       }
     } catch {
       // silently fail
@@ -256,6 +273,36 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     fetchMonthData()
   }
 
+  async function handleScoutToggle(coachId: string) {
+    console.log('[컨택] 토글:', coachId, 'date:', selectedStart)
+    if (!selectedStart) return
+    try {
+      const res = await fetch('/api/scoutings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachId, date: selectedStart }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setScoutedCoachIds((prev) => {
+          const next = new Set(prev)
+          if (data.action === 'added') next.add(coachId)
+          else next.delete(coachId)
+          return next
+        })
+      } else {
+        const err = await res.json().catch(() => ({}))
+        console.error('컨택 토글 실패:', res.status, err)
+        setToastMessage(`컨택 처리 실패: ${err.error || res.statusText}`)
+        setShowToast(true)
+      }
+    } catch (e) {
+      console.error('컨택 토글 에러:', e)
+      setToastMessage('컨택 처리 중 네트워크 오류')
+      setShowToast(true)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
       {/* Main content: calendar + coach list */}
@@ -292,6 +339,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onStatusFilterChange={setStatusFilter}
           engagementFilter={engagementFilter}
           onEngagementFilterChange={setEngagementFilter}
+          scoutedCoachIds={scoutedCoachIds}
+          onScoutToggle={handleScoutToggle}
         />
       </div>
 

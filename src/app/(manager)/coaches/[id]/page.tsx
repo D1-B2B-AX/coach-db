@@ -379,6 +379,7 @@ export default function CoachDetailPage() {
             engagements={coach.engagements}
             engagementSchedules={coach.engagementSchedules}
             availabilityDetail={coach.availabilityDetail}
+            workType={coach.workType}
           />
         )}
         {activeTab === "engagement" && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
-import { toBitmap, subtractBitmap, toIntervals, hasAvailability } from '@/lib/schedule-bitmap'
+import { toBitmap, subtractBitmap, clearOverlappingPeriods, toIntervals, hasAvailability } from '@/lib/schedule-bitmap'
 import { toDateOnly } from '@/lib/date-utils'
 import { getSamsungExclusions } from '@/lib/samsung-config'
 
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const availBm = toBitmap(availIntervals)
       const busyIntervals = busyMap.get(coachId)?.get(dk) || []
       const busyBm = toBitmap(busyIntervals)
-      let remainBm = subtractBitmap(availBm, busyBm)
+      let remainBm = clearOverlappingPeriods(subtractBitmap(availBm, busyBm), busyBm)
 
       // Apply time filter
       if (filterStart && filterEnd) {
