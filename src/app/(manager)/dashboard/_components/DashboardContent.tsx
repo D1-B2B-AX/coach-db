@@ -51,7 +51,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [statusData, setStatusData] = useState<StatusData | null>(null)
-  const [timeFilter, setTimeFilter] = useState<string>("all")
+  const [timeFilter, setTimeFilter] = useState<string>(variant === "samsung" ? "08-18" : "all")
   const [fieldFilter, setFieldFilter] = useState<string>("all")
   const [ratingFilter, setRatingFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
