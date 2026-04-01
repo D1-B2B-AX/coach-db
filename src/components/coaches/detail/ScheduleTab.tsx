@@ -241,6 +241,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
       setScheduleCache(entries)
     }
     prefetch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId])
 
   function prevMonth() {
