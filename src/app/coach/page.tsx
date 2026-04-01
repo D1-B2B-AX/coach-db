@@ -54,6 +54,13 @@ interface EngagementScheduleEntry {
 
 const UNAVAILABLE_SENTINEL = "00:00" // startTime === endTime === "00:00" → 불가
 
+const BULK_RANGES = [
+  { label: "오전", start: "08:00", end: "13:00" },
+  { label: "오후", start: "13:00", end: "18:00" },
+  { label: "저녁", start: "18:00", end: "22:00" },
+  { label: "종일", start: "08:00", end: "22:00" },
+] as const
+
 /** Convert API schedule ranges → { slotMap, unavailableDates } */
 function schedulesToSlotMap(schedules: ScheduleSlot[]): { slotMap: Map<string, Set<string>>; unavailableDates: Set<string> } {
   const map = new Map<string, Set<string>>()
@@ -567,13 +574,6 @@ function CoachScheduleContent() {
   }, [selectedDay])
 
   // ─── Fill all future dates as 종일 ──────────────────────────────
-
-  const BULK_RANGES = [
-    { label: "오전", start: "08:00", end: "13:00" },
-    { label: "오후", start: "13:00", end: "18:00" },
-    { label: "저녁", start: "18:00", end: "22:00" },
-    { label: "종일", start: "08:00", end: "22:00" },
-  ] as const
 
   const handleBulkToggle = useCallback((start: string, end: string) => {
     const today = new Date()

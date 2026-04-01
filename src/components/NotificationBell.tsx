@@ -22,9 +22,16 @@ export default function NotificationBell() {
   }, [])
 
   useEffect(() => {
-    fetchCount()
+    let cancelled = false
+    async function init() {
+      try {
+        const res = await fetch("/api/notifications/unread-count")
+        if (res.ok && !cancelled) setCount((await res.json()).count)
+      } catch { /* ignore */ }
+    }
+    init()
     const interval = setInterval(fetchCount, 30000)
-    return () => clearInterval(interval)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [fetchCount])
 
   useEffect(() => {

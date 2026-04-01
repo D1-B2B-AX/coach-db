@@ -5,26 +5,23 @@ import { useState, useEffect, useCallback } from "react"
 type SubscriptionState = "prompt" | "granted" | "denied" | "unsupported"
 
 export function usePushSubscription(apiPath: string) {
-  const [state, setState] = useState<SubscriptionState>("unsupported")
+  const [state, setState] = useState<SubscriptionState>(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return "unsupported"
+    }
+    const perm = Notification.permission
+    return perm === "default" ? "prompt" : perm === "granted" ? "granted" : "denied"
+  })
   const [subscribed, setSubscribed] = useState(false)
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setState("unsupported")
-      return
-    }
-
-    const perm = Notification.permission
-    setState(perm === "default" ? "prompt" : perm === "granted" ? "granted" : "denied")
-
-    if (perm === "granted") {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => {
-          setSubscribed(!!sub)
-        })
+    if (state !== "granted") return
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.pushManager.getSubscription().then((sub) => {
+        setSubscribed(!!sub)
       })
-    }
-  }, [])
+    })
+  }, [state])
 
   const subscribe = useCallback(async () => {
     if (!("serviceWorker" in navigator)) return false
