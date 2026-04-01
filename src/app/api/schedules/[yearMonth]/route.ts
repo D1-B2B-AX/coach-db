@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { toDateOnly } from '@/lib/date-utils'
 import { toBitmap, subtractBitmap, hasAvailability } from '@/lib/schedule-bitmap'
+import { getSamsungExclusions } from '@/lib/samsung-config'
 
 type RouteParams = { params: Promise<{ yearMonth: string }> }
 
@@ -36,6 +37,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
   }
 
+  const coachFilter = searchParams.get('coachFilter')
+
   if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(yearMonth)) {
     return NextResponse.json({ error: 'Invalid yearMonth format' }, { status: 400 })
   }
@@ -45,12 +48,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const startDate = toDateOnly(`${yearMonth}-01`)
   const endDate = toDateOnly(`${yearMonth}-${String(lastDay).padStart(2, '0')}`)
 
+  // Build coach filter
+  const coachWhere: Record<string, unknown> = { status: 'active', deletedAt: null }
+
+  if (coachFilter === 'exclude-samsung') {
+    const { excludeDS, excludeDX } = getSamsungExclusions(yearMonth)
+    const notConditions: { workType: { contains: string } }[] = []
+    if (excludeDS) notConditions.push({ workType: { contains: '삼전 DS' } })
+    if (excludeDX) notConditions.push({ workType: { contains: '삼전 DX' } })
+    if (notConditions.length > 0) {
+      coachWhere.NOT = notConditions
+    }
+  } else if (coachFilter === 'samsung-only') {
+    coachWhere.OR = [
+      { workType: { contains: '삼전 DS' } },
+      { workType: { contains: '삼전 DX' } },
+    ]
+  }
+
   // Fetch availability + busy schedules in parallel
   const [availSchedules, busySchedules] = await Promise.all([
     prisma.coachSchedule.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        coach: { status: 'active', deletedAt: null },
+        coach: coachWhere,
       },
       select: { date: true, coachId: true, startTime: true, endTime: true },
     }),
