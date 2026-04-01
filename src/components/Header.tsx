@@ -59,7 +59,7 @@ export default function Header() {
                       : 'text-gray-500 hover:text-[#E65100] hover:bg-gray-50'
                   }`}
                 >
-                  삼전
+                  삼전 대시보드
                 </Link>
               )}
               <Link
@@ -70,7 +70,7 @@ export default function Header() {
                     : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
                 }`}
               >
-                코치
+                전체 코치
               </Link>
             </nav>
           </div>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
 
@@ -332,7 +331,7 @@ export default function AdminPage() {
                 </div>
               </div>
               {/* Table header */}
-              <div className="grid grid-cols-[auto_80px_1fr_80px_auto] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
+              <div className="grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
                 <div className="w-4 flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -344,16 +343,14 @@ export default function AdminPage() {
                 <div>이름</div>
                 <div>이메일</div>
                 <div>역할</div>
-                <div></div>
               </div>
 
               {filteredManagers.map((m) => {
                 const roleCfg = ROLE_CONFIG[m.role] || ROLE_CONFIG.user
-                const hasSamsung = m.role === 'admin' || m.role === 'samsung_admin'
                 return (
                   <div
                     key={m.id}
-                    className={`grid grid-cols-[auto_80px_1fr_80px_auto] items-center gap-5 border-b border-gray-100 px-5 py-2.5 last:border-0 ${
+                    className={`grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-100 px-5 py-2.5 last:border-0 ${
                       selectedIds.has(m.id) ? "bg-[#E3F2FD]/20" : ""
                     }`}
                   >
@@ -377,18 +374,6 @@ export default function AdminPage() {
                       <option value="user">일반</option>
                       <option value="blocked">차단</option>
                     </select>
-                    {hasSamsung ? (
-                      <Link
-                        href="/dashboard/samsung"
-                        className="rounded-full bg-[#FFF3E0] px-2.5 py-1 text-[11px] font-semibold text-[#E65100] hover:bg-[#FFE0B2] transition-colors whitespace-nowrap"
-                      >
-                        삼전 대시보드
-                      </Link>
-                    ) : (
-                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-300 whitespace-nowrap">
-                        삼전 대시보드
-                      </span>
-                    )}
                   </div>
                 )
               })}
