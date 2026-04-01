@@ -1,0 +1,702 @@
+"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import Link from "next/link"
+import { isHoliday } from "@/lib/holidays"
+
+interface Scouting {
+  id: string
+  coachId: string
+  date: string
+  status: string
+  note: string | null
+  courseName: string | null
+  hireStart: string | null
+  hireEnd: string | null
+  scheduleText: string | null
+  coach: {
+    id: string; name: string
+    employeeId?: string | null; email?: string | null
+    phone?: string | null; workType?: string | null
+  }
+  manager: { id: string; name: string }
+}
+
+const STATUS_CONFIG: Record<string, { label: string; className: string; activeClassName: string }> = {
+  all: { label: "전체", className: "bg-gray-100 text-gray-500", activeClassName: "bg-[#333] text-white" },
+  scouting: { label: "컨택중", className: "bg-[#FFF3E0] text-[#F57C00]", activeClassName: "bg-[#F57C00] text-white" },
+  accepted: { label: "수락", className: "bg-[#E8F5E9] text-[#388E3C]", activeClassName: "bg-[#388E3C] text-white" },
+  rejected: { label: "거절", className: "bg-[#FFEBEE] text-[#D32F2F]", activeClassName: "bg-[#D32F2F] text-white" },
+  confirmed: { label: "확정", className: "bg-[#E3F2FD] text-[#1976D2]", activeClassName: "bg-[#1976D2] text-white" },
+  cancelled: { label: "취소", className: "bg-gray-100 text-gray-400", activeClassName: "bg-gray-500 text-white" },
+}
+
+function formatFullDate(d: string): string {
+  const date = new Date(d)
+  const days = ["일", "월", "화", "수", "목", "금", "토"]
+  const yy = String(date.getFullYear()).slice(2)
+  return `${yy}.${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`
+}
+
+function parseTimeValue(s: string): string {
+  const dot = s.match(/^(\d{1,2})\.(\d+)$/)
+  if (dot) {
+    const h = dot[1].padStart(2, "0")
+    const m = String(Math.round(parseFloat("0." + dot[2]) * 60)).padStart(2, "0")
+    return `${h}:${m}`
+  }
+  const colon = s.match(/^(\d{1,2}):(\d{2})$/)
+  if (colon) return `${colon[1].padStart(2, "0")}:${colon[2]}`
+  const plain = s.match(/^(\d{1,2})$/)
+  if (plain) return `${plain[1].padStart(2, "0")}:00`
+  return ""
+}
+
+function parseTimeRange(input: string): { start: string; end: string } | null {
+  const parts = input.replace(/\s/g, "").split("~")
+  if (parts.length !== 2) return null
+  const start = parseTimeValue(parts[0])
+  const end = parseTimeValue(parts[1])
+  if (!start || !end) return null
+  return { start, end }
+}
+
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]
+
+function calcBreakAndTotal(startTime: string, endTime: string): { breakH: number; totalH: number } {
+  const [sh, sm] = startTime.split(":").map(Number)
+  const [eh, em] = endTime.split(":").map(Number)
+  const spanH = (eh * 60 + em - sh * 60 - sm) / 60
+  const breakH = spanH >= 8 ? 1 : spanH >= 4 ? 0.5 : 0
+  return { breakH, totalH: spanH - breakH }
+}
+
+function formatScheduleLine(dateStr: string, startTime: string, endTime: string): string {
+  const date = new Date(dateStr + "T12:00:00Z")
+  const dayName = DAY_NAMES[date.getUTCDay()]
+  const { breakH, totalH } = calcBreakAndTotal(startTime, endTime)
+  const breakStr = breakH === 1 ? "1H" : breakH === 0.5 ? "30M" : "0"
+  return `${dateStr}(${dayName}) ${startTime} ~ ${endTime} (휴게 ${breakStr}, 총 ${totalH}H)`
+}
+
+const SHEET_HEADERS = [
+  "계약서 발송 여부", "신규\n조교", "No.", "사번", "근무자 성명",
+  "담당직무", "담당Manager", "과정명", "기준시급/월급여",
+  "고용시작일", "고용종료일", "퇴사일",
+  "소정근로일별 근로시간(휴게시간)\n일 최대 8H, 4시간 근로시 휴게 0.5H 필수",
+  "E-mail 주소", "연락처", "연락처 뒷자리 4자리",
+  "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
+]
+
+export default function MyPage() {
+  const [scoutings, setScoutings] = useState<Scouting[]>([])
+  const [managerId, setManagerId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [updating, setUpdating] = useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
+
+  // 과정 정보
+  const [courseName, setCourseName] = useState("")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [dateTimes, setDateTimes] = useState<Record<string, string>>({})
+  const [allTimeInput, setAllTimeInput] = useState("")
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    async function fetchMe() {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setManagerId(data.id)
+        } else {
+          console.error("[mypage] /api/auth/me failed:", res.status)
+        }
+      } catch (e) { console.error("[mypage] fetchMe error:", e) }
+    }
+    fetchMe()
+  }, [])
+
+  const fetchScoutings = useCallback(async () => {
+    if (!managerId) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/scoutings?managerId=${managerId}`)
+      if (res.ok) {
+        const data = await res.json()
+        console.log("[mypage] scoutings:", data.scoutings?.length)
+        setScoutings(data.scoutings || [])
+      } else {
+        console.error("[mypage] /api/scoutings failed:", res.status, await res.text())
+      }
+    } catch (e) { console.error("[mypage] fetchScoutings error:", e) }
+    finally { setLoading(false) }
+  }, [managerId])
+
+  useEffect(() => {
+    fetchScoutings()
+  }, [fetchScoutings])
+
+  const dateChips = useMemo(() => {
+    if (!startDate || !endDate) return []
+    const dates: { date: string; dayOfMonth: number; isOff: boolean }[] = []
+    const cursor = new Date(startDate + "T12:00:00Z")
+    const end = new Date(endDate + "T12:00:00Z")
+    while (cursor <= end) {
+      const dateStr = cursor.toISOString().slice(0, 10)
+      const dow = cursor.getUTCDay()
+      dates.push({ date: dateStr, dayOfMonth: cursor.getUTCDate(), isOff: dow === 0 || dow === 6 || isHoliday(dateStr) })
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+    return dates
+  }, [startDate, endDate])
+
+  const weekGroups = useMemo(() => {
+    const groups: typeof dateChips[] = []
+    let current: typeof dateChips = []
+    for (let i = 0; i < dateChips.length; i++) {
+      current.push(dateChips[i])
+      if (i < dateChips.length - 1) {
+        const curr = new Date(dateChips[i].date + "T12:00:00Z")
+        const next = new Date(dateChips[i + 1].date + "T12:00:00Z")
+        const diff = (next.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24)
+        if (diff > 1) {
+          groups.push(current)
+          current = []
+        }
+      }
+    }
+    if (current.length > 0) groups.push(current)
+    return groups
+  }, [dateChips])
+
+  useEffect(() => {
+    if (dateChips.length > 0) {
+      setSelectedDates(new Set(dateChips.filter(d => !d.isOff).map(d => d.date)))
+    } else {
+      setSelectedDates(new Set())
+    }
+  }, [dateChips])
+
+  const defaultTime = useMemo(() => {
+    for (const d of dateChips) {
+      if (selectedDates.has(d.date) && dateTimes[d.date]?.trim()) return dateTimes[d.date].trim()
+    }
+    return ""
+  }, [dateChips, selectedDates, dateTimes])
+
+  const outputLines = useMemo(() => {
+    if (!defaultTime || selectedDates.size === 0) return []
+    return dateChips
+      .filter(d => selectedDates.has(d.date))
+      .map(d => {
+        const t = parseTimeRange(dateTimes[d.date]?.trim() || defaultTime)
+        if (!t) return null
+        return formatScheduleLine(d.date, t.start, t.end)
+      })
+      .filter((l): l is string => l !== null)
+  }, [dateChips, selectedDates, dateTimes, defaultTime])
+
+  function toggleDate(dateStr: string) {
+    setSelectedDates(prev => {
+      const next = new Set(prev)
+      if (next.has(dateStr)) next.delete(dateStr)
+      else next.add(dateStr)
+      return next
+    })
+  }
+
+  function toggleRow(id: string) {
+    setSelectedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllVisible() {
+    if (selectedRows.size === filtered.length && filtered.length > 0) {
+      setSelectedRows(new Set())
+    } else {
+      setSelectedRows(new Set(filtered.map(s => s.id)))
+    }
+  }
+
+  function buildSheetRow(s: Scouting): string[] {
+    const c = s.coach
+    const isNew = !c.employeeId
+    const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
+    return [
+      "",                                  // 계약서 발송 여부 (빈칸)
+      isNew ? "V" : "",                    // 신규조교 (사번 없으면 체크)
+      "",                                  // No. (빈칸)
+      c.employeeId || "",                  // 사번
+      c.name,                              // 성명
+      workType,                            // 담당직무
+      s.manager.name,                      // 담당Manager
+      s.courseName || "",                  // 과정명 (DB 저장값)
+      "15000",                             // 기준시급
+      s.hireStart || "",                   // 고용시작일 (DB 저장값)
+      s.hireEnd || "",                     // 고용종료일 (DB 저장값)
+      "",                                  // 퇴사일 (비워둘것)
+      s.scheduleText || "",               // 근로시간 (DB 저장값)
+      c.email || "",                       // Email
+      c.phone || "",                       // 연락처
+      "",                                  // 뒷자리 (비워둘것)
+      "",                                  // 비고 (비워둘것)
+    ]
+  }
+
+  function tsvCell(v: string): string {
+    return v.includes("\t") || v.includes("\n") || v.includes('"')
+      ? '"' + v.replace(/"/g, '""') + '"' : v
+  }
+
+  async function exportRows(mode: "copy" | "excel") {
+    const selected = filtered.filter(s => selectedRows.has(s.id))
+    console.log("[exportRows]", { mode, selectedLen: selected.length, selectedRowsSize: selectedRows.size, filteredLen: filtered.length })
+    if (selected.length === 0) return
+    setExporting(true)
+    try {
+      const rows = selected.map(s => buildSheetRow(s))
+      if (mode === "copy") {
+        const tsv = rows.map(r => r.map(tsvCell).join("\t")).join("\n")
+        await navigator.clipboard.writeText(tsv)
+      } else {
+        const XLSX = await import("xlsx")
+        const wb = XLSX.utils.book_new()
+        const ws = XLSX.utils.aoa_to_sheet([SHEET_HEADERS, ...rows])
+        XLSX.utils.book_append_sheet(wb, ws, "구인이력")
+        XLSX.writeFile(wb, "구인이력.xlsx")
+      }
+    } finally { setExporting(false) }
+  }
+
+  async function updateStatus(id: string, status: "confirmed" | "cancelled" | "scouting" | "accepted") {
+    setUpdating(id)
+    try {
+      const body: Record<string, string> = { status }
+      if (status === "confirmed") {
+        if (courseName) body.courseName = courseName
+        if (startDate) body.hireStart = startDate
+        if (endDate) body.hireEnd = endDate
+        if (outputLines.length > 0) body.scheduleText = outputLines.join("\n")
+      }
+      const res = await fetch(`/api/scoutings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        setScoutings(prev =>
+          prev.map(s => s.id === id ? {
+            ...s, status,
+            ...(status === "confirmed" && {
+              courseName: courseName || s.courseName,
+              hireStart: startDate || s.hireStart,
+              hireEnd: endDate || s.hireEnd,
+              scheduleText: outputLines.length > 0 ? outputLines.join("\n") : s.scheduleText,
+            }),
+          } : s)
+        )
+        if (status === "confirmed") {
+          setConfirmTarget(null)
+          const found = scoutings.find(x => x.id === id)
+          if (found) {
+            const row = buildSheetRow({
+              ...found,
+              courseName: courseName || found.courseName,
+              hireStart: startDate || found.hireStart,
+              hireEnd: endDate || found.hireEnd,
+              scheduleText: outputLines.length > 0 ? outputLines.join("\n") : found.scheduleText,
+            })
+            await navigator.clipboard.writeText(row.map(tsvCell).join("\t"))
+            setCopiedId(id)
+            setTimeout(() => setCopiedId(null), 3000)
+          }
+        }
+      }
+    } catch { /* */ }
+    finally { setUpdating(null) }
+  }
+
+  const counts = useMemo(() => ({
+    all: scoutings.length,
+    scouting: scoutings.filter(s => s.status === "scouting").length,
+    accepted: scoutings.filter(s => s.status === "accepted").length,
+    rejected: scoutings.filter(s => s.status === "rejected").length,
+    confirmed: scoutings.filter(s => s.status === "confirmed").length,
+    cancelled: scoutings.filter(s => s.status === "cancelled").length,
+  }), [scoutings])
+
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return scoutings
+    return scoutings.filter(s => s.status === statusFilter)
+  }, [scoutings, statusFilter])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Scouting[]>()
+    for (const s of filtered) {
+      const key = s.date.slice(0, 10)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(s)
+    }
+    return map
+  }, [filtered])
+
+  const sortedDates = useMemo(() =>
+    [...grouped.keys()].sort((a, b) => b.localeCompare(a)),
+    [grouped]
+  )
+
+  const allChecked = filtered.length > 0 && selectedRows.size === filtered.length
+
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6">
+
+      <div className="flex items-center gap-2 mb-4">
+        {(["all", "scouting", "accepted", "rejected", "confirmed", "cancelled"] as const).map((key) => {
+          const cfg = STATUS_CONFIG[key]
+          const active = statusFilter === key
+          return (
+            <button
+              key={key}
+              onClick={() => { setStatusFilter(key); setSelectedRows(new Set()) }}
+              className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                active ? cfg.activeClassName : cfg.className
+              }`}
+            >
+              {cfg.label} ({counts[key]})
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 다중 선택 액션 바 */}
+      {selectedRows.size > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[11px] text-gray-500">{selectedRows.size}건 선택</span>
+          <button
+            onClick={() => exportRows("copy")}
+            disabled={exporting}
+            className="cursor-pointer rounded-full px-3 py-1 text-[11px] font-medium bg-[#333] text-white hover:bg-[#555] transition-colors disabled:opacity-50"
+          >
+            복사
+          </button>
+          <button
+            onClick={() => exportRows("excel")}
+            disabled={exporting}
+            className="cursor-pointer rounded-full px-3 py-1 text-[11px] font-medium bg-[#1B5E20] text-white hover:bg-[#2E7D32] transition-colors disabled:opacity-50"
+          >
+            엑셀
+          </button>
+        </div>
+      )}
+
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
+        <div className="grid grid-cols-[32px_56px_88px_1fr_auto] items-center gap-x-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-[11px] font-semibold text-gray-400">
+          <input
+            type="checkbox"
+            checked={allChecked}
+            onChange={toggleAllVisible}
+            className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
+          />
+          <div>상태</div>
+          <div>날짜</div>
+          <div>코치</div>
+          <div />
+        </div>
+
+        {loading ? (
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-5 py-16 text-center text-sm text-gray-400">
+            {statusFilter === "all" ? "구인 내역이 없습니다" : "해당 상태의 내역이 없습니다"}
+          </div>
+        ) : (
+          sortedDates.map(dateKey => {
+            const items = grouped.get(dateKey)!
+            return items.map((s, si) => {
+              const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.scouting
+              const isUpdating = updating === s.id
+              const isConfirming = confirmTarget === s.id
+              const showDate = si === 0
+              return (
+                <div
+                  key={s.id}
+                  className={`border-b border-gray-100 last:border-0 transition-all ${
+                    s.status === "cancelled" ? "opacity-50 hover:opacity-100" : "hover:bg-gray-50"
+                  } ${selectedRows.has(s.id) ? "bg-blue-50/50" : ""}`}
+                >
+                  <div className="grid grid-cols-[32px_56px_88px_1fr_auto] items-center gap-x-3 px-5 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.has(s.id)}
+                      onChange={() => toggleRow(s.id)}
+                      className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
+                    />
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-center whitespace-nowrap ${cfg.className}`}>
+                      {copiedId === s.id ? "복사됨!" : cfg.label}
+                    </span>
+                    {showDate ? (
+                      <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap">
+                        {formatFullDate(dateKey)}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <Link
+                      href={`/coaches/${s.coachId}`}
+                      className="text-sm font-medium text-[#333] hover:text-[#1976D2] transition-colors truncate"
+                    >
+                      {s.coach.name}
+                    </Link>
+
+                    {s.status === "scouting" && !isConfirming ? (
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="rounded-full px-2.5 py-1 text-[10px] font-medium bg-[#FFF3E0] text-[#F57C00]">
+                          코치 수락 대기중
+                        </span>
+                        <button
+                          onClick={() => updateStatus(s.id, "cancelled")}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : s.status === "accepted" && !isConfirming ? (
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => setConfirmTarget(s.id)}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#E3F2FD] text-[#1976D2] hover:bg-[#BBDEFB] transition-colors disabled:opacity-50"
+                        >
+                          확정
+                        </button>
+                        <button
+                          onClick={() => updateStatus(s.id, "cancelled")}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : s.status === "rejected" ? (
+                      <button
+                        onClick={() => updateStatus(s.id, "scouting")}
+                        disabled={isUpdating}
+                        className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFF3E0] text-[#F57C00] hover:bg-[#FFE0B2] transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isUpdating ? "..." : "재섭외"}
+                      </button>
+                    ) : s.status === "confirmed" && !isConfirming ? (
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setCourseName(s.courseName || "")
+                            setStartDate(s.hireStart || "")
+                            setEndDate(s.hireEnd || "")
+                            if (s.scheduleText) {
+                              const lines = s.scheduleText.split("\n")
+                              const times: Record<string, string> = {}
+                              for (const line of lines) {
+                                const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
+                                if (m) times[m[1]] = `${m[2]}~${m[3]}`
+                              }
+                              setDateTimes(times)
+                              const firstTime = Object.values(times)[0] || ""
+                              setAllTimeInput(firstTime)
+                            } else {
+                              setDateTimes({})
+                              setAllTimeInput("")
+                            }
+                            setConfirmTarget(s.id)
+                          }}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => updateStatus(s.id, "cancelled")}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-red-50 text-red-400 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : s.status === "cancelled" ? (
+                      <button
+                        onClick={() => updateStatus(s.id, "scouting")}
+                        disabled={isUpdating}
+                        className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFF3E0] text-[#F57C00] hover:bg-[#FFE0B2] transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isUpdating ? "..." : "복구"}
+                      </button>
+                    ) : <div />}
+                  </div>
+
+                  {isConfirming && (
+                    <div className="px-5 pb-4 pt-1 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400 shrink-0">과정명:</span>
+                        <input
+                          type="text"
+                          value={courseName}
+                          onChange={(e) => setCourseName(e.target.value)}
+                          placeholder="선택"
+                          autoFocus={!courseName}
+                          onKeyDown={(e) => { if (e.key === "Escape") setConfirmTarget(null) }}
+                          className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400 shrink-0">기간:</span>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
+                        />
+                        <span className="text-xs text-gray-400">~</span>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
+                        />
+                      </div>
+
+                      {weekGroups.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-gray-400 shrink-0">시간 일괄 입력:</span>
+                            <input
+                              type="text"
+                              value={allTimeInput}
+                              onChange={(e) => {
+                                setAllTimeInput(e.target.value)
+                                const v = e.target.value
+                                setDateTimes(prev => {
+                                  const next = { ...prev }
+                                  for (const d of dateChips) {
+                                    if (selectedDates.has(d.date)) next[d.date] = v
+                                  }
+                                  return next
+                                })
+                              }}
+                              placeholder="9~18"
+                              className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+                            />
+                            {[["09:00~18:00", "09:00-18:00"], ["08:30~17:30", "08:30-17:30"]].map(([v, label]) => (
+                              <button
+                                key={v}
+                                onClick={() => {
+                                  setAllTimeInput(v)
+                                  setDateTimes(prev => {
+                                    const next = { ...prev }
+                                    for (const d of dateChips) {
+                                      if (selectedDates.has(d.date)) next[d.date] = v
+                                    }
+                                    return next
+                                  })
+                                }}
+                                className={`cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
+                                  allTimeInput === v
+                                    ? "bg-[#1976D2] text-white"
+                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {weekGroups.map((group, gi) => (
+                            <div key={gi} className="flex items-center gap-2 flex-wrap">
+                              {group.map((d) => {
+                                const selected = selectedDates.has(d.date)
+                                const dayName = DAY_NAMES[new Date(d.date + "T12:00:00Z").getUTCDay()]
+                                return (
+                                  <div key={d.date} className="flex items-center gap-0.5">
+                                    <button
+                                      onClick={() => toggleDate(d.date)}
+                                      className={`cursor-pointer rounded-l-lg px-1.5 py-1 text-[11px] font-semibold transition-colors ${
+                                        selected
+                                          ? "bg-[#1976D2] text-white"
+                                          : d.isOff
+                                            ? "bg-red-50 text-red-300"
+                                            : "bg-gray-100 text-gray-300"
+                                      }`}
+                                    >
+                                      {d.dayOfMonth}({dayName})
+                                    </button>
+                                    {selected && (
+                                      <input
+                                        type="text"
+                                        value={dateTimes[d.date] || ""}
+                                        onChange={(e) => setDateTimes(prev => ({ ...prev, [d.date]: e.target.value }))}
+                                        placeholder={defaultTime || "09:00~18:00"}
+                                        className="w-24 rounded-r-lg border border-l-0 border-gray-200 px-1.5 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+                                      />
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {outputLines.length > 0 && (
+                        <div className="rounded-lg bg-gray-50 px-3 py-2 space-y-0.5">
+                          {outputLines.map((line) => (
+                            <div key={line} className="text-[11px] text-gray-500 font-mono">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateStatus(s.id, "confirmed")}
+                          disabled={isUpdating}
+                          className="cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50"
+                        >
+                          {isUpdating ? "..." : "확정"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmTarget(null)}
+                          className="cursor-pointer rounded-full px-2 py-1.5 text-[11px] text-gray-400 hover:text-gray-600"
+                        >
+                          닫기
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          })
+        )}
+      </div>
+
+      {/* 일련의 과정 — 연결 영역 (별도 작업에서 구현 예정) */}
+      <div className="mt-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-8 text-center">
+        <p className="text-sm text-gray-300">일련의 과정 — 준비 중</p>
+      </div>
+    </div>
+  )
+}

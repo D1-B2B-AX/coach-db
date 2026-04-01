@@ -44,6 +44,9 @@ model Coach {
   accessLogs  ScheduleAccessLog[]
   engagements          Engagement[]
   engagementSchedules  EngagementSchedule[]
+  scoutings            Scouting[]
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
 
   @@map("coaches")
 }
@@ -52,6 +55,7 @@ model Coach {
 
 enum ManagerRole {
   admin
+  samsung_admin
   user
   blocked
 }
@@ -64,7 +68,42 @@ model Manager {
   role      ManagerRole @default(user)
   createdAt DateTime    @default(now()) @map("created_at")
 
+  scoutings         Scouting[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+
   @@map("managers")
+}
+
+// ─── 섭외 ───
+
+enum ScoutingStatus {
+  scouting
+  accepted
+  rejected
+  confirmed
+  cancelled
+}
+
+model Scouting {
+  id        String         @id @default(uuid())
+  coachId   String         @map("coach_id")
+  managerId String         @map("manager_id")
+  date      DateTime       @db.Date
+  note       String?        @db.VarChar(100)
+  status     ScoutingStatus @default(scouting)
+  courseName    String?   @map("course_name") @db.VarChar(200)
+  hireStart     String?   @map("hire_start") @db.VarChar(10)
+  hireEnd       String?   @map("hire_end") @db.VarChar(10)
+  scheduleText  String?   @map("schedule_text") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  coach   Coach   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  manager Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
+
+  @@unique([coachId, date, managerId])
+  @@index([coachId, date])
+  @@map("scoutings")
 }
 
 // ─── 마스터 테이블 ───
@@ -246,4 +285,50 @@ model SyncLog {
   finishedAt  DateTime? @map("finished_at")
 
   @@map("sync_logs")
+}
+
+// ─── 알림 ───
+
+model Notification {
+  id        String    @id @default(uuid())
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(200)
+  body      String    @db.Text
+  data      Json?
+
+  managerId String?   @map("manager_id")
+  coachId   String?   @map("coach_id")
+
+  readAt    DateTime? @map("read_at")
+  expiredAt DateTime? @map("expired_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  manager   Manager?  @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  coach     Coach?    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([managerId, readAt])
+  @@index([coachId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ─── Push 구독 ───
+
+model PushSubscription {
+  id       String  @id @default(uuid())
+  endpoint String  @unique @db.Text
+  p256dh   String  @db.Text
+  auth     String  @db.VarChar(100)
+
+  managerId String? @map("manager_id")
+  coachId   String? @map("coach_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  manager   Manager? @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  coach     Coach?   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([managerId])
+  @@index([coachId])
+  @@map("push_subscriptions")
 }

@@ -1,0 +1,98 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { requireManager } from '@/lib/api-auth'
+import { canTransition, getNotificationTrigger } from '@/lib/scouting-state-machine'
+import { createNotification } from '@/lib/notification-service'
+import type { ScoutingStatus } from '@/generated/prisma/client'
+
+type RouteParams = { params: Promise<{ id: string }> }
+
+// PATCH /api/scoutings/:id — update scouting status (manager)
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const auth = await requireManager()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const { status, courseName, hireStart, hireEnd, scheduleText } = (await request.json()) as {
+    status: string; courseName?: string; hireStart?: string; hireEnd?: string; scheduleText?: string
+  }
+
+  const scouting = await prisma.scouting.findUnique({
+    where: { id },
+    include: {
+      coach: { select: { id: true, name: true, accessToken: true } },
+      manager: { select: { id: true, name: true } },
+    },
+  })
+  if (!scouting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (scouting.managerId !== auth.manager.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // canTransition 기반 검증
+  if (!canTransition(scouting.status, status as ScoutingStatus, 'manager')) {
+    const message = scouting.status === 'scouting' && status === 'confirmed'
+      ? '코치 수락이 필요합니다'
+      : '유효하지 않은 상태 전이입니다'
+    return NextResponse.json({ error: message }, { status: 409 })
+  }
+
+  const updated = await prisma.scouting.update({
+    where: { id },
+    data: {
+      status: status as ScoutingStatus,
+      ...(courseName !== undefined && { courseName }),
+      ...(hireStart !== undefined && { hireStart }),
+      ...(hireEnd !== undefined && { hireEnd }),
+      ...(scheduleText !== undefined && { scheduleText }),
+    },
+    select: { id: true, status: true, courseName: true, hireStart: true, hireEnd: true, scheduleText: true },
+  })
+
+  // 알림 트리거
+  const trigger = getNotificationTrigger(scouting.status, status as ScoutingStatus)
+  if (trigger) {
+    const dateStr = scouting.date.toISOString().slice(0, 10)
+    const clickUrl = trigger.recipientRole === 'coach'
+      ? `/coach?token=${scouting.coach.accessToken}`
+      : `/coaches/${scouting.coachId}`
+
+    await createNotification({
+      trigger,
+      recipientCoachId: trigger.recipientRole === 'coach' ? scouting.coachId : undefined,
+      recipientManagerId: trigger.recipientRole === 'manager' ? scouting.managerId : undefined,
+      data: {
+        scoutingId: scouting.id,
+        coachId: scouting.coachId,
+        managerId: scouting.managerId,
+        coachName: scouting.coach.name,
+        managerName: scouting.manager.name,
+        date: dateStr,
+        courseName: scouting.courseName || undefined,
+        accessToken: scouting.coach.accessToken,
+        clickUrl,
+      },
+    })
+  }
+
+  // 확정 시 코치 정보를 응답에 포함 (클립보드 복사용)
+  if (status === 'confirmed') {
+    const coach = scouting.coach
+    const dateStr = scouting.date.toISOString().slice(0, 10)
+    return NextResponse.json({
+      ...updated,
+      sheetRow: {
+        employeeId: (await prisma.coach.findUnique({ where: { id: scouting.coachId }, select: { employeeId: true } }))?.employeeId || '',
+        name: coach.name,
+        workType: '',
+        managerName: auth.manager.name,
+        startDate: dateStr,
+        email: '',
+        phone: '',
+        phoneLast4: '',
+      },
+    })
+  }
+
+  return NextResponse.json(updated)
+}

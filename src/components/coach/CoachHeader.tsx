@@ -1,12 +1,16 @@
 "use client"
 
+import CoachNotificationBell from "./CoachNotificationBell"
+
 interface CoachHeaderProps {
   coachName: string
+  token?: string
   onProfile?: () => void
 }
 
 export default function CoachHeader({
   coachName,
+  token,
   onProfile,
 }: CoachHeaderProps) {
   return (
@@ -21,6 +25,7 @@ export default function CoachHeader({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {token && <CoachNotificationBell token={token} />}
           {onProfile && (
             <button
               onClick={onProfile}

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
 
@@ -74,8 +75,9 @@ export default function Header() {
               </Link>
             </nav>
           </div>
-          {/* Right: user */}
+          {/* Right: notifications + user */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <NotificationBell />
             {isAdmin && (
               <>
                 <Link
@@ -91,9 +93,16 @@ export default function Header() {
                 <span className="h-4 w-px bg-gray-200" />
               </>
             )}
-            <span className="hidden sm:inline text-sm text-gray-500">
+            <Link
+              href="/mypage"
+              className={`whitespace-nowrap text-sm font-medium transition-colors ${
+                pathname === '/mypage'
+                  ? 'text-[#1565C0]'
+                  : 'text-gray-500 hover:text-[#1565C0]'
+              }`}
+            >
               {session?.user?.name || session?.user?.email}
-            </span>
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="text-sm sm:text-sm text-gray-400 hover:text-gray-600 transition-colors"

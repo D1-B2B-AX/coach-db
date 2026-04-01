@@ -8,6 +8,7 @@ import TimePanel, { ALL_SLOTS } from "@/components/coach/TimePanel"
 import ScheduleSummary, { cleanCourseName } from "@/components/coach/ScheduleSummary"
 import SaveButton from "@/components/coach/SaveButton"
 import CoachProfileEdit from "@/components/coach/CoachProfileEdit"
+import ScoutingAlerts from "@/components/coach/ScoutingAlerts"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -235,6 +236,7 @@ function CoachScheduleContent() {
   const [engagements, setEngagements] = useState<Engagement[]>([])
   const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [scoutingDates, setScoutingDates] = useState<Map<string, string>>(new Map())
 
   // Editing state — working copy that only modifies the "available" slots
   const [editingSlots, setEditingSlots] = useState<Map<string, Set<string>>>(new Map())
@@ -333,6 +335,7 @@ function CoachScheduleContent() {
         engagements: Engagement[]
         engagementSchedules: EngagementScheduleEntry[]
         lastSavedAt: string | null
+        scoutings?: { date: string; managerName: string }[]
       }
     },
     [headers]
@@ -367,6 +370,11 @@ function CoachScheduleContent() {
         setEngagements(scheduleData.engagements)
         setEngSchedules(scheduleData.engagementSchedules || [])
         setLastSavedAt(scheduleData.lastSavedAt)
+        const scoutMap = new Map<string, string>()
+        for (const s of scheduleData.scoutings || []) {
+          scoutMap.set(s.date, s.managerName)
+        }
+        setScoutingDates(scoutMap)
         setError(null)
       } catch (e: any) {
         setError(e.message || "데이터를 불러오는 중 오류가 발생했습니다")
@@ -431,6 +439,11 @@ function CoachScheduleContent() {
         setEngagements(data.engagements)
         setEngSchedules(data.engagementSchedules || [])
         setLastSavedAt(data.lastSavedAt)
+        const scoutMap = new Map<string, string>()
+        for (const s of data.scoutings || []) {
+          scoutMap.set(s.date, s.managerName)
+        }
+        setScoutingDates(scoutMap)
       } catch {
         showToast("일정을 불러오지 못했습니다")
       }
@@ -672,6 +685,7 @@ function CoachScheduleContent() {
       setLastSavedAt(new Date().toISOString())
       setSaved(true)
       showToast("저장되었습니다!")
+      setTimeout(() => setSaved(false), 2000)
     } catch {
       showToast("저장에 실패했습니다. 다시 시도해주세요.")
     } finally {
@@ -745,10 +759,12 @@ function CoachScheduleContent() {
         <div className="w-[480px] overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] max-md:w-full max-md:max-w-[480px]">
           <CoachHeader
             coachName={coachInfo?.name ?? ""}
+            token={token ?? undefined}
             onProfile={() => setShowProfile(true)}
           />
 
           <div className="px-7 pt-5 pb-7">
+            {token && <ScoutingAlerts token={token} />}
             <ScheduleCalendar
               year={currentYear}
               month={currentMonth}
@@ -761,6 +777,7 @@ function CoachScheduleContent() {
               onToggleSlot={handleToggleSlot}
               onBulkToggle={handleBulkToggle}
               bulkStatus={bulkStatus}
+              scoutingDates={scoutingDates}
               selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
               confirmedSlots={currentDayConfirmed}
               onPrevMonth={() => changeMonth(-1)}
