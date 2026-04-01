@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { toBitmap, subtractBitmap, toIntervals, hasAvailability } from '@/lib/schedule-bitmap'
 import { toDateOnly } from '@/lib/date-utils'
+import { getSamsungExclusions } from '@/lib/samsung-config'
 
 type RouteParams = { params: Promise<{ yearMonth: string; date: string }> }
 
@@ -54,6 +55,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const coachWhere: Record<string, unknown> = {
     status: 'active',
     deletedAt: null,
+  }
+
+  const coachFilter = searchParams.get('coachFilter')
+
+  if (coachFilter === 'exclude-samsung') {
+    const { excludeDS, excludeDX } = getSamsungExclusions(yearMonth)
+    const notConditions: { workType: { contains: string } }[] = []
+    if (excludeDS) notConditions.push({ workType: { contains: '삼전 DS' } })
+    if (excludeDX) notConditions.push({ workType: { contains: '삼전 DX' } })
+    if (notConditions.length > 0) {
+      coachWhere.NOT = notConditions
+    }
+  } else if (coachFilter === 'samsung-only') {
+    if (session.manager.role !== 'admin' && session.manager.role !== 'samsung_admin') {
+      return NextResponse.json({ error: 'Samsung dashboard access denied' }, { status: 403 })
+    }
+    coachWhere.OR = [
+      { workType: { contains: '삼전 DS' } },
+      { workType: { contains: '삼전 DX' } },
+    ]
   }
 
   // Build list of target dates
