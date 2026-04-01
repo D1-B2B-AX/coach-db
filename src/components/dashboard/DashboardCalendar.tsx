@@ -82,7 +82,7 @@ export default function DashboardCalendar({
           onClick={onRefresh}
           disabled={syncing}
           className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-            syncing ? 'bg-gray-100 text-[#2E7D32]' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            syncing ? 'bg-[#E3F2FD] text-[#1976D2]' : 'bg-[#F5F5F5] text-gray-400 hover:bg-gray-200'
           }`}
         >
           {syncing ? "동기화 중..." : "새로고침"}
