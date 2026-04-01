@@ -10,19 +10,25 @@ const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
 export default function Header() {
   const { data: session } = useSession()
   const pathname = usePathname()
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [managerRole, setManagerRole] = useState<string | null>(null)
 
   useEffect(() => {
-    async function checkAdmin() {
+    async function fetchRole() {
       try {
-        const res = await fetch("/api/admin/managers")
-        setIsAdmin(res.ok)
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setManagerRole(data.role)
+        }
       } catch {
-        setIsAdmin(false)
+        setManagerRole(null)
       }
     }
-    if (session) checkAdmin()
+    if (session) fetchRole()
   }, [session])
+
+  const isAdmin = managerRole === 'admin'
+  const hasSamsungAccess = managerRole === 'admin' || managerRole === 'samsung_admin'
 
   return (
     <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>
@@ -44,6 +50,18 @@ export default function Header() {
               >
                 대시보드
               </Link>
+              {hasSamsungAccess && (
+                <Link
+                  href="/dashboard/samsung"
+                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
+                    pathname === '/dashboard/samsung'
+                      ? 'bg-[#FFF3E0] text-[#E65100]'
+                      : 'text-gray-500 hover:text-[#E65100] hover:bg-gray-50'
+                  }`}
+                >
+                  삼전
+                </Link>
+              )}
               <Link
                 href="/coaches"
                 className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
@@ -54,7 +72,12 @@ export default function Header() {
               >
                 코치
               </Link>
-              {isAdmin && (
+            </nav>
+          </div>
+          {/* Right: user */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {isAdmin && (
+              <>
                 <Link
                   href="/admin"
                   className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
@@ -65,11 +88,9 @@ export default function Header() {
                 >
                   관리자
                 </Link>
-              )}
-            </nav>
-          </div>
-          {/* Right: user */}
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                <span className="h-4 w-px bg-gray-200" />
+              </>
+            )}
             <span className="hidden sm:inline text-sm text-gray-500">
               {session?.user?.name || session?.user?.email}
             </span>
