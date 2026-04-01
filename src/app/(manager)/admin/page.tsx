@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
 
@@ -26,6 +27,7 @@ interface DeletedCoach {
 
 const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
   admin: { label: "관리자", className: "bg-[#E8F5E9] text-[#2E7D32]" },
+  samsung_admin: { label: "삼전관리자", className: "bg-[#FFF3E0] text-[#E65100]" },
   user: { label: "일반", className: "bg-[#E3F2FD] text-[#1976D2]" },
   blocked: { label: "차단", className: "bg-[#FBE9E7] text-[#D84315]" },
 }
@@ -120,6 +122,7 @@ export default function AdminPage() {
   const managerRoleCounts = useMemo(() => ({
     all: managers.length,
     admin: managers.filter((m) => m.role === "admin").length,
+    samsung_admin: managers.filter((m) => m.role === "samsung_admin").length,
     user: managers.filter((m) => m.role === "user").length,
     blocked: managers.filter((m) => m.role === "blocked").length,
   }), [managers])
@@ -273,6 +276,7 @@ export default function AdminPage() {
               {([
                 { key: "all", label: "전체", color: "bg-gray-100 text-gray-500", activeColor: "bg-[#333] text-white" },
                 { key: "admin", label: "관리자", color: "bg-[#E8F5E9] text-[#2E7D32]", activeColor: "bg-[#2E7D32] text-white" },
+                { key: "samsung_admin", label: "삼전관리자", color: "bg-[#FFF3E0] text-[#E65100]", activeColor: "bg-[#E65100] text-white" },
                 { key: "user", label: "일반", color: "bg-[#E3F2FD] text-[#1976D2]", activeColor: "bg-[#1976D2] text-white" },
                 { key: "blocked", label: "차단", color: "bg-[#FBE9E7] text-[#D84315]", activeColor: "bg-[#D84315] text-white" },
               ] as const).map((preset) => (
@@ -310,6 +314,7 @@ export default function AdminPage() {
                     >
                       <option value="" disabled>일괄 변경</option>
                       <option value="admin">관리자</option>
+                      <option value="samsung_admin">삼전관리자</option>
                       <option value="user">일반</option>
                       <option value="blocked">차단</option>
                     </select>
@@ -327,7 +332,7 @@ export default function AdminPage() {
                 </div>
               </div>
               {/* Table header */}
-              <div className="grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
+              <div className="grid grid-cols-[auto_80px_1fr_80px_auto] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
                 <div className="w-4 flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -339,14 +344,16 @@ export default function AdminPage() {
                 <div>이름</div>
                 <div>이메일</div>
                 <div>역할</div>
+                <div></div>
               </div>
 
               {filteredManagers.map((m) => {
                 const roleCfg = ROLE_CONFIG[m.role] || ROLE_CONFIG.user
+                const hasSamsung = m.role === 'admin' || m.role === 'samsung_admin'
                 return (
                   <div
                     key={m.id}
-                    className={`grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-100 px-5 py-2.5 last:border-0 ${
+                    className={`grid grid-cols-[auto_80px_1fr_80px_auto] items-center gap-5 border-b border-gray-100 px-5 py-2.5 last:border-0 ${
                       selectedIds.has(m.id) ? "bg-[#E3F2FD]/20" : ""
                     }`}
                   >
@@ -366,9 +373,22 @@ export default function AdminPage() {
                       className={`appearance-none cursor-pointer rounded-full border border-transparent px-3 py-1 pr-6 text-xs font-semibold transition-colors hover:border-gray-200 ${roleCfg.className} bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.35rem_center] bg-[length:0.75rem] focus:outline-none`}
                     >
                       <option value="admin">관리자</option>
+                      <option value="samsung_admin">삼전관리자</option>
                       <option value="user">일반</option>
                       <option value="blocked">차단</option>
                     </select>
+                    {hasSamsung ? (
+                      <Link
+                        href="/dashboard/samsung"
+                        className="rounded-full bg-[#FFF3E0] px-2.5 py-1 text-[11px] font-semibold text-[#E65100] hover:bg-[#FFE0B2] transition-colors whitespace-nowrap"
+                      >
+                        삼전 대시보드
+                      </Link>
+                    ) : (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-300 whitespace-nowrap">
+                        삼전 대시보드
+                      </span>
+                    )}
                   </div>
                 )
               })}
