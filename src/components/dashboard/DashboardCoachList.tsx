@@ -109,6 +109,11 @@ function downloadExcel(rows: string[][], fileName: string) {
   URL.revokeObjectURL(url)
 }
 
+function toMinutes(time: string): number {
+  const [h = "0", m = "0"] = time.split(":")
+  return parseInt(h, 10) * 60 + parseInt(m, 10)
+}
+
 export default function DashboardCoachList({
   selectedDate,
   selectedEnd,
@@ -147,7 +152,13 @@ export default function DashboardCoachList({
 
   // Check if a coach's schedule overlaps with a time range
   function hasTimeOverlap(schedules: CoachSchedule[], startTime: string, endTime: string): boolean {
-    return schedules.some((s) => s.startTime < endTime && s.endTime > startTime)
+    const filterStart = toMinutes(startTime)
+    const filterEnd = toMinutes(endTime)
+    return schedules.some((s) => {
+      const scheduleStart = toMinutes(s.startTime)
+      const scheduleEnd = toMinutes(s.endTime)
+      return scheduleStart < filterEnd && scheduleEnd > filterStart
+    })
   }
 
   const filteredCoaches = useMemo(() => {
