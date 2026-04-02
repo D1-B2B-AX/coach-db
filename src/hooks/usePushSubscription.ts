@@ -37,7 +37,7 @@ export function usePushSubscription(apiPath: string) {
       }
       setState("granted")
 
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BFdCXg-S6okkuTCoW1TxrMCnRzOQ9ijC7o7laIXgr8kb5FP7EIsnkC-vW5liufT9cFFATbqfxGFOZAoFiv2ETDE"
       if (!vapidKey) {
         console.warn("[Push] VAPID key not set")
         return false
