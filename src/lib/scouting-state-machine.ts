@@ -14,7 +14,7 @@ const VALID_TRANSITIONS: Transition[] = [
   { from: 'scouting', to: 'cancelled', actor: 'manager' },
   { from: 'accepted', to: 'confirmed', actor: 'manager' },
   { from: 'accepted', to: 'cancelled', actor: 'manager' },
-  { from: 'rejected', to: 'scouting', actor: 'manager' },
+  // rejected는 최종 상태 — 같은 날짜 재섭외 불가, 새 날짜로 별도 생성
   { from: 'confirmed', to: 'confirmed', actor: 'manager' },
   { from: 'confirmed', to: 'cancelled', actor: 'manager' },
   { from: 'cancelled', to: 'scouting', actor: 'manager' },
@@ -59,7 +59,7 @@ const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
     clickUrlPattern: '/coach?token={accessToken}',
   },
   'accepted->cancelled': null, // v2 범위 밖
-  'rejected->scouting': null, // T1과 동일 — POST 토글에서 별도 처리
+  // rejected는 최종 상태 — 전이 없음
   'confirmed->cancelled': {
     type: 'engagement_cancelled',
     recipientRole: 'coach',

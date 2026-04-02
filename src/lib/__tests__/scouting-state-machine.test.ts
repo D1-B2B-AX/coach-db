@@ -23,8 +23,8 @@ describe('canTransition', () => {
     expect(canTransition('accepted', 'cancelled', 'manager')).toBe(true)
   })
 
-  it('rejected -> scouting (manager)', () => {
-    expect(canTransition('rejected', 'scouting', 'manager')).toBe(true)
+  it('rejected -> scouting is blocked (rejected is final)', () => {
+    expect(canTransition('rejected', 'scouting', 'manager')).toBe(false)
   })
 
   it('confirmed -> confirmed (manager) — 수정 재확정', () => {
@@ -101,10 +101,6 @@ describe('getNotificationTrigger', () => {
 
   it('accepted -> cancelled returns null (v2 범위 밖)', () => {
     expect(getNotificationTrigger('accepted', 'cancelled')).toBeNull()
-  })
-
-  it('rejected -> scouting returns null (POST 토글에서 처리)', () => {
-    expect(getNotificationTrigger('rejected', 'scouting')).toBeNull()
   })
 
   it('cancelled -> scouting returns null (POST 토글에서 처리)', () => {

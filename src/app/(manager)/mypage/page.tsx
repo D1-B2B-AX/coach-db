@@ -122,24 +122,23 @@ export default function MyPage() {
     fetchMe()
   }, [])
 
-  const fetchScoutings = useCallback(async () => {
+  const fetchScoutings = useCallback(async (silent = false) => {
     if (!managerId) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const res = await fetch(`/api/scoutings?managerId=${managerId}`)
       if (res.ok) {
         const data = await res.json()
-        console.log("[mypage] scoutings:", data.scoutings?.length)
         setScoutings(data.scoutings || [])
-      } else {
-        console.error("[mypage] /api/scoutings failed:", res.status, await res.text())
       }
-    } catch (e) { console.error("[mypage] fetchScoutings error:", e) }
-    finally { setLoading(false) }
+    } catch { /* ignore */ }
+    finally { if (!silent) setLoading(false) }
   }, [managerId])
 
   useEffect(() => {
     fetchScoutings()
+    const interval = setInterval(() => fetchScoutings(true), 30000)
+    return () => clearInterval(interval)
   }, [fetchScoutings])
 
   const dateChips = useMemo(() => {
@@ -493,13 +492,9 @@ export default function MyPage() {
                         </button>
                       </div>
                     ) : s.status === "rejected" ? (
-                      <button
-                        onClick={() => updateStatus(s.id, "scouting")}
-                        disabled={isUpdating}
-                        className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFF3E0] text-[#F57C00] hover:bg-[#FFE0B2] transition-colors disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {isUpdating ? "..." : "재섭외"}
-                      </button>
+                      <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFEBEE] text-[#D32F2F] whitespace-nowrap">
+                        코치 거절
+                      </span>
                     ) : s.status === "confirmed" && !isConfirming ? (
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <button
