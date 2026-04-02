@@ -44,6 +44,29 @@ export function toIntervals(bm: boolean[]): { startTime: string; endTime: string
   return intervals
 }
 
+/**
+ * Clear entire time periods (오전/오후/저녁) if any engagement overlaps.
+ * 오전 08:00-13:00 (slots 2-11), 오후 13:00-18:00 (slots 12-21), 저녁 18:00-22:00 (slots 22-29)
+ */
+export function clearOverlappingPeriods(remaining: boolean[], busy: boolean[]): boolean[] {
+  const result = [...remaining]
+  const periods = [
+    [2, 12],   // 오전 08:00-13:00
+    [12, 22],  // 오후 13:00-18:00
+    [22, 30],  // 저녁 18:00-22:00
+  ]
+  for (const [start, end] of periods) {
+    let hasBusy = false
+    for (let i = start; i < end; i++) {
+      if (busy[i]) { hasBusy = true; break }
+    }
+    if (hasBusy) {
+      for (let i = start; i < end; i++) result[i] = false
+    }
+  }
+  return result
+}
+
 /** Check if bitmap has any available slot */
 export function hasAvailability(bm: boolean[]): boolean {
   return bm.some(Boolean)

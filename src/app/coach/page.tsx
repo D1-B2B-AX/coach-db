@@ -8,6 +8,7 @@ import TimePanel, { ALL_SLOTS } from "@/components/coach/TimePanel"
 import ScheduleSummary, { cleanCourseName } from "@/components/coach/ScheduleSummary"
 import SaveButton from "@/components/coach/SaveButton"
 import CoachProfileEdit from "@/components/coach/CoachProfileEdit"
+import ScoutingAlerts from "@/components/coach/ScoutingAlerts"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -52,6 +53,13 @@ interface EngagementScheduleEntry {
 // ─── Helpers ─────────────────────────────────────────────────────
 
 const UNAVAILABLE_SENTINEL = "00:00" // startTime === endTime === "00:00" → 불가
+
+const BULK_RANGES = [
+  { label: "오전", start: "08:00", end: "13:00" },
+  { label: "오후", start: "13:00", end: "18:00" },
+  { label: "저녁", start: "18:00", end: "22:00" },
+  { label: "종일", start: "08:00", end: "22:00" },
+] as const
 
 /** Convert API schedule ranges → { slotMap, unavailableDates } */
 function schedulesToSlotMap(schedules: ScheduleSlot[]): { slotMap: Map<string, Set<string>>; unavailableDates: Set<string> } {
@@ -235,6 +243,7 @@ function CoachScheduleContent() {
   const [engagements, setEngagements] = useState<Engagement[]>([])
   const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [scoutingDates, setScoutingDates] = useState<Map<string, string>>(new Map())
 
   // Editing state — working copy that only modifies the "available" slots
   const [editingSlots, setEditingSlots] = useState<Map<string, Set<string>>>(new Map())
@@ -333,6 +342,7 @@ function CoachScheduleContent() {
         engagements: Engagement[]
         engagementSchedules: EngagementScheduleEntry[]
         lastSavedAt: string | null
+        scoutings?: { date: string; managerName: string }[]
       }
     },
     [headers]
@@ -367,6 +377,11 @@ function CoachScheduleContent() {
         setEngagements(scheduleData.engagements)
         setEngSchedules(scheduleData.engagementSchedules || [])
         setLastSavedAt(scheduleData.lastSavedAt)
+        const scoutMap = new Map<string, string>()
+        for (const s of scheduleData.scoutings || []) {
+          scoutMap.set(s.date, s.managerName)
+        }
+        setScoutingDates(scoutMap)
         setError(null)
       } catch (e: any) {
         setError(e.message || "데이터를 불러오는 중 오류가 발생했습니다")
@@ -431,6 +446,11 @@ function CoachScheduleContent() {
         setEngagements(data.engagements)
         setEngSchedules(data.engagementSchedules || [])
         setLastSavedAt(data.lastSavedAt)
+        const scoutMap = new Map<string, string>()
+        for (const s of data.scoutings || []) {
+          scoutMap.set(s.date, s.managerName)
+        }
+        setScoutingDates(scoutMap)
       } catch {
         showToast("일정을 불러오지 못했습니다")
       }
@@ -555,13 +575,6 @@ function CoachScheduleContent() {
 
   // ─── Fill all future dates as 종일 ──────────────────────────────
 
-  const BULK_RANGES = [
-    { label: "오전", start: "08:00", end: "13:00" },
-    { label: "오후", start: "13:00", end: "18:00" },
-    { label: "저녁", start: "18:00", end: "22:00" },
-    { label: "종일", start: "08:00", end: "22:00" },
-  ] as const
-
   const handleBulkToggle = useCallback((start: string, end: string) => {
     const today = new Date()
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -669,9 +682,11 @@ function CoachScheduleContent() {
       })
       if (!res.ok) throw new Error("Save failed")
 
+      setSchedules(deepCopySlotMap(editingSlots))
       setLastSavedAt(new Date().toISOString())
       setSaved(true)
       showToast("저장되었습니다!")
+      setTimeout(() => setSaved(false), 2000)
     } catch {
       showToast("저장에 실패했습니다. 다시 시도해주세요.")
     } finally {
@@ -740,11 +755,12 @@ function CoachScheduleContent() {
 
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
-      <div className="flex w-full max-w-[800px] items-start gap-6 max-md:flex-col max-md:items-center">
+      <div className="flex w-full max-w-[480px] flex-col items-center gap-4">
         {/* Main container */}
-        <div className="w-[480px] overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] max-md:w-full max-md:max-w-[480px]">
+        <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <CoachHeader
             coachName={coachInfo?.name ?? ""}
+            token={token ?? undefined}
             onProfile={() => setShowProfile(true)}
           />
 
@@ -761,6 +777,7 @@ function CoachScheduleContent() {
               onToggleSlot={handleToggleSlot}
               onBulkToggle={handleBulkToggle}
               bulkStatus={bulkStatus}
+              scoutingDates={scoutingDates}
               selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
               confirmedSlots={currentDayConfirmed}
               onPrevMonth={() => changeMonth(-1)}
@@ -779,6 +796,21 @@ function CoachScheduleContent() {
             <ScheduleSummary engagements={engagements} lastSavedAt={lastSavedAt} />
           </div>
         </div>
+
+        {/* 받은 요청 — 나의 스케줄 박스 아래 */}
+        {token && (
+          <div id="scouting-alerts" className="scroll-mt-4">
+            <ScoutingAlerts token={token} />
+          </div>
+        )}
+
+        {/* 활동 중지 — 나의 스케줄 박스 바로 아래 */}
+        {coachInfo && coachInfo.status !== "inactive" && (
+          <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
+            setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
+            showToast("활동 중지가 신청되었습니다")
+          }} />
+        )}
 
       {/* Google Form prompt — shown when profile fields are empty */}
       {showFormPrompt && (
@@ -921,6 +953,149 @@ function CoachScheduleContent() {
 
       {/* Bottom spacer for mobile bar */}
       <div className="h-16 md:hidden" />
+    </div>
+  )
+}
+
+// ─── 활동 중지 섹션 ──────────────────────────────────────────────
+
+function DeactivateSection({ token, phone, onDeactivated }: {
+  token: string
+  phone: string | null
+  onDeactivated: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [step, setStep] = useState<"phone" | "form">("phone")
+  const [phoneInput, setPhoneInput] = useState("")
+  const [phoneError, setPhoneError] = useState("")
+  const [reason, setReason] = useState("")
+  const [returnDate, setReturnDate] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  function verifyPhone() {
+    const input = phoneInput.replace(/[^\d]/g, "")
+    const stored = (phone || "").replace(/[^\d]/g, "")
+    if (input === stored) {
+      setStep("form")
+      setPhoneError("")
+    } else {
+      setPhoneError("연락처가 일치하지 않습니다")
+    }
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true)
+    try {
+      const note = reason.trim() || null
+      const res = await fetch(`/api/coach/me?token=${token}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "inactive",
+          statusNote: note,
+          returnDate: returnDate ? `${returnDate}-01` : null,
+        }),
+      })
+      if (res.ok) onDeactivated()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!expanded) {
+    return (
+      <div className="w-full mt-4 mb-2">
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full cursor-pointer text-center text-xs text-gray-400 hover:text-gray-500 transition-colors py-2"
+        >
+          활동을 쉬고 싶으신가요?
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-[480px] max-md:w-full max-md:max-w-[480px] mt-4 mb-2">
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden">
+        <div className="px-5 pt-4 pb-1">
+          <h3 className="text-sm font-semibold text-[#333]">활동 중지 신청</h3>
+        </div>
+
+        <div className="px-5 pb-5 pt-3">
+          {step === "phone" ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">본인 확인을 위해 연락처를 입력해주세요</label>
+                <input
+                  type="text"
+                  value={phoneInput}
+                  onChange={(e) => { setPhoneInput(e.target.value); setPhoneError("") }}
+                  placeholder="010-0000-0000"
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                  onKeyDown={(e) => { if (e.key === "Enter") verifyPhone() }}
+                />
+                {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="flex-1 cursor-pointer rounded-lg border border-gray-200 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={verifyPhone}
+                  className="flex-1 cursor-pointer rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                복귀 희망 시기를 적어주시면 원하실 때 다시 연락드리겠습니다.
+              </p>
+              <div>
+                <label className="text-xs text-gray-500">중지 사유 <span className="text-gray-400">(선택)</span></label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="예: 개인 사정으로 당분간 휴식"
+                  rows={2}
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">복귀 희망 시기 <span className="text-gray-400">(선택)</span></label>
+                <input
+                  type="month"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  min={new Date().toISOString().slice(0, 7)}
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setExpanded(false); setStep("phone"); setReason(""); setReturnDate("") }}
+                  className="flex-1 cursor-pointer rounded-lg border border-gray-200 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex-1 cursor-pointer rounded-lg bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {submitting ? "처리 중..." : "활동 중지 신청"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

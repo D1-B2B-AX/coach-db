@@ -226,7 +226,7 @@ export default function CoachesPage() {
               <div className="flex-1" />
               <Link
                 href="/coaches/new"
-                className="shrink-0 rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+                className="shrink-0 rounded-lg bg-[#1976D2] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#1565C0] transition-colors"
               >
                 + 등록
               </Link>

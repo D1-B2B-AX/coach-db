@@ -126,6 +126,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
       openCreateModal()
       onCreateOpened?.()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openCreate])
 
   function openCreateModal() {

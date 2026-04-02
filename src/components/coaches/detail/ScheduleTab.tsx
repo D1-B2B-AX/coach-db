@@ -1,6 +1,18 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { isOff } from "@/lib/holidays"
+
+function formatTimeLabel(start: string, end: string): string {
+  const sh = parseInt(start.slice(0, 2), 10)
+  const eh = parseInt(end.slice(0, 2), 10)
+  const parts: string[] = []
+  if (sh < 13 && eh > 8) parts.push("오전")
+  if ((sh < 18 && eh > 13) || (sh >= 13 && sh < 18)) parts.push("오후")
+  if (eh > 18 || sh >= 18) parts.push("저녁")
+  if (parts.length === 3) return "전일"
+  return parts.length > 0 ? parts.join("·") : "오전"
+}
 
 interface ScheduleEntry {
   id: string
@@ -30,6 +42,41 @@ interface ScheduleTabProps {
   engagements: Engagement[]
   engagementSchedules: EngagementScheduleEntry[]
   availabilityDetail?: string | null
+  workType?: string | null
+}
+
+function getLastMonday(year: number, month: number): Date {
+  const lastDay = new Date(year, month + 1, 0)
+  const dow = lastDay.getDay()
+  const daysSinceMonday = dow === 0 ? 6 : dow - 1
+  return new Date(year, month + 1, -daysSinceMonday)
+}
+
+function getSamsungRestriction(workType: string | null | undefined, viewYear: number, viewMonth: number): { restricted: boolean; type: "DS" | "DX" | null } {
+  if (!workType) return { restricted: false, type: null }
+
+  const isDS = workType.includes("삼전") && workType.toUpperCase().includes("DS")
+  const isDX = workType.includes("삼전") && workType.toUpperCase().includes("DX")
+  if (!isDS && !isDX) return { restricted: false, type: null }
+
+  const now = new Date()
+  const currentYM = now.getFullYear() * 12 + now.getMonth()
+  const viewYM = viewYear * 12 + viewMonth
+  const type = isDX ? "DX" : "DS"
+
+  // DS: restrict from next month / DX: restrict from this month
+  let restrictedFrom = isDX ? currentYM : currentYM + 1
+
+  // After last Monday of the month before the first restricted month,
+  // unlock one additional month
+  const checkYM = restrictedFrom - 1
+  const lastMonday = getLastMonday(
+    Math.floor(checkYM / 12),
+    checkYM % 12
+  )
+  if (now >= lastMonday) restrictedFrom += 1
+
+  return { restricted: viewYM >= restrictedFrom, type }
 }
 
 function dateKey(year: number, month: number, day: number): string {
@@ -49,7 +96,7 @@ interface EngagementScheduleEntry {
   engagement: { courseName: string }
 }
 
-export default function ScheduleTab({ coachId, engagements, engagementSchedules, availabilityDetail }: ScheduleTabProps) {
+export default function ScheduleTab({ coachId, engagements, engagementSchedules, availabilityDetail, workType }: ScheduleTabProps) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
@@ -57,14 +104,21 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   const engSchedules = engagementSchedules
   const [accessLog, setAccessLog] = useState<AccessLog | null>(null)
   const [loading, setLoading] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string | null>(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  const [selectedDay, setSelectedDay] = useState<string | null>(null
   )
   const [scheduleCache, setScheduleCache] = useState<Map<string, ScheduleEntry[]>>(new Map())
+  const [scoutingDates, setScoutingDates] = useState<Map<string, string>>(new Map()) // date -> managerName
 
   const yearMonth = `${year}-${String(month + 1).padStart(2, "0")}`
+  const { restricted: isRestricted } = getSamsungRestriction(workType, year, month)
 
   const fetchSchedules = useCallback(async (skipCache = false) => {
+    if (isRestricted) {
+      setSchedules([])
+      setAccessLog(null)
+      setLoading(false)
+      return
+    }
     // Use cache if available and not forced refresh
     if (!skipCache && scheduleCache.has(yearMonth)) {
       setSchedules(scheduleCache.get(yearMonth)!)
@@ -95,11 +149,40 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
     } finally {
       setLoading(false)
     }
-  }, [coachId, yearMonth, scheduleCache])
+  }, [coachId, yearMonth, scheduleCache, isRestricted])
 
   useEffect(() => {
     fetchSchedules()
   }, [fetchSchedules])
+
+  // Fetch scouting data for this coach
+  useEffect(() => {
+    if (isRestricted) {
+      setScoutingDates(new Map())
+      return
+    }
+    async function fetchScoutings() {
+      try {
+        const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`
+        const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${new Date(year, month + 1, 0).getDate()}`
+        const res = await fetch(`/api/scoutings?coachId=${coachId}&date=${firstDay}&endDate=${lastDay}`)
+        if (res.ok) {
+          const data = await res.json()
+          const map = new Map<string, string>()
+          for (const s of data.scoutings || []) {
+            if (s.status === 'cancelled') continue
+            const d = s.date.slice(0, 10)
+            map.set(d, s.manager?.name || "")
+          }
+          console.log('[scouting]', coachId, firstDay, '~', lastDay, 'found:', map.size, [...map.entries()])
+          setScoutingDates(map)
+        } else {
+          console.error('[scouting] API error:', res.status, res.statusText)
+        }
+      } catch (err) { console.error('[scouting] fetch error:', err) }
+    }
+    fetchScoutings()
+  }, [coachId, year, month, isRestricted])
 
   // Compute 6-month work day summary from cache + engagementSchedules
   const workDaySummary = (() => {
@@ -158,6 +241,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
       setScheduleCache(entries)
     }
     prefetch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId])
 
   function prevMonth() {
@@ -206,6 +290,12 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
 
   return (
     <div className="space-y-4">
+      {/* Samsung schedule restriction banner */}
+      {isRestricted && (
+        <div className="rounded-xl bg-[#FFF8E1] border border-[#FFE082] px-4 py-3 text-sm text-[#795548]">
+          삼전 우선 배정 코치로, 다음 달 스케줄은 매월 마지막 주 월요일 이후 공개됩니다. 양해 부탁드립니다.
+        </div>
+      )}
       {/* Calendar + right panel — side by side on desktop */}
       <div className="flex items-start gap-5 max-md:flex-col">
         {/* Calendar */}
@@ -213,9 +303,11 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
           {/* Access status chip + month navigation (3-column: chip | nav centered | empty) */}
           <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-center">
             <div>
-              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${accessStatus.className}`}>
-                {accessStatus.label}
-              </span>
+              {!isRestricted && (
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${accessStatus.className}`}>
+                  {accessStatus.label}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -239,18 +331,17 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
               </button>
             </div>
             <div className="flex justify-end">
-              <button
-                onClick={() => fetchSchedules(true)}
-                disabled={loading}
-                className={`cursor-pointer rounded-full p-1.5 transition-colors ${
-                  loading ? 'text-[#2E7D32]' : 'text-gray-400 hover:text-[#2E7D32] hover:bg-gray-100'
-                }`}
-                title={loading ? '불러오는 중...' : '새로고침'}
-              >
-                <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
+              {!isRestricted && (
+                <button
+                  onClick={() => fetchSchedules(true)}
+                  disabled={loading}
+                  className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    loading ? 'bg-gray-100 text-[#2E7D32]' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {loading ? "불러오는 중..." : "새로고침"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -291,13 +382,18 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                   const isToday = key === todayStr
                   const isConfirmed = engagementDates.has(key)
                   const isAvailable = availableDates.has(key)
+                  const isScouted = scoutingDates.has(key)
                   const isSelected = selectedDay === key
 
                   let cellClass =
                     "aspect-square flex items-center justify-center rounded-[10px] text-sm transition-all relative cursor-pointer"
 
                   if (isSelected) {
-                    cellClass += " bg-[#FFF3E0] border-2 border-[#FF9800] font-semibold"
+                    cellClass += " bg-[#ECEFF1] border-2 border-[#546E7A] font-semibold"
+                  } else if (isScouted && isAvailable && !isConfirmed) {
+                    cellClass += " bg-[#E8F5E9] border-2 border-[#FFB74D] text-[#2E7D32] font-semibold hover:bg-[#C8E6C9]"
+                  } else if (isScouted && !isConfirmed) {
+                    cellClass += " border-2 border-[#FFB74D] font-semibold hover:bg-gray-100"
                   } else if (isConfirmed) {
                     cellClass += " bg-[#1976D2] text-white font-semibold hover:bg-[#1565C0]"
                   } else if (isAvailable) {
@@ -306,13 +402,13 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                     cellClass += " hover:bg-gray-100"
                   }
 
-                  if (!isConfirmed && !isSelected) {
-                    if (dayOfWeek === 0) cellClass += " text-[#E53935]" // Sunday
-                    if (dayOfWeek === 6) cellClass += " text-[#1565C0]" // Saturday
+                  if (!isConfirmed && !isSelected && !isScouted) {
+                    if (isOff(key, dayOfWeek)) cellClass += " text-[#E53935]"
+                    else if (dayOfWeek === 6) cellClass += " text-[#1565C0]"
                   }
 
-                  if (isToday && !isSelected) {
-                    cellClass += " ring-2 ring-[#1565C0]"
+                  if (isToday) {
+                    cellClass += " text-base font-bold underline underline-offset-2"
                   }
 
                   return (
@@ -320,6 +416,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                       key={key}
                       className={cellClass}
                       onClick={() => setSelectedDay(isSelected ? null : key)}
+                      title={isScouted ? `컨택중 (${scoutingDates.get(key)})` : undefined}
                     >
                       {d}
                     </div>
@@ -328,20 +425,24 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
               </div>
 
               {/* Legend */}
-              <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
+              {!isRestricted && <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded border border-[#A5D6A7] bg-[#E8F5E9]" />
-                  가용
+                  가능
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded bg-[#1976D2]" />
                   확정
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded border-2 border-[#FF9800] bg-[#FFF3E0]" />
+                  <div className="h-3 w-3 rounded border-2 border-[#FFB74D] bg-[#E8F5E9]" />
+                  컨택중
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded border-2 border-[#546E7A] bg-[#ECEFF1]" />
                   선택 중
                 </div>
-              </div>
+              </div>}
             </>
           )}
 
@@ -372,7 +473,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
         </div>
 
         {/* Right panel — availability detail + selected day */}
-        <div className="w-full max-w-[400px] space-y-4">
+        {!isRestricted && <div className="w-full max-w-[400px] space-y-4">
           {availabilityDetail && (
             <div className="rounded-xl bg-white border border-gray-200 px-4 py-3">
               <div className="text-xs font-semibold text-gray-400 mb-1">근무 가능 세부 내용</div>
@@ -400,16 +501,38 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                 ]
                 merged.sort((a, b) => a.startTime.localeCompare(b.startTime))
 
+                const scoutManager = scoutingDates.get(selectedDay)
+                const availItems = merged.filter(m => m.type === "avail")
+                const engItems = merged.filter(m => m.type === "eng")
+
+                // Merge all avail time slots into one label
+                const availLabel = availItems.length > 0
+                  ? [...new Set(availItems.map(a => formatTimeLabel(a.startTime, a.endTime).split(", ")).flat())].join(", ")
+                  : null
+
                 return (
                   <div className="space-y-1">
-                    {merged.map((item, i) => (
+                    {availLabel && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-[#2E7D32]">{availLabel}</span>
+                        {scoutManager !== undefined && (
+                          <>
+                            <span className="font-medium text-[#F57C00]">컨택중</span>
+                            {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {!availLabel && scoutManager !== undefined && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-[#F57C00]">컨택중</span>
+                        {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
+                      </div>
+                    )}
+                    {engItems.map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
-                        <span className={`shrink-0 ${item.type === "avail" ? "text-[#2E7D32]" : "text-[#1976D2]"}`}>
-                          {item.startTime}~{item.endTime}
-                        </span>
-                        <span className={`truncate ${item.type === "avail" ? "text-[#2E7D32]" : "font-medium text-[#333]"}`}>
-                          {item.type === "avail" ? "가용" : item.label}
-                        </span>
+                        <span className="shrink-0 text-[#1976D2]">{item.startTime}~{item.endTime}</span>
+                        <span className="truncate font-medium text-[#333]">{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -417,7 +540,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
               })()}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   )

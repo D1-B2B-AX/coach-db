@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
 
   const { id, role } = (await request.json()) as { id: string; role: string }
 
-  if (!['admin', 'user', 'blocked'].includes(role)) {
+  if (!['admin', 'samsung_admin', 'user', 'blocked'].includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
 
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
 
   const updated = await prisma.manager.update({
     where: { id },
-    data: { role: role as 'admin' | 'user' | 'blocked' },
+    data: { role: role as 'admin' | 'samsung_admin' | 'user' | 'blocked' },
     select: { id: true, email: true, name: true, role: true },
   })
 

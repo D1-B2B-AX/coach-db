@@ -4,25 +4,32 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
 
 export default function Header() {
   const { data: session } = useSession()
   const pathname = usePathname()
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [managerRole, setManagerRole] = useState<string | null>(null)
 
   useEffect(() => {
-    async function checkAdmin() {
+    async function fetchRole() {
       try {
-        const res = await fetch("/api/admin/managers")
-        setIsAdmin(res.ok)
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setManagerRole(data.role)
+        }
       } catch {
-        setIsAdmin(false)
+        setManagerRole(null)
       }
     }
-    if (session) checkAdmin()
+    if (session) fetchRole()
   }, [session])
+
+  const isAdmin = managerRole === 'admin'
+  const hasSamsungAccess = managerRole === 'admin' || managerRole === 'samsung_admin'
 
   return (
     <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>
@@ -44,6 +51,18 @@ export default function Header() {
               >
                 대시보드
               </Link>
+              {hasSamsungAccess && (
+                <Link
+                  href="/dashboard/samsung"
+                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
+                    pathname === '/dashboard/samsung'
+                      ? 'bg-[#FFF3E0] text-[#E65100]'
+                      : 'text-gray-500 hover:text-[#E65100] hover:bg-gray-50'
+                  }`}
+                >
+                  삼전 대시보드
+                </Link>
+              )}
               <Link
                 href="/coaches"
                 className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
@@ -52,7 +71,7 @@ export default function Header() {
                     : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
                 }`}
               >
-                코치
+                전체 코치
               </Link>
               {isAdmin && (
                 <Link
@@ -68,11 +87,19 @@ export default function Header() {
               )}
             </nav>
           </div>
-          {/* Right: user */}
+          {/* Right: notifications + user */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <span className="hidden sm:inline text-sm text-gray-500">
+            <NotificationBell />
+            <Link
+              href="/mypage"
+              className={`whitespace-nowrap text-sm font-medium transition-colors ${
+                pathname === '/mypage'
+                  ? 'text-[#1565C0]'
+                  : 'text-gray-500 hover:text-[#1565C0]'
+              }`}
+            >
               {session?.user?.name || session?.user?.email}
-            </span>
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="text-sm sm:text-sm text-gray-400 hover:text-gray-600 transition-colors"

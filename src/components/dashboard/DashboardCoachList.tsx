@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/Skeleton"
+import type { CourseOption } from "@/components/CourseSelector"
 
 interface CoachSchedule {
   startTime: string
@@ -30,8 +31,6 @@ interface DashboardCoachListProps {
   loading: boolean
   timeFilter: string
   onTimeFilterChange: (filter: string) => void
-  customStart: string
-  customEnd: string
   fieldFilter: string
   onFieldFilterChange: (filter: string) => void
   ratingFilter: string
@@ -40,6 +39,13 @@ interface DashboardCoachListProps {
   onStatusFilterChange: (filter: string) => void
   engagementFilter: string
   onEngagementFilterChange: (filter: string) => void
+  scoutedCoachIds?: Set<string>
+  onBulkScout?: (coachIds: string[]) => void
+  courses?: CourseOption[]
+  selectedCourseId?: string | null
+  onCourseChange?: (courseId: string | null) => void
+  onCourseCreate?: (course: CourseOption) => void
+  onReset?: () => void
 }
 
 const RATING_FILTERS = [
@@ -58,10 +64,24 @@ function formatDateLabel(dateStr: string): string {
   return `${m}/${day} (${dow})`
 }
 
-function formatTimeRange(s: CoachSchedule): string {
-  const start = s.startTime.slice(0, 5).replace(/^0/, '')
-  const end = s.endTime.slice(0, 5).replace(/^0/, '')
-  return `${start}~${end}`
+function formatScheduleLabel(schedules: CoachSchedule[]): string {
+  if (schedules.length === 0) return "-"
+  // Merge all schedules to find overall earliest start and latest end
+  let minStart = 24
+  let maxEnd = 0
+  for (const s of schedules) {
+    const sh = parseInt(s.startTime.slice(0, 2), 10)
+    const eh = parseInt(s.endTime.slice(0, 2), 10)
+    if (sh < minStart) minStart = sh
+    if (eh > maxEnd) maxEnd = eh
+  }
+  if (minStart < 13 && maxEnd <= 13) return "오전"
+  if (minStart >= 13 && maxEnd <= 18) return "오후"
+  if (minStart >= 18) return "저녁"
+  if (minStart < 13 && maxEnd > 13 && maxEnd <= 18) return "오전·오후"
+  if (minStart < 13 && maxEnd > 18) return "전일"
+  if (minStart >= 13 && maxEnd > 18) return "오후·저녁"
+  return "오전"
 }
 
 function formatEngagement(eng: { courseName: string; endDate: string } | null): string {
@@ -96,17 +116,28 @@ export default function DashboardCoachList({
   loading,
   timeFilter,
   onTimeFilterChange,
-  customStart,
-  customEnd,
   fieldFilter,
   onFieldFilterChange,
   ratingFilter,
   onRatingFilterChange,
   engagementFilter,
   onEngagementFilterChange,
+  scoutedCoachIds,
+  onBulkScout,
+  courses,
+  selectedCourseId,
+  onCourseChange,
+  onCourseCreate,
+  onReset,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showCourseModal, setShowCourseModal] = useState(false)
+  const [newCourseName, setNewCourseName] = useState("")
+  const [newStartDate, setNewStartDate] = useState("")
+  const [newEndDate, setNewEndDate] = useState("")
+  const [courseError, setCourseError] = useState("")
+  const [courseSaving, setCourseSaving] = useState(false)
 
   const allFields = useMemo(() => {
     const set = new Set<string>()
@@ -121,12 +152,14 @@ export default function DashboardCoachList({
 
   const filteredCoaches = useMemo(() => {
     return coaches.filter((c) => {
-      // Time filter
-      if (timeFilter === "custom") {
-        if (!hasTimeOverlap(c.schedules, customStart, customEnd)) return false
-      } else if (timeFilter !== "all") {
-        const [s, e] = timeFilter.split("-")
-        if (!hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)) return false
+      // Time filter (multi-select: all selected ranges must match)
+      if (timeFilter !== "all") {
+        const ranges = timeFilter.split(",").filter(Boolean)
+        const matchesAll = ranges.every((range) => {
+          const [s, e] = range.split("-")
+          return hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)
+        })
+        if (!matchesAll) return false
       }
       // Field filter (multi)
       if (fieldFilter !== "all") {
@@ -152,7 +185,7 @@ export default function DashboardCoachList({
       }
       return true
     })
-  }, [coaches, timeFilter, customStart, customEnd, fieldFilter, ratingFilter, engagementFilter])
+  }, [coaches, timeFilter, fieldFilter, ratingFilter, engagementFilter])
 
   const toggleId = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -201,11 +234,9 @@ export default function DashboardCoachList({
     }
 
     let timePart = ""
-    if (timeFilter === "custom") {
-      timePart = `${customStart.replace(/^0/, "")}~${customEnd.replace(/^0/, "")}`
-    } else if (timeFilter !== "all") {
-      const [s, e] = timeFilter.split("-")
-      timePart = `${s}:00~${e}:00`
+    if (timeFilter !== "all") {
+      const presetLabels: Record<string, string> = { "08-13": "오전", "13-18": "오후", "18-22": "저녁" }
+      timePart = timeFilter.split(",").map((k) => presetLabels[k] || k).join("·")
     }
 
     return (
@@ -219,17 +250,49 @@ export default function DashboardCoachList({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-      {/* Filter summary */}
+      {/* Filter summary + course selector */}
       {selectedDate && (
-        <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-          {summaryNode}
-          {selectedIds.size > 0 && (
-            <button
-              onClick={handleExport}
-              className="cursor-pointer rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
-            >
-              연락처 내보내기 ({selectedIds.size})
-            </button>
+        <div className="border-b border-gray-100 px-5 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {summaryNode}
+            {selectedIds.size > 0 && onBulkScout && (
+              <button
+                onClick={() => onBulkScout([...selectedIds])}
+                className="cursor-pointer shrink-0 rounded-full bg-[#F57C00] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#E65100] transition-colors"
+              >
+                컨택중 ({selectedIds.size})
+              </button>
+            )}
+            {onReset && (
+              <button
+                onClick={onReset}
+                className="cursor-pointer shrink-0 rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+          {courses && onCourseChange && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <select
+                value={selectedCourseId ?? ""}
+                onChange={(e) => onCourseChange(e.target.value || null)}
+                className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+              >
+                <option value="">과정 선택</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {onCourseCreate && (
+                <button
+                  onClick={() => { setNewStartDate(selectedDate || ""); setNewEndDate(selectedEnd || ""); setShowCourseModal(true) }}
+                  className="cursor-pointer shrink-0 rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                >
+                  + 추가
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -237,14 +300,14 @@ export default function DashboardCoachList({
       <div>
         {loading ? (
           <div>
-            <div className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
-              <div className="w-4" /><div>이름</div><div>가용 시간</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
+            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+              <div className="w-4" /><div>이름</div><div>가능 시간대</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
             </div>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+              <div key={i} className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
                 <Skeleton className="h-4 w-4" />
-                <Skeleton className="h-4 w-10" />
-                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-12" />
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-8 mx-auto" />
                 <Skeleton className="h-4 w-6 mx-auto" />
@@ -256,7 +319,7 @@ export default function DashboardCoachList({
         ) : (
           <>
             {/* Table header */}
-            <div className="grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
               <div className="w-4 flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -266,7 +329,7 @@ export default function DashboardCoachList({
                 />
               </div>
               <div>이름</div>
-              <div>가용 시간</div>
+              <div>가능 시간대</div>
               <div>최근 근무 과정명</div>
               <div className="whitespace-nowrap">누적 근무일</div>
               <div>평점</div>
@@ -280,7 +343,7 @@ export default function DashboardCoachList({
                 <div
                   key={coach.id}
                   onClick={() => router.push(`/coaches/${coach.id}`)}
-                  className={`grid grid-cols-[auto_56px_minmax(0,1fr)_120px_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
+                  className={`grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
                     selectedIds.has(coach.id) ? "bg-[#E3F2FD]/50" : ""
                   }`}
                 >
@@ -292,9 +355,16 @@ export default function DashboardCoachList({
                       className="h-4 w-4 rounded border-gray-300 accent-[#1976D2]"
                     />
                   </div>
-                  <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                    {scoutedCoachIds?.has(coach.id) && (
+                      <span className="shrink-0 rounded-full bg-[#FFF3E0] px-1.5 py-0.5 text-[10px] font-semibold text-[#E65100] border border-[#FFB74D]">
+                        컨택중
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-400 truncate">
-                    {coach.schedules.map(formatTimeRange).join(", ") || "-"}
+                    {formatScheduleLabel(coach.schedules)}
                   </span>
                   <span className="text-xs text-gray-400 truncate">
                     {courseName || "-"}
@@ -311,6 +381,65 @@ export default function DashboardCoachList({
           </>
         )}
       </div>
+
+      {/* 과정 추가 팝업 */}
+      {showCourseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowCourseModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-[#333] mb-3">새 과정 추가</h3>
+            {courseError && <div className="mb-2 text-xs text-red-600">{courseError}</div>}
+            <input
+              type="text"
+              placeholder="과정명을 입력하세요"
+              maxLength={200}
+              autoFocus
+              value={newCourseName}
+              onChange={(e) => setNewCourseName(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setShowCourseModal(false)}
+              className={`mb-2 w-full rounded-lg border px-3 py-2 text-sm ${!newCourseName.trim() && courseError ? "border-red-400" : "border-gray-300"} focus:border-blue-400 focus:outline-none`}
+            />
+            <div className="mb-3 flex gap-2">
+              <input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+              <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowCourseModal(false); setCourseError("") }}
+                className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">취소</button>
+              <button
+                disabled={courseSaving}
+                onClick={async () => {
+                  setCourseError("")
+                  if (!newCourseName.trim()) { setCourseError("과정명을 입력해주세요"); return }
+                  if (newEndDate && !newStartDate) { setCourseError("시작일 없이 종료일만 입력할 수 없습니다"); return }
+                  if (newStartDate && newEndDate && newEndDate < newStartDate) { setCourseError("종료일은 시작일 이후여야 합니다"); return }
+                  setCourseSaving(true)
+                  try {
+                    const res = await fetch("/api/courses", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: newCourseName.trim(), startDate: newStartDate || undefined, endDate: newEndDate || undefined }),
+                    })
+                    if (res.ok) {
+                      const course = await res.json()
+                      onCourseCreate?.({ id: course.id, name: course.name, startDate: course.startDate, endDate: course.endDate })
+                      onCourseChange?.(course.id)
+                      setShowCourseModal(false)
+                      setNewCourseName(""); setNewStartDate(""); setNewEndDate("")
+                    } else {
+                      const data = await res.json().catch(() => ({}))
+                      setCourseError(data.error || "과정 생성에 실패했습니다")
+                    }
+                  } catch { setCourseError("과정 생성에 실패했습니다") }
+                  finally { setCourseSaving(false) }
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+              >{courseSaving ? "추가 중..." : "추가"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

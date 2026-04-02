@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
+import CompanyAliasManager from "@/components/CompanyAliasManager"
 
 interface Manager {
   id: string
@@ -26,6 +27,7 @@ interface DeletedCoach {
 
 const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
   admin: { label: "관리자", className: "bg-[#E8F5E9] text-[#2E7D32]" },
+  samsung_admin: { label: "삼전관리자", className: "bg-[#FFF3E0] text-[#E65100]" },
   user: { label: "일반", className: "bg-[#E3F2FD] text-[#1976D2]" },
   blocked: { label: "차단", className: "bg-[#FBE9E7] text-[#D84315]" },
 }
@@ -36,7 +38,7 @@ export default function AdminPage() {
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("links")
+  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync" | "aliases">("links")
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [managerFilter, setManagerFilter] = useState<string | null>("all")
@@ -120,6 +122,7 @@ export default function AdminPage() {
   const managerRoleCounts = useMemo(() => ({
     all: managers.length,
     admin: managers.filter((m) => m.role === "admin").length,
+    samsung_admin: managers.filter((m) => m.role === "samsung_admin").length,
     user: managers.filter((m) => m.role === "user").length,
     blocked: managers.filter((m) => m.role === "blocked").length,
   }), [managers])
@@ -241,6 +244,7 @@ export default function AdminPage() {
     { key: "deleted" as const, label: `삭제 내역 (${deletedCoaches.length})` },
     { key: "managers" as const, label: `매니저 (${managers.length})` },
     { key: "sync" as const, label: "동기화" },
+    { key: "aliases" as const, label: "회사명 매핑" },
   ]
 
   return (
@@ -273,6 +277,7 @@ export default function AdminPage() {
               {([
                 { key: "all", label: "전체", color: "bg-gray-100 text-gray-500", activeColor: "bg-[#333] text-white" },
                 { key: "admin", label: "관리자", color: "bg-[#E8F5E9] text-[#2E7D32]", activeColor: "bg-[#2E7D32] text-white" },
+                { key: "samsung_admin", label: "삼전관리자", color: "bg-[#FFF3E0] text-[#E65100]", activeColor: "bg-[#E65100] text-white" },
                 { key: "user", label: "일반", color: "bg-[#E3F2FD] text-[#1976D2]", activeColor: "bg-[#1976D2] text-white" },
                 { key: "blocked", label: "차단", color: "bg-[#FBE9E7] text-[#D84315]", activeColor: "bg-[#D84315] text-white" },
               ] as const).map((preset) => (
@@ -310,6 +315,7 @@ export default function AdminPage() {
                     >
                       <option value="" disabled>일괄 변경</option>
                       <option value="admin">관리자</option>
+                      <option value="samsung_admin">삼전관리자</option>
                       <option value="user">일반</option>
                       <option value="blocked">차단</option>
                     </select>
@@ -366,6 +372,7 @@ export default function AdminPage() {
                       className={`appearance-none cursor-pointer rounded-full border border-transparent px-3 py-1 pr-6 text-xs font-semibold transition-colors hover:border-gray-200 ${roleCfg.className} bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%239CA3AF%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.35rem_center] bg-[length:0.75rem] focus:outline-none`}
                     >
                       <option value="admin">관리자</option>
+                      <option value="samsung_admin">삼전관리자</option>
                       <option value="user">일반</option>
                       <option value="blocked">차단</option>
                     </select>
@@ -836,6 +843,9 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        )}
+        {activeTab === "aliases" && (
+          <CompanyAliasManager />
         )}
       </div>
 
