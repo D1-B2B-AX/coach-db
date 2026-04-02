@@ -70,7 +70,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
         })
         setAlerts((prev) => prev.filter((a) => a.id !== alert.id))
       } else if (res.status === 409) {
-        alert && window.alert("이미 처리된 섭외입니다. 새로고침합니다.")
+        window.alert("이 섭외는 매니저에 의해 취소되었습니다.")
         fetchAlerts()
       }
     } catch { /* ignore */ }
