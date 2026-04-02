@@ -1013,10 +1013,6 @@ function DeactivateSection({ token, phone, onDeactivated }: {
       <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden">
         <div className="px-5 pt-4 pb-1">
           <h3 className="text-sm font-semibold text-[#333]">활동 중지 신청</h3>
-          <p className="mt-2 text-xs text-gray-500 leading-relaxed">
-            일정 기간 휴식이 필요하시면 아래 내용을 작성해주세요.<br />
-            복귀를 원하실 때 다시 연락드리겠습니다.
-          </p>
         </div>
 
         <div className="px-5 pb-5 pt-3">
@@ -1051,6 +1047,9 @@ function DeactivateSection({ token, phone, onDeactivated }: {
             </div>
           ) : (
             <div className="space-y-3">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                복귀를 원하실 때 다시 연락드리겠습니다.
+              </p>
               <div>
                 <label className="text-xs text-gray-500">중지 사유</label>
                 <textarea
