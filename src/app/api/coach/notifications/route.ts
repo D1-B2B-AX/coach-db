@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
+import { parseCompanyFromCourseName, formatScoutingDisplay } from '@/lib/company-alias'
 
 // GET /api/coach/notifications — 코치 알림 목록
 export async function GET(request: NextRequest) {
@@ -20,10 +21,73 @@ export async function GET(request: NextRequest) {
     take: 50,
   })
 
-  return NextResponse.json({
-    notifications: notifications.map((n) => ({
-      ...n,
-      expired: n.expiredAt !== null,
-    })),
+  // Load company aliases for enrichment
+  const companyAliases = await prisma.companyAlias.findMany()
+  const aliasMap = new Map(companyAliases.map((a) => [a.companyName, a.alias]))
+  const knownCompanies = companyAliases.map((a) => a.companyName)
+
+  // Collect scoutingIds from scouting_request notifications (batch fetch)
+  const scoutingIds: string[] = []
+  for (const n of notifications) {
+    if (n.type === 'scouting_request') {
+      const data = n.data as Record<string, unknown> | null
+      if (data && data.scoutingId && typeof data.scoutingId === 'string') {
+        scoutingIds.push(data.scoutingId)
+      }
+    }
+  }
+
+  // Batch fetch scoutings
+  const scoutings = scoutingIds.length > 0
+    ? await prisma.scouting.findMany({
+        where: { id: { in: scoutingIds } },
+        select: {
+          id: true,
+          courseName: true,
+          date: true,
+          manager: { select: { name: true } },
+        },
+      })
+    : []
+  const scoutingMap = new Map(scoutings.map((s) => [s.id, s]))
+
+  const enriched = notifications.map((n) => {
+    const base = { ...n, expired: n.expiredAt !== null }
+
+    const data = n.data as Record<string, unknown> | null
+    if (n.type !== 'scouting_request' || !data || !data.scoutingId) {
+      return base
+    }
+
+    const scoutingId = data.scoutingId as string
+    const scouting = scoutingMap.get(scoutingId)
+    if (!scouting) {
+      return base
+    }
+
+    const courseName = scouting.courseName ?? null
+    const { companyName, restCourseName } = courseName
+      ? parseCompanyFromCourseName(courseName, knownCompanies)
+      : { companyName: null, restCourseName: null }
+
+    const companyAlias = companyName ? (aliasMap.get(companyName) ?? null) : null
+    const managerName = scouting.manager.name
+    const date = scouting.date.toISOString().slice(0, 10)
+
+    let displayText: string | null = formatScoutingDisplay({
+      date,
+      managerName,
+      courseName,
+      companyAlias,
+      restCourseName,
+    })
+    if (displayText === '') displayText = null
+
+    return {
+      ...base,
+      enriched: { displayText, courseName, companyAlias },
+    }
   })
+
+  return NextResponse.json({ notifications: enriched })
 }
