@@ -895,6 +895,14 @@ function CoachScheduleContent() {
         </div>
       )}
 
+      {/* 활동 중지 — 페이지 하단 독립 섹션 */}
+      {coachInfo && coachInfo.status !== "inactive" && (
+        <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
+          setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
+          showToast("활동 중지가 신청되었습니다")
+        }} />
+      )}
+
       </div>
 
       {/* Save — mobile: full-width bottom bar, desktop: inline under calendar */}
@@ -938,6 +946,149 @@ function CoachScheduleContent() {
 
       {/* Bottom spacer for mobile bar */}
       <div className="h-16 md:hidden" />
+    </div>
+  )
+}
+
+// ─── 활동 중지 섹션 ──────────────────────────────────────────────
+
+function DeactivateSection({ token, phone, onDeactivated }: {
+  token: string
+  phone: string | null
+  onDeactivated: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [step, setStep] = useState<"phone" | "form">("phone")
+  const [phoneInput, setPhoneInput] = useState("")
+  const [phoneError, setPhoneError] = useState("")
+  const [reason, setReason] = useState("")
+  const [returnDate, setReturnDate] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  function verifyPhone() {
+    const input = phoneInput.replace(/[^\d]/g, "")
+    const stored = (phone || "").replace(/[^\d]/g, "")
+    if (input === stored) {
+      setStep("form")
+      setPhoneError("")
+    } else {
+      setPhoneError("연락처가 일치하지 않습니다")
+    }
+  }
+
+  async function handleSubmit() {
+    if (!reason.trim()) return
+    setSubmitting(true)
+    try {
+      const note = returnDate.trim()
+        ? `${reason.trim()} (복귀 희망: ${returnDate.trim()})`
+        : reason.trim()
+      const res = await fetch(`/api/coach/me?token=${token}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "inactive", statusNote: note }),
+      })
+      if (res.ok) onDeactivated()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!expanded) {
+    return (
+      <div className="w-[480px] max-md:w-full max-md:max-w-[480px] mt-4 mb-2">
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full cursor-pointer text-center text-xs text-gray-400 hover:text-gray-500 transition-colors py-2"
+        >
+          활동을 쉬고 싶으신가요?
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-[480px] max-md:w-full max-md:max-w-[480px] mt-4 mb-2">
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden">
+        <div className="px-5 pt-4 pb-1">
+          <h3 className="text-sm font-semibold text-[#333]">활동 중지 신청</h3>
+          <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+            일정 기간 휴식이 필요하시면 아래 내용을 작성해주세요.<br />
+            복귀를 원하실 때 다시 연락드리겠습니다.
+          </p>
+        </div>
+
+        <div className="px-5 pb-5 pt-3">
+          {step === "phone" ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">본인 확인을 위해 연락처를 입력해주세요</label>
+                <input
+                  type="text"
+                  value={phoneInput}
+                  onChange={(e) => { setPhoneInput(e.target.value); setPhoneError("") }}
+                  placeholder="010-0000-0000"
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                  onKeyDown={(e) => { if (e.key === "Enter") verifyPhone() }}
+                />
+                {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="flex-1 cursor-pointer rounded-lg border border-gray-200 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={verifyPhone}
+                  className="flex-1 cursor-pointer rounded-lg bg-[#1976D2] py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">중지 사유</label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="예: 개인 사정으로 3개월 휴식 희망"
+                  rows={2}
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">복귀 희망 시기 <span className="text-gray-400">(선택)</span></label>
+                <input
+                  type="text"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  placeholder="예: 2026년 7월, 미정"
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setExpanded(false); setStep("phone"); setReason(""); setReturnDate("") }}
+                  className="flex-1 cursor-pointer rounded-lg border border-gray-200 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!reason.trim() || submitting}
+                  className="flex-1 cursor-pointer rounded-lg bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {submitting ? "처리 중..." : "활동 중지 신청"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
