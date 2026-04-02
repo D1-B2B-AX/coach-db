@@ -42,7 +42,9 @@ export default function ScoutingAlerts({ token }: { token: string }) {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      const res = await fetch(`/api/coach/notifications?token=${token}`)
+      const res = await fetch(
+        `/api/coach/notifications?token=${token}&type=scouting_request&pendingOnly=true`
+      )
       if (res.ok) {
         const data = await res.json()
         setAlerts(
@@ -55,9 +57,16 @@ export default function ScoutingAlerts({ token }: { token: string }) {
   }, [token])
 
   useEffect(() => {
-    fetchAlerts()
-    const interval = setInterval(fetchAlerts, 30000)
-    return () => clearInterval(interval)
+    const initialFetch = window.setTimeout(() => {
+      void fetchAlerts()
+    }, 0)
+    const interval = window.setInterval(() => {
+      void fetchAlerts()
+    }, 30000)
+    return () => {
+      window.clearTimeout(initialFetch)
+      window.clearInterval(interval)
+    }
   }, [fetchAlerts])
 
   const pendingAlerts = alerts.filter((a) => !a.readAt && !a.expired)

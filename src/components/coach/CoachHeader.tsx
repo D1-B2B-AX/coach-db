@@ -18,15 +18,24 @@ export default function CoachHeader({
   const fetchCount = useCallback(async () => {
     if (!token) return
     try {
-      const res = await fetch(`/api/coach/notifications/unread-count?token=${token}`)
+      const res = await fetch(
+        `/api/coach/notifications/unread-count?token=${token}&type=scouting_request&pendingOnly=true`
+      )
       if (res.ok) setUnreadCount((await res.json()).count)
     } catch { /* ignore */ }
   }, [token])
 
   useEffect(() => {
-    fetchCount()
-    const interval = setInterval(fetchCount, 30000)
-    return () => clearInterval(interval)
+    const initialFetch = window.setTimeout(() => {
+      void fetchCount()
+    }, 0)
+    const interval = window.setInterval(() => {
+      void fetchCount()
+    }, 30000)
+    return () => {
+      window.clearTimeout(initialFetch)
+      window.clearInterval(interval)
+    }
   }, [fetchCount])
 
   function scrollToAlerts() {

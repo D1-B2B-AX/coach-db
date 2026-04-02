@@ -11,14 +11,18 @@ export async function GET(request: NextRequest) {
   if (!coach) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const unreadOnly = request.nextUrl.searchParams.get('unreadOnly') === 'true'
+  const pendingOnly = request.nextUrl.searchParams.get('pendingOnly') === 'true'
+  const type = request.nextUrl.searchParams.get('type')
 
   const notifications = await prisma.notification.findMany({
     where: {
       coachId: coach.id,
       ...(unreadOnly && { readAt: null }),
+      ...(pendingOnly && { readAt: null, expiredAt: null }),
+      ...(type && { type }),
     },
     orderBy: [{ readAt: 'asc' }, { createdAt: 'desc' }],
-    take: 50,
+    take: pendingOnly ? 100 : 50,
   })
 
   // Load company aliases for enrichment
