@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 
 import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
 import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
@@ -47,18 +47,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
-
-  // Derived: min/max for API calls and child components
-  const selectedStart = useMemo(() => {
-    if (selectedDates.size === 0) return null
-    return [...selectedDates].sort()[0]
-  }, [selectedDates])
-  const selectedEnd = useMemo(() => {
-    if (selectedDates.size <= 1) return null
-    const sorted = [...selectedDates].sort()
-    return sorted[sorted.length - 1]
-  }, [selectedDates])
+  const [selectedStart, setSelectedStart] = useState<string | null>(null)
+  const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
@@ -230,12 +220,18 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleSelectDate(dateStr: string) {
-    setSelectedDates(prev => {
-      const next = new Set(prev)
-      if (next.has(dateStr)) next.delete(dateStr)
-      else next.add(dateStr)
-      return next
-    })
+    // 이미 선택된 날짜를 다시 누르면 선택 해제
+    if (dateStr === selectedStart && !selectedEnd) {
+      setSelectedStart(null)
+      return
+    }
+    // 시작일이 있고 종료일이 없으면 → 범위 종료 설정
+    if (selectedStart && !selectedEnd && dateStr > selectedStart) {
+      setSelectedEnd(dateStr)
+    } else {
+      setSelectedStart(dateStr)
+      setSelectedEnd(null)
+    }
   }
 
   function handleTimeFilterChange(filter: string) {
@@ -267,12 +263,14 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     const today = new Date()
     setCurrentYear(today.getFullYear())
     setCurrentMonth(today.getMonth())
-    setSelectedDates(new Set([formatDate(today)]))
+    setSelectedStart(formatDate(today))
+    setSelectedEnd(null)
     setTimeFilter("all")
   }
 
   function handleReset() {
-    setSelectedDates(new Set())
+    setSelectedStart(null)
+    setSelectedEnd(null)
     setTimeFilter("all")
   }
 
@@ -281,36 +279,46 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     fetchMonthData()
   }
 
-  async function handleScoutToggle(coachId: string) {
-    if (selectedDates.size === 0) return
-    const dates = [...selectedDates].sort()
+  // 선택된 날짜 범위의 모든 날짜 생성
+  function getSelectedDateRange(): string[] {
+    if (!selectedStart) return []
+    if (!selectedEnd) return [selectedStart]
+    const dates: string[] = []
+    const cursor = new Date(selectedStart + "T12:00:00Z")
+    const end = new Date(selectedEnd + "T12:00:00Z")
+    while (cursor <= end) {
+      dates.push(cursor.toISOString().slice(0, 10))
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+    return dates
+  }
+
+  // 여러 코치를 선택된 날짜 범위에 일괄 컨택
+  async function handleBulkScout(coachIds: string[]) {
+    if (coachIds.length === 0 || !selectedStart) return
+    const dates = getSelectedDateRange()
     try {
-      let addedCount = 0
-      let removedCount = 0
-      for (const date of dates) {
-        const res = await fetch('/api/scoutings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ coachId, date, ...(selectedCourseId && { courseId: selectedCourseId }) }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.action === 'added') addedCount++
-          else removedCount++
+      let count = 0
+      for (const coachId of coachIds) {
+        for (const date of dates) {
+          const res = await fetch('/api/scoutings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coachId, date, ...(selectedCourseId && { courseId: selectedCourseId }) }),
+          })
+          if (res.ok) count++
         }
       }
+      // 섭외된 코치 목록 갱신
       setScoutedCoachIds((prev) => {
         const next = new Set(prev)
-        if (addedCount > 0) next.add(coachId)
-        if (removedCount > 0 && addedCount === 0) next.delete(coachId)
+        for (const id of coachIds) next.add(id)
         return next
       })
-      if (dates.length > 1) {
-        setToastMessage(`${dates.length}개 날짜에 컨택 처리 완료`)
-        setShowToast(true)
-      }
+      setToastMessage(`${coachIds.length}명 × ${dates.length}일 컨택 완료 (${count}건)`)
+      setShowToast(true)
     } catch (e) {
-      console.error('컨택 토글 에러:', e)
+      console.error('일괄 컨택 에러:', e)
       setToastMessage('컨택 처리 중 네트워크 오류')
       setShowToast(true)
     }
@@ -325,7 +333,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           month={currentMonth}
           selectedStart={selectedStart}
           selectedEnd={selectedEnd}
-          selectedDates={selectedDates}
           monthData={monthData}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
@@ -354,12 +361,11 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           engagementFilter={engagementFilter}
           onEngagementFilterChange={setEngagementFilter}
           scoutedCoachIds={scoutedCoachIds}
-          onScoutToggle={handleScoutToggle}
+          onBulkScout={handleBulkScout}
           courses={courses}
           selectedCourseId={selectedCourseId}
           onCourseChange={setSelectedCourseId}
           onCourseCreate={(course) => setCourses((prev) => [course, ...prev])}
-          selectedDatesCount={selectedDates.size}
           onReset={handleReset}
         />
       </div>

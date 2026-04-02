@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/Skeleton"
-import CourseSelector, { type CourseOption } from "@/components/CourseSelector"
+import type { CourseOption } from "@/components/CourseSelector"
 
 interface CoachSchedule {
   startTime: string
@@ -40,12 +40,11 @@ interface DashboardCoachListProps {
   engagementFilter: string
   onEngagementFilterChange: (filter: string) => void
   scoutedCoachIds?: Set<string>
-  onScoutToggle?: (coachId: string) => void
+  onBulkScout?: (coachIds: string[]) => void
   courses?: CourseOption[]
   selectedCourseId?: string | null
   onCourseChange?: (courseId: string | null) => void
   onCourseCreate?: (course: CourseOption) => void
-  selectedDatesCount?: number
   onReset?: () => void
 }
 
@@ -124,16 +123,21 @@ export default function DashboardCoachList({
   engagementFilter,
   onEngagementFilterChange,
   scoutedCoachIds,
-  onScoutToggle,
+  onBulkScout,
   courses,
   selectedCourseId,
   onCourseChange,
   onCourseCreate,
-  selectedDatesCount,
   onReset,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showCourseModal, setShowCourseModal] = useState(false)
+  const [newCourseName, setNewCourseName] = useState("")
+  const [newStartDate, setNewStartDate] = useState("")
+  const [newEndDate, setNewEndDate] = useState("")
+  const [courseError, setCourseError] = useState("")
+  const [courseSaving, setCourseSaving] = useState(false)
 
   const allFields = useMemo(() => {
     const set = new Set<string>()
@@ -247,17 +251,12 @@ export default function DashboardCoachList({
         <div className="border-b border-gray-100 px-5 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {summaryNode}
-            {selectedDatesCount && selectedDatesCount > 1 && (
-              <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-600">
-                {selectedDatesCount}일
-              </span>
-            )}
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && onBulkScout && (
               <button
-                onClick={handleExport}
-                className="cursor-pointer shrink-0 rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
+                onClick={() => onBulkScout([...selectedIds])}
+                className="cursor-pointer shrink-0 rounded-full bg-[#F57C00] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#E65100] transition-colors"
               >
-                내보내기 ({selectedIds.size})
+                컨택중 ({selectedIds.size})
               </button>
             )}
             {onReset && (
@@ -269,17 +268,26 @@ export default function DashboardCoachList({
               </button>
             )}
           </div>
-          {courses && onCourseChange && onCourseCreate && (
-            <div className="shrink-0">
-              <CourseSelector
-                courses={courses}
-                selectedCourseId={selectedCourseId ?? null}
-                onCourseChange={onCourseChange}
-                onCourseCreate={onCourseCreate}
-                defaultStartDate={selectedDate}
-                defaultEndDate={selectedEnd}
-                compact
-              />
+          {courses && onCourseChange && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <select
+                value={selectedCourseId ?? ""}
+                onChange={(e) => onCourseChange(e.target.value || null)}
+                className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+              >
+                <option value="">과정 선택</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {onCourseCreate && (
+                <button
+                  onClick={() => { setNewStartDate(selectedDate || ""); setNewEndDate(selectedEnd || ""); setShowCourseModal(true) }}
+                  className="cursor-pointer shrink-0 rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                >
+                  + 추가
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -345,18 +353,10 @@ export default function DashboardCoachList({
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
-                    {onScoutToggle && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onScoutToggle(coach.id) }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className={`shrink-0 cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                          scoutedCoachIds?.has(coach.id)
-                            ? "bg-[#FFF3E0] text-[#E65100] border border-[#FFB74D]"
-                            : "bg-gray-50 text-gray-300 border border-gray-200 hover:bg-gray-100"
-                        }`}
-                      >
+                    {scoutedCoachIds?.has(coach.id) && (
+                      <span className="shrink-0 rounded-full bg-[#FFF3E0] px-1.5 py-0.5 text-[10px] font-semibold text-[#E65100] border border-[#FFB74D]">
                         컨택중
-                      </button>
+                      </span>
                     )}
                   </div>
                   <span className="text-xs text-gray-400 truncate">
@@ -377,6 +377,65 @@ export default function DashboardCoachList({
           </>
         )}
       </div>
+
+      {/* 과정 추가 팝업 */}
+      {showCourseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowCourseModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-[#333] mb-3">새 과정 추가</h3>
+            {courseError && <div className="mb-2 text-xs text-red-600">{courseError}</div>}
+            <input
+              type="text"
+              placeholder="과정명을 입력하세요"
+              maxLength={200}
+              autoFocus
+              value={newCourseName}
+              onChange={(e) => setNewCourseName(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setShowCourseModal(false)}
+              className={`mb-2 w-full rounded-lg border px-3 py-2 text-sm ${!newCourseName.trim() && courseError ? "border-red-400" : "border-gray-300"} focus:border-blue-400 focus:outline-none`}
+            />
+            <div className="mb-3 flex gap-2">
+              <input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+              <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowCourseModal(false); setCourseError("") }}
+                className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">취소</button>
+              <button
+                disabled={courseSaving}
+                onClick={async () => {
+                  setCourseError("")
+                  if (!newCourseName.trim()) { setCourseError("과정명을 입력해주세요"); return }
+                  if (newEndDate && !newStartDate) { setCourseError("시작일 없이 종료일만 입력할 수 없습니다"); return }
+                  if (newStartDate && newEndDate && newEndDate < newStartDate) { setCourseError("종료일은 시작일 이후여야 합니다"); return }
+                  setCourseSaving(true)
+                  try {
+                    const res = await fetch("/api/courses", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: newCourseName.trim(), startDate: newStartDate || undefined, endDate: newEndDate || undefined }),
+                    })
+                    if (res.ok) {
+                      const course = await res.json()
+                      onCourseCreate?.({ id: course.id, name: course.name, startDate: course.startDate, endDate: course.endDate })
+                      onCourseChange?.(course.id)
+                      setShowCourseModal(false)
+                      setNewCourseName(""); setNewStartDate(""); setNewEndDate("")
+                    } else {
+                      const data = await res.json().catch(() => ({}))
+                      setCourseError(data.error || "과정 생성에 실패했습니다")
+                    }
+                  } catch { setCourseError("과정 생성에 실패했습니다") }
+                  finally { setCourseSaving(false) }
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+              >{courseSaving ? "추가 중..." : "추가"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

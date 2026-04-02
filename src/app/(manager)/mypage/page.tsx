@@ -478,8 +478,8 @@ export default function MyPage() {
         })}
       </div>
 
-      {/* 다중 선택 액션 바 */}
-      {selectedRows.size > 0 && (
+      {/* 다중 선택 액션 바 — 추후 재구현 예정 */}
+      {false && selectedRows.size > 0 && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-[11px] text-gray-500">{selectedRows.size}건 선택</span>
           <button
@@ -499,16 +499,7 @@ export default function MyPage() {
         </div>
       )}
 
-      {/* 전체선택 헤더 */}
-      <div className="flex items-center gap-3 mb-2 px-1">
-        <input
-          type="checkbox"
-          checked={allChecked}
-          onChange={toggleAllVisible}
-          className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
-        />
-        <span className="text-[11px] text-gray-400">전체 선택</span>
-      </div>
+      {/* 전체선택 헤더 — 추후 재구현 예정 */}
 
       <div className="space-y-3">
         {loading ? (
@@ -583,15 +574,8 @@ export default function MyPage() {
                                   return (
                                     <div key={s.id} className="flex flex-col">
                                       <div className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
-                                        selectedRows.has(s.id) ? "border-blue-300 bg-blue-50/50" :
                                         s.status === "cancelled" ? "border-gray-200 bg-gray-50 opacity-50" : "border-gray-200 bg-white hover:bg-gray-50"
                                       }`}>
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedRows.has(s.id)}
-                                          onChange={() => toggleRow(s.id)}
-                                          className="w-3 h-3 accent-[#1976D2] cursor-pointer"
-                                        />
                                         <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${cfg.className}`}>
                                           {cfg.label}
                                         </span>

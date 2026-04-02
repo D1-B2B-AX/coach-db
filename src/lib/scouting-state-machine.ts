@@ -43,13 +43,13 @@ const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
     type: 'coach_accepted',
     recipientRole: 'manager',
     messageTemplate: '{coachName}님이 {date} 섭외를 수락했습니다',
-    clickUrlPattern: '/coaches/{coachId}',
+    clickUrlPattern: '/mypage',
   },
   'scouting->rejected': {
     type: 'coach_rejected',
     recipientRole: 'manager',
     messageTemplate: '{coachName}님이 {date} 섭외를 거절했습니다',
-    clickUrlPattern: '/coaches/{coachId}',
+    clickUrlPattern: '/mypage',
   },
   'scouting->cancelled': null, // 알림 비생성 (대신 기존 T1 만료)
   'accepted->confirmed': {
