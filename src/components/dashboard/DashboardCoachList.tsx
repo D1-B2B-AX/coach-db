@@ -152,10 +152,14 @@ export default function DashboardCoachList({
 
   const filteredCoaches = useMemo(() => {
     return coaches.filter((c) => {
-      // Time filter
+      // Time filter (multi-select: comma-separated keys)
       if (timeFilter !== "all") {
-        const [s, e] = timeFilter.split("-")
-        if (!hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)) return false
+        const ranges = timeFilter.split(",")
+        const matchesAny = ranges.some((range) => {
+          const [s, e] = range.split("-")
+          return hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)
+        })
+        if (!matchesAny) return false
       }
       // Field filter (multi)
       if (fieldFilter !== "all") {
@@ -232,7 +236,7 @@ export default function DashboardCoachList({
     let timePart = ""
     if (timeFilter !== "all") {
       const presetLabels: Record<string, string> = { "08-13": "오전", "13-18": "오후", "18-22": "저녁" }
-      timePart = presetLabels[timeFilter] || (() => { const [s, e] = timeFilter.split("-"); return `${s}:00~${e}:00` })()
+      timePart = timeFilter.split(",").map((k) => presetLabels[k] || k).join("·")
     }
 
     return (

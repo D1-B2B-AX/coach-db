@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 
+const OPEN_SCOUTING_ALERTS_EVENT = "coach:open-scouting-alerts"
+
 interface CoachHeaderProps {
   coachName: string
   token?: string
@@ -41,6 +43,7 @@ export default function CoachHeader({
   function scrollToAlerts() {
     const el = document.getElementById("scouting-alerts")
     if (el) el.scrollIntoView({ behavior: "smooth" })
+    window.dispatchEvent(new CustomEvent(OPEN_SCOUTING_ALERTS_EVENT))
   }
 
   return (

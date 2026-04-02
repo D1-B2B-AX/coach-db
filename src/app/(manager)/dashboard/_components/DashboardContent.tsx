@@ -53,7 +53,20 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
   const [statusData, setStatusData] = useState<StatusData | null>(null)
-  const [timeFilter, setTimeFilter] = useState<string>(variant === "samsung" ? "08-18" : "all")
+  const [timeFilter, setTimeFilter] = useState<string>(variant === "samsung" ? "08-13,13-18" : "all")
+
+  // For API calls: compute broadest time range from multi-select
+  function getApiTimeFilter(): string {
+    if (timeFilter === "all") return "all"
+    const ranges = timeFilter.split(",")
+    let minS = 24, maxE = 0
+    for (const r of ranges) {
+      const [s, e] = r.split("-").map(Number)
+      if (s < minS) minS = s
+      if (e > maxE) maxE = e
+    }
+    return `${String(minS).padStart(2, "0")}-${String(maxE).padStart(2, "0")}`
+  }
   const [fieldFilter, setFieldFilter] = useState<string>("all")
   const [ratingFilter, setRatingFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -77,8 +90,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setMonthLoading(true)
     try {
       const params = new URLSearchParams()
-      if (timeFilter !== "all") {
-        params.set("timeFilter", timeFilter)
+      const apiTime = getApiTimeFilter()
+      if (apiTime !== "all") {
+        params.set("timeFilter", apiTime)
       }
       if (variant === "general") params.set("coachFilter", "exclude-samsung")
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
@@ -124,8 +138,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       const ym = selectedStart.slice(0, 7)
       const params = new URLSearchParams()
       if (selectedEnd) params.set("endDate", selectedEnd)
-      if (timeFilter !== "all") {
-        params.set("timeFilter", timeFilter)
+      const apiTime = getApiTimeFilter()
+      if (apiTime !== "all") {
+        params.set("timeFilter", apiTime)
       }
       if (variant === "general") params.set("coachFilter", "exclude-samsung")
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")

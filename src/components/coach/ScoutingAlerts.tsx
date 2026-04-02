@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import React from "react"
 
+const OPEN_SCOUTING_ALERTS_EVENT = "coach:open-scouting-alerts"
+
 interface ScoutingNotification {
   id: string
   type: string
@@ -31,6 +33,8 @@ export default function ScoutingAlerts({ token }: { token: string }) {
   const [acting, setActing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [forcedVisible, setForcedVisible] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
@@ -41,9 +45,11 @@ export default function ScoutingAlerts({ token }: { token: string }) {
   }, [])
 
   const fetchAlerts = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await fetch(
-        `/api/coach/notifications?token=${token}&type=scouting_request&pendingOnly=true`
+        `/api/coach/notifications?token=${token}&type=scouting_request&pendingOnly=true`,
+        { cache: "no-store" }
       )
       if (res.ok) {
         const data = await res.json()
@@ -52,8 +58,14 @@ export default function ScoutingAlerts({ token }: { token: string }) {
             (n: ScoutingNotification) => n.type === "scouting_request"
           )
         )
+      } else {
+        setAlerts([])
       }
-    } catch { /* ignore */ }
+    } catch {
+      setAlerts([])
+    } finally {
+      setLoading(false)
+    }
   }, [token])
 
   useEffect(() => {
@@ -69,7 +81,18 @@ export default function ScoutingAlerts({ token }: { token: string }) {
     }
   }, [fetchAlerts])
 
+  useEffect(() => {
+    const handleOpen = () => {
+      setForcedVisible(true)
+      setExpanded(true)
+      void fetchAlerts()
+    }
+    window.addEventListener(OPEN_SCOUTING_ALERTS_EVENT, handleOpen)
+    return () => window.removeEventListener(OPEN_SCOUTING_ALERTS_EVENT, handleOpen)
+  }, [fetchAlerts])
+
   const pendingAlerts = alerts.filter((a) => !a.readAt && !a.expired)
+  const shouldRender = pendingAlerts.length > 0 || forcedVisible
 
   const limit = isMobile ? 2 : 3
   const visibleAlerts = expanded ? pendingAlerts : pendingAlerts.slice(0, limit)
@@ -106,11 +129,21 @@ export default function ScoutingAlerts({ token }: { token: string }) {
     finally { setActing(null) }
   }
 
-  if (pendingAlerts.length === 0) return null
+  if (!shouldRender) return null
 
   return (
     <div className="space-y-2 mb-4">
       <div className="text-sm font-semibold text-[#333] px-1 mb-1">받은 요청 ({pendingAlerts.length})</div>
+      {loading && pendingAlerts.length === 0 && (
+        <div className="rounded-xl border border-[#E3F2FD] bg-[#F7FBFF] px-4 py-3 text-sm text-[#546E7A]">
+          요청을 불러오는 중입니다...
+        </div>
+      )}
+      {!loading && pendingAlerts.length === 0 && (
+        <div className="rounded-xl border border-[#ECEFF1] bg-[#FAFAFA] px-4 py-3 text-sm text-[#78909C]">
+          현재 확인할 요청이 없습니다.
+        </div>
+      )}
       {visibleAlerts.map((a, i) => {
         const prevDate = i > 0 ? visibleAlerts[i - 1].data?.date : null
         const currentDate = a.data?.date

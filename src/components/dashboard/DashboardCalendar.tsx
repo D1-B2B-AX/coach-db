@@ -22,8 +22,6 @@ interface DashboardCalendarProps {
 }
 
 const TIME_PRESETS = [
-  { key: "all", label: "전체" },
-  { key: "08-18", label: "오전+오후" },
   { key: "08-13", label: "오전" },
   { key: "13-18", label: "오후" },
   { key: "18-22", label: "저녁" },
@@ -65,21 +63,41 @@ export default function DashboardCalendar({
 
   return (
     <div className="min-w-0 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 sm:p-5">
-      {/* Time filter — preset buttons only */}
+      {/* Time filter — multi-select preset buttons */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        {TIME_PRESETS.map((f) => (
+        {TIME_PRESETS.map((f) => {
+          const activeKeys = timeFilter === "all" ? [] : timeFilter.split(",")
+          const isActive = activeKeys.includes(f.key)
+          return (
+            <button
+              key={f.key}
+              onClick={() => {
+                let next: string[]
+                if (isActive) {
+                  next = activeKeys.filter((k) => k !== f.key)
+                } else {
+                  next = [...activeKeys, f.key]
+                }
+                onTimeFilterChange(next.length === 0 ? "all" : next.join(","))
+              }}
+              className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                isActive
+                  ? "bg-[#1976D2] text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              {f.label}
+            </button>
+          )
+        })}
+        {timeFilter !== "all" && (
           <button
-            key={f.key}
-            onClick={() => onTimeFilterChange(f.key)}
-            className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-              timeFilter === f.key
-                ? "bg-[#1976D2] text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
+            onClick={() => onTimeFilterChange("all")}
+            className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
           >
-            {f.label}
+            초기화
           </button>
-        ))}
+        )}
         <button
           onClick={onRefresh}
           disabled={syncing}
