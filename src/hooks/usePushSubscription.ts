@@ -38,7 +38,10 @@ export function usePushSubscription(apiPath: string) {
       setState("granted")
 
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidKey) return false
+      if (!vapidKey) {
+        console.warn("[Push] VAPID key not set")
+        return false
+      }
 
       // base64url → Uint8Array 변환 (pushManager.subscribe 요구사항)
       const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4)
@@ -64,9 +67,11 @@ export function usePushSubscription(apiPath: string) {
         }),
       })
 
+      console.log("[Push] subscribed successfully:", json.endpoint?.slice(0, 50))
       setSubscribed(true)
       return true
-    } catch {
+    } catch (e) {
+      console.error("[Push] subscribe failed:", e)
       return false
     }
   }, [apiPath])
