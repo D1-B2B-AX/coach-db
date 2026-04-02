@@ -987,7 +987,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
         body: JSON.stringify({
           status: "inactive",
           statusNote: note,
-          returnDate: returnDate.trim() || null,
+          returnDate: returnDate ? `${returnDate}-01` : null,
         }),
       })
       if (res.ok) onDeactivated()
@@ -1064,10 +1064,10 @@ function DeactivateSection({ token, phone, onDeactivated }: {
               <div>
                 <label className="text-xs text-gray-500">복귀 희망 시기 <span className="text-gray-400">(선택)</span></label>
                 <input
-                  type="text"
+                  type="month"
                   value={returnDate}
                   onChange={(e) => setReturnDate(e.target.value)}
-                  placeholder="예: 2027년 1월"
+                  min={new Date().toISOString().slice(0, 7)}
                   className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
                 />
               </div>
