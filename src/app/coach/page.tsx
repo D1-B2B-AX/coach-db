@@ -682,6 +682,7 @@ function CoachScheduleContent() {
       })
       if (!res.ok) throw new Error("Save failed")
 
+      setSchedules(deepCopySlotMap(editingSlots))
       setLastSavedAt(new Date().toISOString())
       setSaved(true)
       showToast("저장되었습니다!")
