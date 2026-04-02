@@ -765,7 +765,6 @@ function CoachScheduleContent() {
           />
 
           <div className="px-7 pt-5 pb-7">
-            {token && <ScoutingAlerts token={token} />}
             <ScheduleCalendar
               year={currentYear}
               month={currentMonth}
@@ -797,6 +796,13 @@ function CoachScheduleContent() {
             <ScheduleSummary engagements={engagements} lastSavedAt={lastSavedAt} />
           </div>
         </div>
+
+        {/* 받은 요청 — 나의 스케줄 박스 아래 */}
+        {token && (
+          <div id="scouting-alerts" className="scroll-mt-4">
+            <ScoutingAlerts token={token} />
+          </div>
+        )}
 
         {/* 활동 중지 — 나의 스케줄 박스 바로 아래 */}
         {coachInfo && coachInfo.status !== "inactive" && (

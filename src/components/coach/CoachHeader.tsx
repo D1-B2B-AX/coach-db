@@ -1,6 +1,6 @@
 "use client"
 
-import CoachNotificationBell from "./CoachNotificationBell"
+import { useState, useEffect, useCallback } from "react"
 
 interface CoachHeaderProps {
   coachName: string
@@ -13,6 +13,27 @@ export default function CoachHeader({
   token,
   onProfile,
 }: CoachHeaderProps) {
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const fetchCount = useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`/api/coach/notifications/unread-count?token=${token}`)
+      if (res.ok) setUnreadCount((await res.json()).count)
+    } catch { /* ignore */ }
+  }, [token])
+
+  useEffect(() => {
+    fetchCount()
+    const interval = setInterval(fetchCount, 30000)
+    return () => clearInterval(interval)
+  }, [fetchCount])
+
+  function scrollToAlerts() {
+    const el = document.getElementById("scouting-alerts")
+    if (el) el.scrollIntoView({ behavior: "smooth" })
+  }
+
   return (
     <div className="bg-[#1565C0] px-7 pt-6 pb-4 text-white">
       <div className="flex items-start justify-between">
@@ -25,7 +46,19 @@ export default function CoachHeader({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {token && <CoachNotificationBell token={token} />}
+          {token && (
+            <button
+              onClick={scrollToAlerts}
+              className="relative cursor-pointer rounded-md bg-white/20 px-3 py-1.5 text-[13px] font-medium text-white backdrop-blur-sm hover:bg-white/30 transition-colors"
+            >
+              받은 요청
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+          )}
           {onProfile && (
             <button
               onClick={onProfile}

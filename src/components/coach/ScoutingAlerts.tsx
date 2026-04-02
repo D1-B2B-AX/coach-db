@@ -101,6 +101,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
 
   return (
     <div className="space-y-2 mb-4">
+      <div className="text-sm font-semibold text-[#333] px-1 mb-1">받은 요청 ({pendingAlerts.length})</div>
       {visibleAlerts.map((a, i) => {
         const prevDate = i > 0 ? visibleAlerts[i - 1].data?.date : null
         const currentDate = a.data?.date
