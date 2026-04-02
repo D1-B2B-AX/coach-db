@@ -1048,14 +1048,14 @@ function DeactivateSection({ token, phone, onDeactivated }: {
           ) : (
             <div className="space-y-3">
               <p className="text-xs text-gray-500 leading-relaxed">
-                복귀를 원하실 때 다시 연락드리겠습니다.
+                복귀 희망 시기를 적어주시면 원하실 때 다시 연락드리겠습니다.
               </p>
               <div>
                 <label className="text-xs text-gray-500">중지 사유</label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="예: 개인 사정으로 3개월 휴식 희망"
+                  placeholder="예: 개인 사정으로 당분간 휴식"
                   rows={2}
                   className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
                 />
@@ -1066,7 +1066,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
                   type="text"
                   value={returnDate}
                   onChange={(e) => setReturnDate(e.target.value)}
-                  placeholder="예: 2026년 7월, 미정"
+                  placeholder="예: 2027년 1월"
                   className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#1976D2]"
                 />
               </div>
