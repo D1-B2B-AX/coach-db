@@ -152,14 +152,14 @@ export default function DashboardCoachList({
 
   const filteredCoaches = useMemo(() => {
     return coaches.filter((c) => {
-      // Time filter (multi-select: comma-separated keys)
+      // Time filter (multi-select: all selected ranges must match)
       if (timeFilter !== "all") {
-        const ranges = timeFilter.split(",")
-        const matchesAny = ranges.some((range) => {
+        const ranges = timeFilter.split(",").filter(Boolean)
+        const matchesAll = ranges.every((range) => {
           const [s, e] = range.split("-")
           return hasTimeOverlap(c.schedules, `${s}:00`, `${e}:00`)
         })
-        if (!matchesAny) return false
+        if (!matchesAll) return false
       }
       // Field filter (multi)
       if (fieldFilter !== "all") {

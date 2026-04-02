@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 
 const OPEN_SCOUTING_ALERTS_EVENT = "coach:open-scouting-alerts"
+const SCOUTING_ALERTS_COUNT_EVENT = "coach:scouting-alerts-count"
 
 interface CoachHeaderProps {
   coachName: string
@@ -40,9 +41,22 @@ export default function CoachHeader({
     }
   }, [fetchCount])
 
+  useEffect(() => {
+    function handleCountSync(event: Event) {
+      const customEvent = event as CustomEvent<{ count?: number }>
+      const count = customEvent.detail?.count
+      if (typeof count === "number") {
+        setUnreadCount(Math.max(0, count))
+      }
+    }
+    window.addEventListener(SCOUTING_ALERTS_COUNT_EVENT, handleCountSync)
+    return () => window.removeEventListener(SCOUTING_ALERTS_COUNT_EVENT, handleCountSync)
+  }, [])
+
   function scrollToAlerts() {
     const el = document.getElementById("scouting-alerts")
     if (el) el.scrollIntoView({ behavior: "smooth" })
+    void fetchCount()
     window.dispatchEvent(new CustomEvent(OPEN_SCOUTING_ALERTS_EVENT))
   }
 
