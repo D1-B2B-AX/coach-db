@@ -980,12 +980,15 @@ function DeactivateSection({ token, phone, onDeactivated }: {
   async function handleSubmit() {
     setSubmitting(true)
     try {
-      const parts = [reason.trim(), returnDate.trim() ? `복귀 희망: ${returnDate.trim()}` : ""].filter(Boolean)
-      const note = parts.join(" — ") || null
+      const note = reason.trim() || null
       const res = await fetch(`/api/coach/me?token=${token}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "inactive", statusNote: note }),
+        body: JSON.stringify({
+          status: "inactive",
+          statusNote: note,
+          returnDate: returnDate.trim() || null,
+        }),
       })
       if (res.ok) onDeactivated()
     } finally {
