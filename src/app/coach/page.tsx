@@ -755,9 +755,9 @@ function CoachScheduleContent() {
 
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
-      <div className="flex w-full max-w-[800px] items-start gap-6 max-md:flex-col max-md:items-center">
+      <div className="flex w-full max-w-[480px] flex-col items-center gap-4">
         {/* Main container */}
-        <div className="w-[480px] overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] max-md:w-full max-md:max-w-[480px]">
+        <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <CoachHeader
             coachName={coachInfo?.name ?? ""}
             token={token ?? undefined}
@@ -997,7 +997,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
 
   if (!expanded) {
     return (
-      <div className="w-[480px] max-md:w-full max-md:max-w-[480px] mt-4 mb-2">
+      <div className="w-full mt-4 mb-2">
         <button
           onClick={() => setExpanded(true)}
           className="w-full cursor-pointer text-center text-xs text-gray-400 hover:text-gray-500 transition-colors py-2"

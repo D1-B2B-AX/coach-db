@@ -73,18 +73,18 @@ export default function ScheduleCalendar({
         {canGoPrev ? (
           <button
             onClick={onPrevMonth}
-            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
+            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-2.5 py-1 text-sm text-[#666] hover:bg-gray-50 transition-colors"
           >
             &#8249; 이전
           </button>
-        ) : <div className="w-[72px]" />}
-        <span className="text-base font-semibold text-[#333]">
+        ) : <div className="w-[60px]" />}
+        <span className="text-sm font-semibold text-[#333]">
           {year}년 {month + 1}월
         </span>
         {canGoNext ? (
           <button
             onClick={onNextMonth}
-            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-3.5 py-1.5 text-base text-[#666] hover:bg-gray-50 transition-colors"
+            className="cursor-pointer rounded-lg border border-[#e0e0e0] px-2.5 py-1 text-sm text-[#666] hover:bg-gray-50 transition-colors"
           >
             다음 &#8250;
           </button>
