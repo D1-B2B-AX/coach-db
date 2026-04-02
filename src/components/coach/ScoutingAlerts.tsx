@@ -148,19 +148,19 @@ export default function ScoutingAlerts({ token }: { token: string }) {
     <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
       <div className="px-7 pt-5 pb-6">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold text-[#333]">받은 요청</h3>
-          <span className="rounded-full bg-[#E3F2FD] px-2 py-0.5 text-[12px] font-semibold text-[#1976D2]">
+          <h3 className="text-sm font-semibold text-[#333]">받은 요청</h3>
+          <span className="rounded-full bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#1976D2]">
             {pendingAlerts.length}건
           </span>
         </div>
-        <div className="space-y-2">
+        <div className="min-h-[148px] space-y-2">
           {loading && pendingAlerts.length === 0 && (
-            <div className="rounded-xl border border-[#E3F2FD] bg-[#F7FBFF] px-4 py-3 text-sm text-[#546E7A]">
+            <div className="rounded-xl border border-[#E1E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#5C6B7A]">
               요청을 불러오는 중입니다...
             </div>
           )}
           {!loading && loadError && (
-            <div className="rounded-xl border border-[#FFE0B2] bg-[#FFF8E1] px-4 py-3 text-sm text-[#8D6E63]">
+            <div className="rounded-xl border border-[#F0E3DA] bg-[#FCF8F5] px-4 py-3 text-sm text-[#7A6355]">
               요청을 불러오지 못했습니다. 다시 시도해주세요.
             </div>
           )}
@@ -180,7 +180,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
                     {formatAlertDate(currentDate)}
                   </div>
                 )}
-                <div className="rounded-xl border border-[#E3F2FD] bg-[#F7FBFF] px-4 py-3">
+                <div className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3">
                   <div className="mb-2 text-sm text-[#333]">{a.enriched?.displayText || a.body}</div>
                   <div className="flex items-center gap-2">
                     <button
@@ -213,7 +213,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
           {forcedVisible && (
             <button
               onClick={() => void fetchAlerts()}
-              className="w-full py-1 text-center text-[11px] text-gray-400 hover:text-gray-600"
+              className="w-full py-1 text-center text-[11px] text-gray-500 hover:text-gray-700"
             >
               새로고침
             </button>

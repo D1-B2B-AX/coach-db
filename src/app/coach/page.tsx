@@ -799,7 +799,7 @@ function CoachScheduleContent() {
 
         {/* 받은 요청 — 나의 스케줄 박스 아래 */}
         {token && (
-          <div id="scouting-alerts" className="scroll-mt-4">
+          <div id="scouting-alerts" className="w-full scroll-mt-4">
             <ScoutingAlerts token={token} />
           </div>
         )}
