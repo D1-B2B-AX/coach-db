@@ -798,6 +798,14 @@ function CoachScheduleContent() {
           </div>
         </div>
 
+        {/* 활동 중지 — 나의 스케줄 박스 바로 아래 */}
+        {coachInfo && coachInfo.status !== "inactive" && (
+          <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
+            setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
+            showToast("활동 중지가 신청되었습니다")
+          }} />
+        )}
+
       {/* Google Form prompt — shown when profile fields are empty */}
       {showFormPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -894,14 +902,6 @@ function CoachScheduleContent() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* 활동 중지 — 페이지 하단 독립 섹션 */}
-      {coachInfo && coachInfo.status !== "inactive" && (
-        <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
-          setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
-          showToast("활동 중지가 신청되었습니다")
-        }} />
       )}
 
       </div>
