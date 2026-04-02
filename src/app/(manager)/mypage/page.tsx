@@ -688,10 +688,6 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 일련의 과정 — 연결 영역 (별도 작업에서 구현 예정) */}
-      <div className="mt-6 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-8 text-center">
-        <p className="text-sm text-gray-300">일련의 과정 — 준비 중</p>
-      </div>
     </div>
   )
 }
