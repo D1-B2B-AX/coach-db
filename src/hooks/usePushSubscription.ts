@@ -40,9 +40,18 @@ export function usePushSubscription(apiPath: string) {
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) return false
 
+      // base64url → Uint8Array 변환 (pushManager.subscribe 요구사항)
+      const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4)
+      const base64 = (vapidKey + padding).replace(/-/g, "+").replace(/_/g, "/")
+      const rawData = atob(base64)
+      const applicationServerKey = new Uint8Array(rawData.length)
+      for (let i = 0; i < rawData.length; i++) {
+        applicationServerKey[i] = rawData.charCodeAt(i)
+      }
+
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: vapidKey,
+        applicationServerKey,
       })
 
       const json = sub.toJSON()
