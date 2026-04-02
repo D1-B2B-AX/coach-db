@@ -58,8 +58,8 @@ export default function CoachNotificationBell({ token }: { token: string }) {
 
   async function handleOpen() {
     setOpen(!open)
-    // Auto-request push permission on first click
-    if (!pushTriedRef.current && pushState === "prompt" && !subscribed) {
+    // Auto-request push permission on first click, or re-subscribe if granted but not subscribed
+    if (!pushTriedRef.current && (pushState === "prompt" || (pushState === "granted" && !subscribed))) {
       pushTriedRef.current = true
       subscribe()
     }
