@@ -978,12 +978,10 @@ function DeactivateSection({ token, phone, onDeactivated }: {
   }
 
   async function handleSubmit() {
-    if (!reason.trim()) return
     setSubmitting(true)
     try {
-      const note = returnDate.trim()
-        ? `${reason.trim()} (복귀 희망: ${returnDate.trim()})`
-        : reason.trim()
+      const parts = [reason.trim(), returnDate.trim() ? `복귀 희망: ${returnDate.trim()}` : ""].filter(Boolean)
+      const note = parts.join(" — ") || null
       const res = await fetch(`/api/coach/me?token=${token}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1051,7 +1049,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
                 복귀 희망 시기를 적어주시면 원하실 때 다시 연락드리겠습니다.
               </p>
               <div>
-                <label className="text-xs text-gray-500">중지 사유</label>
+                <label className="text-xs text-gray-500">중지 사유 <span className="text-gray-400">(선택)</span></label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -1079,7 +1077,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!reason.trim() || submitting}
+                  disabled={submitting}
                   className="flex-1 cursor-pointer rounded-lg bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                 >
                   {submitting ? "처리 중..." : "활동 중지 신청"}
