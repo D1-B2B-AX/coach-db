@@ -64,11 +64,13 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note, courseId } = (await request.json()) as {
+    const { coachId, date, note, courseId, courseName, mode } = (await request.json()) as {
       coachId: string
       date: string
       note?: string
       courseId?: string
+      courseName?: string
+      mode?: 'toggle' | 'upsert'
     }
 
     if (!coachId || !date) {
@@ -92,7 +94,12 @@ export async function POST(request: NextRequest) {
         // cancelled -> scouting 복원 (재섭외)
         const updated = await prisma.scouting.update({
           where: { id: existing.id },
-          data: { status: 'scouting', ...(courseId !== undefined && { courseId: courseId || null }) },
+          data: {
+            status: 'scouting',
+            ...(courseId !== undefined && { courseId: courseId || null }),
+            ...(courseName !== undefined && { courseName: courseName.trim() || null }),
+            ...(note !== undefined && { note: note.trim() || null }),
+          },
           select: {
             id: true, coachId: true, date: true, status: true,
             manager: { select: { id: true, name: true } },
@@ -119,6 +126,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ action: 'added', scouting: updated })
       }
 
+      // upsert 모드: 기존 섭외를 취소하지 않고 메타데이터 갱신
+      if (mode === 'upsert') {
+        const updated = await prisma.scouting.update({
+          where: { id: existing.id },
+          data: {
+            ...(courseId !== undefined && { courseId: courseId || null }),
+            ...(courseName !== undefined && { courseName: courseName.trim() || null }),
+            ...(note !== undefined && { note: note.trim() || null }),
+          },
+          select: { id: true, status: true, courseId: true, courseName: true, note: true },
+        })
+        return NextResponse.json({ action: 'updated', scouting: updated })
+      }
+
       // scouting/accepted -> cancelled (섭외 철회)
       await prisma.scouting.update({
         where: { id: existing.id },
@@ -137,8 +158,9 @@ export async function POST(request: NextRequest) {
         coachId,
         managerId: auth.manager.id,
         date: dateObj,
-        note: note || null,
+        note: note?.trim() || null,
         courseId: courseId || null,
+        courseName: courseName?.trim() || null,
       },
       select: {
         id: true, coachId: true, date: true, status: true,

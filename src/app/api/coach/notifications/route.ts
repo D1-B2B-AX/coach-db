@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
-import { parseCompanyFromCourseName, formatScoutingDisplay } from '@/lib/company-alias'
+import { formatScoutingDisplay } from '@/lib/company-alias'
 
 // GET /api/coach/notifications — 코치 알림 목록
 export async function GET(request: NextRequest) {
@@ -25,11 +25,6 @@ export async function GET(request: NextRequest) {
     take: pendingOnly ? 100 : 50,
   })
 
-  // Load company aliases for enrichment
-  const companyAliases = await prisma.companyAlias.findMany()
-  const aliasMap = new Map(companyAliases.map((a) => [a.companyName, a.alias]))
-  const knownCompanies = companyAliases.map((a) => a.companyName)
-
   // Collect scoutingIds from scouting_request notifications (batch fetch)
   const scoutingIds: string[] = []
   for (const n of notifications) {
@@ -48,6 +43,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           courseName: true,
+          note: true,
           date: true,
           manager: { select: { name: true } },
         },
@@ -70,11 +66,6 @@ export async function GET(request: NextRequest) {
     }
 
     const courseName = scouting.courseName ?? null
-    const { companyName, restCourseName } = courseName
-      ? parseCompanyFromCourseName(courseName, knownCompanies)
-      : { companyName: null, restCourseName: null }
-
-    const companyAlias = companyName ? (aliasMap.get(companyName) ?? null) : null
     const managerName = scouting.manager.name
     const date = scouting.date.toISOString().slice(0, 10)
 
@@ -82,14 +73,14 @@ export async function GET(request: NextRequest) {
       date,
       managerName,
       courseName,
-      companyAlias,
-      restCourseName,
+      companyAlias: null,
+      restCourseName: null,
     })
     if (displayText === '') displayText = null
 
     return {
       ...base,
-      enriched: { displayText, courseName, companyAlias },
+      enriched: { displayText, courseName, note: scouting.note },
     }
   })
 

@@ -17,7 +17,7 @@ interface ScoutingNotification {
     courseName?: string
     clickUrl?: string
   } | null
-  enriched?: { displayText?: string | null } | null
+  enriched?: { displayText?: string | null; note?: string | null } | null
   readAt: string | null
   expired: boolean
   expiredAt: string | null
@@ -182,6 +182,11 @@ export default function ScoutingAlerts({ token }: { token: string }) {
                 )}
                 <div className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3">
                   <div className="mb-2 text-sm text-[#333]">{a.enriched?.displayText || a.body}</div>
+                  {a.enriched?.note && (
+                    <div className="mb-2 rounded-md bg-white px-2.5 py-2 text-xs text-[#616161]">
+                      {a.enriched.note}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleAction(a, "accept")}

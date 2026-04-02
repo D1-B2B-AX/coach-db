@@ -80,6 +80,12 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [syncing, setSyncing] = useState(false)
   const [courses, setCourses] = useState<CourseOption[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+  const [showScoutModal, setShowScoutModal] = useState(false)
+  const [bulkCoachIds, setBulkCoachIds] = useState<string[]>([])
+  const [bulkCourseName, setBulkCourseName] = useState("")
+  const [bulkCourseDescription, setBulkCourseDescription] = useState("")
+  const [bulkSending, setBulkSending] = useState(false)
+  const [bulkError, setBulkError] = useState("")
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -308,34 +314,72 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     return dates
   }
 
-  // 여러 코치를 선택된 날짜 범위에 일괄 컨택
-  async function handleBulkScout(coachIds: string[]) {
+  function openBulkScoutModal(coachIds: string[]) {
     if (coachIds.length === 0 || !selectedStart) return
+    const selectedCourse = selectedCourseId
+      ? courses.find((c) => c.id === selectedCourseId)
+      : null
+    setBulkCoachIds(coachIds)
+    setBulkCourseName(selectedCourse?.name ?? "")
+    setBulkCourseDescription("")
+    setBulkError("")
+    setShowScoutModal(true)
+  }
+
+  // 팝업 입력값으로 여러 코치를 선택된 날짜 범위에 일괄 컨택
+  async function submitBulkScout() {
+    if (bulkCoachIds.length === 0 || !selectedStart) return
+    const courseName = bulkCourseName.trim()
+    if (!courseName) {
+      setBulkError("과정명을 입력해주세요.")
+      return
+    }
     const dates = getSelectedDateRange()
+    setBulkSending(true)
+    setBulkError("")
     try {
-      let count = 0
-      for (const coachId of coachIds) {
+      let successCount = 0
+      let failedCount = 0
+      for (const coachId of bulkCoachIds) {
         for (const date of dates) {
           const res = await fetch('/api/scoutings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ coachId, date, ...(selectedCourseId && { courseId: selectedCourseId }) }),
+            body: JSON.stringify({
+              coachId,
+              date,
+              mode: 'upsert',
+              courseName,
+              note: bulkCourseDescription.trim() || undefined,
+              ...(selectedCourseId && { courseId: selectedCourseId }),
+            }),
           })
-          if (res.ok) count++
+          if (res.ok) successCount++
+          else failedCount++
         }
       }
       // 섭외된 코치 목록 갱신
       setScoutedCoachIds((prev) => {
         const next = new Set(prev)
-        for (const id of coachIds) next.add(id)
+        for (const id of bulkCoachIds) next.add(id)
         return next
       })
-      setToastMessage(`${coachIds.length}명 × ${dates.length}일 컨택 완료 (${count}건)`)
+      setToastMessage(
+        `${bulkCoachIds.length}명 × ${dates.length}일 컨택 완료 (${successCount}건${failedCount > 0 ? `, 실패 ${failedCount}건` : ''})`
+      )
       setShowToast(true)
+      if (failedCount === 0) {
+        setShowScoutModal(false)
+      } else {
+        setBulkError("일부 전송에 실패했습니다. 다시 시도해주세요.")
+      }
     } catch (e) {
       console.error('일괄 컨택 에러:', e)
       setToastMessage('컨택 처리 중 네트워크 오류')
       setShowToast(true)
+      setBulkError("전송 중 오류가 발생했습니다.")
+    } finally {
+      setBulkSending(false)
     }
   }
 
@@ -376,7 +420,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           engagementFilter={engagementFilter}
           onEngagementFilterChange={setEngagementFilter}
           scoutedCoachIds={scoutedCoachIds}
-          onBulkScout={handleBulkScout}
+          onBulkScout={openBulkScoutModal}
           courses={courses}
           selectedCourseId={selectedCourseId}
           onCourseChange={setSelectedCourseId}
@@ -384,6 +428,68 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onReset={handleReset}
         />
       </div>
+
+      {showScoutModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !bulkSending && setShowScoutModal(false)}
+        >
+          <div
+            className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-[#333]">컨택 내용 확인</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              선택된 코치 {bulkCoachIds.length}명 / {getSelectedDateRange().length}일
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-600">과정명</span>
+                <input
+                  type="text"
+                  value={bulkCourseName}
+                  onChange={(e) => setBulkCourseName(e.target.value)}
+                  placeholder="과정명을 입력하세요"
+                  maxLength={200}
+                  disabled={bulkSending}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-600">과정설명</span>
+                <textarea
+                  value={bulkCourseDescription}
+                  onChange={(e) => setBulkCourseDescription(e.target.value)}
+                  placeholder="실습코치에게 전달할 설명을 입력하세요"
+                  maxLength={1000}
+                  rows={4}
+                  disabled={bulkSending}
+                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                />
+              </label>
+              {bulkError && <p className="text-xs text-red-600">{bulkError}</p>}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowScoutModal(false)}
+                disabled={bulkSending}
+                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitBulkScout}
+                disabled={bulkSending}
+                className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-2 text-sm font-medium text-white hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bulkSending ? "전송 중..." : "전송"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast
         message={toastMessage}
