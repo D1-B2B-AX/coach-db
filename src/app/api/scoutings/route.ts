@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      if (existing.status === 'cancelled') {
-        // cancelled -> scouting 복원 (재섭외)
+      if (existing.status === 'cancelled' || existing.status === 'rejected') {
+        // cancelled/rejected -> scouting 복원 (재섭외)
         const updated = await prisma.scouting.update({
           where: { id: existing.id },
           data: { status: 'scouting' },
