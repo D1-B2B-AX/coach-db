@@ -14,6 +14,8 @@ interface CourseSelectorProps {
   selectedCourseId: string | null
   onCourseChange: (courseId: string | null) => void
   onCourseCreate: (course: CourseOption) => void
+  defaultStartDate?: string | null
+  defaultEndDate?: string | null
 }
 
 export default function CourseSelector({
@@ -21,11 +23,13 @@ export default function CourseSelector({
   selectedCourseId,
   onCourseChange,
   onCourseCreate,
+  defaultStartDate,
+  defaultEndDate,
 }: CourseSelectorProps) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState("")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [startDate, setStartDate] = useState(defaultStartDate || "")
+  const [endDate, setEndDate] = useState(defaultEndDate || "")
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -140,7 +144,7 @@ export default function CourseSelector({
   if (!hasCourses) {
     return (
       <button
-        onClick={() => setShowForm(true)}
+        onClick={() => { setStartDate(defaultStartDate || ""); setEndDate(defaultEndDate || ""); setShowForm(true) }}
         className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600"
       >
         <span className="text-lg leading-none">+</span>
@@ -164,7 +168,7 @@ export default function CourseSelector({
         ))}
       </select>
       <button
-        onClick={() => setShowForm(true)}
+        onClick={() => { setStartDate(defaultStartDate || ""); setEndDate(defaultEndDate || ""); setShowForm(true) }}
         className="flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-2.5 py-2 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600"
         title="새 과정 추가"
       >

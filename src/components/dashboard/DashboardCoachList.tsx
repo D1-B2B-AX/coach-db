@@ -260,6 +260,8 @@ export default function DashboardCoachList({
             selectedCourseId={selectedCourseId ?? null}
             onCourseChange={onCourseChange}
             onCourseCreate={onCourseCreate}
+            defaultStartDate={selectedDate}
+            defaultEndDate={selectedEnd}
           />
         </div>
       )}

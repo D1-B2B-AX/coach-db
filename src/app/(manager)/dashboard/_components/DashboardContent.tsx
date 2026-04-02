@@ -204,8 +204,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     } else {
       setCurrentMonth((m) => m - 1)
     }
-    setSelectedStart(null)
-    setSelectedEnd(null)
+    // 시작일 유지 — 월을 넘겨서 범위 선택 가능 (4/7 → 5월로 이동 → 5/7 클릭 = 4/7~5/7)
     setTimeFilter("all")
   }
 
@@ -217,8 +216,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     } else {
       setCurrentMonth((m) => m + 1)
     }
-    setSelectedStart(null)
-    setSelectedEnd(null)
     setTimeFilter("all")
   }
 
