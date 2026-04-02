@@ -27,11 +27,15 @@ export async function GET(request: NextRequest) {
       where.date = new Date(date)
     }
 
+    const courseId = searchParams.get('courseId')
+    if (courseId) where.courseId = courseId
+
     const scoutings = await prisma.scouting.findMany({
       where,
       select: {
         id: true,
         coachId: true,
+        courseId: true,
         date: true,
         note: true,
         status: true,
@@ -41,6 +45,7 @@ export async function GET(request: NextRequest) {
         scheduleText: true,
         coach: { select: { id: true, name: true, employeeId: true, email: true, phone: true, workType: true } },
         manager: { select: { id: true, name: true } },
+        course: { select: { id: true, name: true, startDate: true, endDate: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -59,10 +64,11 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note } = (await request.json()) as {
+    const { coachId, date, note, courseId } = (await request.json()) as {
       coachId: string
       date: string
       note?: string
+      courseId?: string
     }
 
     if (!coachId || !date) {
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
         // cancelled -> scouting 복원 (재섭외)
         const updated = await prisma.scouting.update({
           where: { id: existing.id },
-          data: { status: 'scouting' },
+          data: { status: 'scouting', ...(courseId !== undefined && { courseId: courseId || null }) },
           select: {
             id: true, coachId: true, date: true, status: true,
             manager: { select: { id: true, name: true } },
@@ -132,6 +138,7 @@ export async function POST(request: NextRequest) {
         managerId: auth.manager.id,
         date: dateObj,
         note: note || null,
+        courseId: courseId || null,
       },
       select: {
         id: true, coachId: true, date: true, status: true,

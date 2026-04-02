@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
 import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
 import Toast from "@/components/Toast"
+import type { CourseOption } from "@/components/CourseSelector"
 
 type DashboardVariant = "general" | "samsung"
 
@@ -64,6 +65,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [toastMessage, setToastMessage] = useState("")
   const [showToast, setShowToast] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [courses, setCourses] = useState<CourseOption[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -154,11 +157,25 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     }
   }, [selectedStart, selectedEnd, timeFilter, variant])
 
+  // Fetch courses for the manager
+  const fetchCourses = useCallback(async () => {
+    try {
+      const res = await fetch("/api/courses")
+      if (res.ok) {
+        const data = await res.json()
+        setCourses((data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null }) => ({
+          id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate,
+        })))
+      }
+    } catch { /* silently fail */ }
+  }, [])
+
   // On mount + month change: fetch month data + status
   useEffect(() => {
     fetchMonthData()
     fetchStatusData()
-  }, [fetchMonthData, fetchStatusData])
+    fetchCourses()
+  }, [fetchMonthData, fetchStatusData, fetchCourses])
 
   // 30-second polling for month data
   useEffect(() => {
@@ -280,7 +297,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       const res = await fetch('/api/scoutings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachId, date: selectedStart }),
+        body: JSON.stringify({ coachId, date: selectedStart, ...(selectedCourseId && { courseId: selectedCourseId }) }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -341,6 +358,10 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onEngagementFilterChange={setEngagementFilter}
           scoutedCoachIds={scoutedCoachIds}
           onScoutToggle={handleScoutToggle}
+          courses={courses}
+          selectedCourseId={selectedCourseId}
+          onCourseChange={setSelectedCourseId}
+          onCourseCreate={(course) => setCourses((prev) => [course, ...prev])}
         />
       </div>
 

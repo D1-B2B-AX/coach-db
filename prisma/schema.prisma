@@ -69,6 +69,7 @@ model Manager {
   createdAt DateTime    @default(now()) @map("created_at")
 
   scoutings         Scouting[]
+  courses           Course[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
 
@@ -89,6 +90,7 @@ model Scouting {
   id        String         @id @default(uuid())
   coachId   String         @map("coach_id")
   managerId String         @map("manager_id")
+  courseId   String?        @map("course_id")
   date      DateTime       @db.Date
   note       String?        @db.VarChar(100)
   status     ScoutingStatus @default(scouting)
@@ -100,10 +102,29 @@ model Scouting {
 
   coach   Coach   @relation(fields: [coachId], references: [id], onDelete: Cascade)
   manager Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
   @@unique([coachId, date, managerId])
   @@index([coachId, date])
+  @@index([courseId])
   @@map("scoutings")
+}
+
+// ─── 과정 ───
+
+model Course {
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(200)
+  managerId String    @map("manager_id")
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  manager   Manager   @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  scoutings Scouting[]
+
+  @@index([managerId])
+  @@map("courses")
 }
 
 // ─── 마스터 테이블 ───
@@ -310,6 +331,17 @@ model Notification {
   @@index([coachId, readAt])
   @@index([createdAt])
   @@map("notifications")
+}
+
+// ─── 회사명 매핑 ───
+
+model CompanyAlias {
+  id          String   @id @default(uuid())
+  companyName String   @unique @map("company_name") @db.VarChar(100)
+  alias       String   @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("company_aliases")
 }
 
 // ─── Push 구독 ───

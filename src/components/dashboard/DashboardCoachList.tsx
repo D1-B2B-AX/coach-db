@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/Skeleton"
+import CourseSelector, { type CourseOption } from "@/components/CourseSelector"
 
 interface CoachSchedule {
   startTime: string
@@ -40,6 +41,10 @@ interface DashboardCoachListProps {
   onEngagementFilterChange: (filter: string) => void
   scoutedCoachIds?: Set<string>
   onScoutToggle?: (coachId: string) => void
+  courses?: CourseOption[]
+  selectedCourseId?: string | null
+  onCourseChange?: (courseId: string | null) => void
+  onCourseCreate?: (course: CourseOption) => void
 }
 
 const RATING_FILTERS = [
@@ -118,6 +123,10 @@ export default function DashboardCoachList({
   onEngagementFilterChange,
   scoutedCoachIds,
   onScoutToggle,
+  courses,
+  selectedCourseId,
+  onCourseChange,
+  onCourseCreate,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -241,6 +250,17 @@ export default function DashboardCoachList({
               연락처 내보내기 ({selectedIds.size})
             </button>
           )}
+        </div>
+      )}
+      {/* Course selector */}
+      {courses && onCourseChange && onCourseCreate && (
+        <div className="border-b border-gray-100 px-5 py-2.5">
+          <CourseSelector
+            courses={courses}
+            selectedCourseId={selectedCourseId ?? null}
+            onCourseChange={onCourseChange}
+            onCourseCreate={onCourseCreate}
+          />
         </div>
       )}
       {/* Coach rows */}

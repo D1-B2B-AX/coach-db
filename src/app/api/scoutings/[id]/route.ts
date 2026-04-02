@@ -22,6 +22,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     include: {
       coach: { select: { id: true, name: true, accessToken: true } },
       manager: { select: { id: true, name: true } },
+      course: { select: { id: true, name: true, startDate: true, endDate: true } },
     },
   })
   if (!scouting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -37,11 +38,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: message }, { status: 409 })
   }
 
+  // Auto-sync courseName from course when confirming
+  const resolvedCourseName = scouting.course?.name ?? courseName
   const updated = await prisma.scouting.update({
     where: { id },
     data: {
       status: status as ScoutingStatus,
-      ...(courseName !== undefined && { courseName }),
+      ...(resolvedCourseName !== undefined && { courseName: resolvedCourseName }),
       ...(hireStart !== undefined && { hireStart }),
       ...(hireEnd !== undefined && { hireEnd }),
       ...(scheduleText !== undefined && { scheduleText }),

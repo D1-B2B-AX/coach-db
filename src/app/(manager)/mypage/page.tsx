@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { isHoliday } from "@/lib/holidays"
+import CourseSelector, { type CourseOption } from "@/components/CourseSelector"
 
 interface Scouting {
   id: string
   coachId: string
+  courseId: string | null
   date: string
   status: string
   note: string | null
@@ -20,6 +22,17 @@ interface Scouting {
     phone?: string | null; workType?: string | null
   }
   manager: { id: string; name: string }
+  course?: { id: string; name: string; startDate: string | null; endDate: string | null } | null
+}
+
+interface CourseGroup {
+  id: string | null // null = 미지정 그룹
+  name: string
+  startDate: string | null
+  endDate: string | null
+  createdAt?: string
+  dateRows: Map<string, Scouting[]> // date -> scoutings on that date
+  allScoutings: Scouting[]
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; activeClassName: string }> = {
@@ -88,9 +101,204 @@ const SHEET_HEADERS = [
   "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
 ]
 
+function CompanyAliasManager() {
+  interface CompanyAlias {
+    id: string
+    companyName: string
+    alias: string
+  }
+
+  const [aliases, setAliases] = useState<CompanyAlias[]>([])
+  const [aliasLoading, setAliasLoading] = useState(true)
+  const [aliasError, setAliasError] = useState<string | null>(null)
+  const [newCompanyName, setNewCompanyName] = useState("")
+  const [newAlias, setNewAlias] = useState("")
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editCompanyName, setEditCompanyName] = useState("")
+  const [editAlias, setEditAlias] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const fetchAliases = useCallback(async () => {
+    try {
+      const res = await fetch("/api/company-aliases")
+      if (res.ok) {
+        const data = await res.json()
+        setAliases(data.aliases || [])
+      }
+    } catch { /* ignore */ }
+    finally { setAliasLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchAliases() }, [fetchAliases])
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newCompanyName.trim() || !newAlias.trim()) return
+    setAdding(true)
+    setAliasError(null)
+    try {
+      const res = await fetch("/api/company-aliases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: newCompanyName.trim(), alias: newAlias.trim() }),
+      })
+      if (res.ok) {
+        setNewCompanyName("")
+        setNewAlias("")
+        fetchAliases()
+      } else if (res.status === 409) {
+        setAliasError("이미 등록된 회사명입니다.")
+      }
+    } catch { /* ignore */ }
+    finally { setAdding(false) }
+  }
+
+  function startEdit(a: CompanyAlias) {
+    setEditingId(a.id)
+    setEditCompanyName(a.companyName)
+    setEditAlias(a.alias)
+    setAliasError(null)
+  }
+
+  async function handleSave(id: string) {
+    setSaving(true)
+    setAliasError(null)
+    try {
+      const res = await fetch(`/api/company-aliases/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: editCompanyName.trim(), alias: editAlias.trim() }),
+      })
+      if (res.ok) {
+        setEditingId(null)
+        fetchAliases()
+      } else if (res.status === 409) {
+        setAliasError("이미 등록된 회사명입니다.")
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(false) }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("정말 삭제하시겠습니까?")) return
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/company-aliases/${id}`, { method: "DELETE" })
+      if (res.ok) fetchAliases()
+    } catch { /* ignore */ }
+    finally { setDeletingId(null) }
+  }
+
+  return (
+    <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
+      <form onSubmit={handleAdd} className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <input
+          type="text"
+          value={newCompanyName}
+          onChange={(e) => setNewCompanyName(e.target.value)}
+          placeholder="회사명"
+          className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+        />
+        <input
+          type="text"
+          value={newAlias}
+          onChange={(e) => setNewAlias(e.target.value)}
+          placeholder="별칭"
+          className="w-28 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={adding || !newCompanyName.trim() || !newAlias.trim()}
+          className="cursor-pointer rounded-full px-3 py-1.5 text-xs font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50"
+        >
+          {adding ? "..." : "추가"}
+        </button>
+      </form>
+      {aliasError && (
+        <div className="px-4 py-2 text-xs text-red-500 bg-red-50">{aliasError}</div>
+      )}
+      {aliasLoading ? (
+        <div className="p-4 space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-9 animate-pulse rounded-lg bg-gray-100" />
+          ))}
+        </div>
+      ) : aliases.length === 0 ? (
+        <div className="px-5 py-12 text-center text-sm text-gray-400">
+          등록된 매핑이 없습니다. 추가해 주세요.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-x-3 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+            <div>회사명</div>
+            <div>별칭</div>
+            <div>수정</div>
+            <div>삭제</div>
+          </div>
+          {aliases.map((a) => (
+            <div key={a.id} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-x-3 px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+              {editingId === a.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editCompanyName}
+                    onChange={(e) => setEditCompanyName(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={editAlias}
+                    onChange={(e) => setEditAlias(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                  <button
+                    onClick={() => handleSave(a.id)}
+                    disabled={saving}
+                    className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "..." : "저장"}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] text-gray-400 hover:text-gray-600"
+                  >
+                    취소
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-[#333] truncate">{a.companyName}</span>
+                  <span className="text-xs text-gray-500 truncate">{a.alias}</span>
+                  <button
+                    onClick={() => startEdit(a)}
+                    className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                  >
+                    수정
+                  </button>
+                  <button
+                    onClick={() => handleDelete(a.id)}
+                    disabled={deletingId === a.id}
+                    className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-red-50 text-red-400 hover:bg-red-100 transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === a.id ? "..." : "삭제"}
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function MyPage() {
   const [scoutings, setScoutings] = useState<Scouting[]>([])
   const [managerId, setManagerId] = useState<string | null>(null)
+  const [managerRole, setManagerRole] = useState<string>("")
+  const [activeTab, setActiveTab] = useState<'scoutings' | 'aliases'>('scoutings')
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState("all")
   const [updating, setUpdating] = useState<string | null>(null)
@@ -99,7 +307,11 @@ export default function MyPage() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [exporting, setExporting] = useState(false)
 
-  // 과정 정보
+  // 과정 목록
+  const [courses, setCourses] = useState<{ id: string; name: string; startDate: string | null; endDate: string | null; createdAt: string }[]>([])
+  const [openAccordions, setOpenAccordions] = useState<Set<string | null>>(new Set())
+
+  // 확정 모달 과정 정보
   const [courseName, setCourseName] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -114,6 +326,7 @@ export default function MyPage() {
         if (res.ok) {
           const data = await res.json()
           setManagerId(data.id)
+          setManagerRole(data.role || "")
         } else {
           console.error("[mypage] /api/auth/me failed:", res.status)
         }
@@ -135,11 +348,28 @@ export default function MyPage() {
     finally { if (!silent) setLoading(false) }
   }, [managerId])
 
+  const fetchCourses = useCallback(async () => {
+    if (!managerId) return
+    try {
+      const res = await fetch("/api/courses")
+      if (res.ok) {
+        const data = await res.json()
+        const list = (data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null; createdAt: string }) => ({
+          id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, createdAt: c.createdAt,
+        }))
+        setCourses(list)
+        // 초기에 모든 과정 아코디언 열기
+        setOpenAccordions(new Set([...list.map((c: { id: string }) => c.id), null]))
+      }
+    } catch { /* ignore */ }
+  }, [managerId])
+
   useEffect(() => {
     fetchScoutings()
+    fetchCourses()
     const interval = setInterval(() => fetchScoutings(true), 30000)
     return () => clearInterval(interval)
-  }, [fetchScoutings])
+  }, [fetchScoutings, fetchCourses])
 
   const dateChips = useMemo(() => {
     if (!startDate || !endDate) return []
@@ -339,25 +569,114 @@ export default function MyPage() {
     return scoutings.filter(s => s.status === statusFilter)
   }, [scoutings, statusFilter])
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Scouting[]>()
-    for (const s of filtered) {
-      const key = s.date.slice(0, 10)
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(s)
-    }
-    return map
-  }, [filtered])
+  // Course-based grouping: course -> date rows -> scoutings
+  const courseGroups = useMemo(() => {
+    const STATUS_PRIORITY: Record<string, number> = { confirmed: 0, accepted: 1, scouting: 2, rejected: 3, cancelled: 4 }
+    const groupMap = new Map<string | null, CourseGroup>()
 
-  const sortedDates = useMemo(() =>
-    [...grouped.keys()].sort((a, b) => b.localeCompare(a)),
-    [grouped]
-  )
+    // Initialize groups from courses
+    for (const c of courses) {
+      groupMap.set(c.id, {
+        id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, createdAt: c.createdAt,
+        dateRows: new Map(), allScoutings: [],
+      })
+    }
+
+    // Place scoutings into groups
+    for (const s of filtered) {
+      const key = s.courseId
+      if (!groupMap.has(key)) {
+        if (key === null) {
+          groupMap.set(null, { id: null, name: "과정 미지정", startDate: null, endDate: null, dateRows: new Map(), allScoutings: [] })
+        } else {
+          // courseId exists but course not in our list (unlikely)
+          groupMap.set(key, { id: key, name: s.course?.name || "알 수 없는 과정", startDate: s.course?.startDate || null, endDate: s.course?.endDate || null, dateRows: new Map(), allScoutings: [] })
+        }
+      }
+      const group = groupMap.get(key)!
+      const dateKey = s.date.slice(0, 10)
+      if (!group.dateRows.has(dateKey)) group.dateRows.set(dateKey, [])
+      group.dateRows.get(dateKey)!.push(s)
+      group.allScoutings.push(s)
+    }
+
+    // Sort scoutings within each date row: status priority -> name
+    for (const group of groupMap.values()) {
+      for (const [, scoutings] of group.dateRows) {
+        scoutings.sort((a, b) => {
+          const sp = (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9)
+          if (sp !== 0) return sp
+          return a.coach.name.localeCompare(b.coach.name, "ko")
+        })
+      }
+    }
+
+    // Sort groups: real courses by createdAt desc, null group last
+    const result: CourseGroup[] = []
+    const realGroups = [...groupMap.values()].filter(g => g.id !== null)
+    realGroups.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    result.push(...realGroups)
+    const nullGroup = groupMap.get(null)
+    if (nullGroup) result.push(nullGroup)
+
+    return result
+  }, [filtered, courses])
 
   const allChecked = filtered.length > 0 && selectedRows.size === filtered.length
 
+  function toggleAccordion(courseId: string | null) {
+    setOpenAccordions(prev => {
+      const next = new Set(prev)
+      if (next.has(courseId)) next.delete(courseId)
+      else next.add(courseId)
+      return next
+    })
+  }
+
+  function formatPeriod(start: string | null, end: string | null): string {
+    if (!start && !end) return "기간 미정"
+    const fmt = (d: string) => { const dt = new Date(d); return `${dt.getMonth() + 1}/${dt.getDate()}` }
+    if (start && end) return `${fmt(start)} ~ ${fmt(end)}`
+    if (start) return `${fmt(start)} ~`
+    return `~ ${fmt(end!)}`
+  }
+
+  function getStatusCounts(scoutings: Scouting[]): Record<string, number> {
+    const counts: Record<string, number> = {}
+    for (const s of scoutings) {
+      if (s.status === "cancelled") continue
+      counts[s.status] = (counts[s.status] || 0) + 1
+    }
+    return counts
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
+
+      <div className="flex gap-2 mb-5">
+        <button
+          onClick={() => setActiveTab('scoutings')}
+          className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+            activeTab === 'scoutings' ? 'bg-[#333] text-white' : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          섭외 관리
+        </button>
+        {managerRole === 'admin' && (
+          <button
+            onClick={() => setActiveTab('aliases')}
+            className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              activeTab === 'aliases' ? 'bg-[#333] text-white' : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            회사명 매핑
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'aliases' && managerRole === 'admin' && <CompanyAliasManager />}
+
+      {activeTab === 'scoutings' && <>
 
       <div className="flex items-center gap-2 mb-4">
         {(["all", "scouting", "accepted", "rejected", "confirmed", "cancelled"] as const).map((key) => {
@@ -398,295 +717,292 @@ export default function MyPage() {
         </div>
       )}
 
-      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
-        <div className="grid grid-cols-[32px_56px_88px_1fr_auto] items-center gap-x-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-[11px] font-semibold text-gray-400">
-          <input
-            type="checkbox"
-            checked={allChecked}
-            onChange={toggleAllVisible}
-            className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
-          />
-          <div>상태</div>
-          <div>날짜</div>
-          <div>코치</div>
-          <div />
-        </div>
+      {/* 새 과정 추가 */}
+      <div className="mb-4">
+        <CourseSelector
+          courses={courses.map(c => ({ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate }))}
+          selectedCourseId={null}
+          onCourseChange={() => {}}
+          onCourseCreate={(course: CourseOption) => {
+            setCourses(prev => [{ ...course, createdAt: new Date().toISOString() }, ...prev])
+            setOpenAccordions(prev => new Set([...prev, course.id]))
+          }}
+        />
+      </div>
 
+      {/* 전체선택 헤더 */}
+      <div className="flex items-center gap-3 mb-2 px-1">
+        <input
+          type="checkbox"
+          checked={allChecked}
+          onChange={toggleAllVisible}
+          className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
+        />
+        <span className="text-[11px] text-gray-400">전체 선택</span>
+      </div>
+
+      <div className="space-y-3">
         {loading ? (
           <div className="p-4 space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-gray-100" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-5 py-16 text-center text-sm text-gray-400">
+        ) : courseGroups.length === 0 || (courseGroups.every(g => g.allScoutings.length === 0 && g.id !== null) && !courseGroups.some(g => g.id === null && g.allScoutings.length > 0)) ? (
+          <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-16 text-center text-sm text-gray-400">
             {statusFilter === "all" ? "구인 내역이 없습니다" : "해당 상태의 내역이 없습니다"}
           </div>
         ) : (
-          sortedDates.map(dateKey => {
-            const items = grouped.get(dateKey)!
-            return items.map((s, si) => {
-              const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.scouting
-              const isUpdating = updating === s.id
-              const isConfirming = confirmTarget === s.id
-              const showDate = si === 0
-              return (
-                <div
-                  key={s.id}
-                  className={`border-b border-gray-100 last:border-0 transition-all ${
-                    s.status === "cancelled" ? "opacity-50 hover:opacity-100" : "hover:bg-gray-50"
-                  } ${selectedRows.has(s.id) ? "bg-blue-50/50" : ""}`}
+          courseGroups.map(group => {
+            const statusCounts = getStatusCounts(group.allScoutings)
+            const sortedDateKeys = [...group.dateRows.keys()].sort()
+            const isOpen = openAccordions.has(group.id)
+
+            // 필터가 특정 상태이고 해당 과정에 표시할 scouting이 0건이면 숨김
+            if (statusFilter !== "all" && group.allScoutings.length === 0) return null
+            // 필터가 전체이고 코치 0명인 실제 과정은 빈 아코디언으로 표시
+            // (null 그룹은 코치 없으면 안 보여줌)
+            if (group.id === null && group.allScoutings.length === 0) return null
+
+            return (
+              <div key={group.id ?? "__null"} className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
+                {/* 아코디언 헤더 */}
+                <button
+                  onClick={() => toggleAccordion(group.id)}
+                  className="w-full flex items-center gap-3 px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <div className="grid grid-cols-[32px_56px_88px_1fr_auto] items-center gap-x-3 px-5 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.has(s.id)}
-                      onChange={() => toggleRow(s.id)}
-                      className="w-3.5 h-3.5 accent-[#1976D2] cursor-pointer"
-                    />
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-center whitespace-nowrap ${cfg.className}`}>
-                      {copiedId === s.id ? "복사됨!" : cfg.label}
-                    </span>
-                    {showDate ? (
-                      <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap">
-                        {formatFullDate(dateKey)}
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    <Link
-                      href={`/coaches/${s.coachId}`}
-                      className="text-sm font-medium text-[#333] hover:text-[#1976D2] transition-colors truncate"
-                    >
-                      {s.coach.name}
-                    </Link>
-
-                    {s.status === "scouting" && !isConfirming ? (
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="rounded-full px-2.5 py-1 text-[10px] font-medium bg-[#FFF3E0] text-[#F57C00]">
-                          코치 수락 대기중
+                  <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▶</span>
+                  <span className="font-semibold text-sm text-[#333]">{group.name}</span>
+                  <span className="text-[11px] text-gray-400">{formatPeriod(group.startDate, group.endDate)}</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    {(["scouting", "accepted", "confirmed", "rejected"] as const).map(st => {
+                      const count = statusCounts[st] || 0
+                      if (count === 0) return null
+                      const cfg = STATUS_CONFIG[st]
+                      return (
+                        <span key={st} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.className}`}>
+                          {cfg.label}({count})
                         </span>
-                        <button
-                          onClick={() => updateStatus(s.id, "cancelled")}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    ) : s.status === "accepted" && !isConfirming ? (
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => setConfirmTarget(s.id)}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#E3F2FD] text-[#1976D2] hover:bg-[#BBDEFB] transition-colors disabled:opacity-50"
-                        >
-                          확정
-                        </button>
-                        <button
-                          onClick={() => updateStatus(s.id, "cancelled")}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    ) : s.status === "rejected" ? (
-                      <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFEBEE] text-[#D32F2F] whitespace-nowrap">
-                        코치 거절
-                      </span>
-                    ) : s.status === "confirmed" && !isConfirming ? (
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => {
-                            setCourseName(s.courseName || "")
-                            setStartDate(s.hireStart || "")
-                            setEndDate(s.hireEnd || "")
-                            if (s.scheduleText) {
-                              const lines = s.scheduleText.split("\n")
-                              const times: Record<string, string> = {}
-                              for (const line of lines) {
-                                const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
-                                if (m) times[m[1]] = `${m[2]}~${m[3]}`
-                              }
-                              setDateTimes(times)
-                              const firstTime = Object.values(times)[0] || ""
-                              setAllTimeInput(firstTime)
-                            } else {
-                              setDateTimes({})
-                              setAllTimeInput("")
-                            }
-                            setConfirmTarget(s.id)
-                          }}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
-                          수정
-                        </button>
-                        <button
-                          onClick={() => updateStatus(s.id, "cancelled")}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-red-50 text-red-400 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    ) : s.status === "cancelled" ? (
-                      <button
-                        onClick={() => updateStatus(s.id, "scouting")}
-                        disabled={isUpdating}
-                        className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-[#FFF3E0] text-[#F57C00] hover:bg-[#FFE0B2] transition-colors disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {isUpdating ? "..." : "복구"}
-                      </button>
-                    ) : <div />}
+                      )
+                    })}
                   </div>
+                </button>
 
-                  {isConfirming && (
-                    <div className="px-5 pb-4 pt-1 space-y-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-gray-400 shrink-0">과정명:</span>
-                        <input
-                          type="text"
-                          value={courseName}
-                          onChange={(e) => setCourseName(e.target.value)}
-                          placeholder="선택"
-                          autoFocus={!courseName}
-                          onKeyDown={(e) => { if (e.key === "Escape") setConfirmTarget(null) }}
-                          className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
-                        />
+                {/* 아코디언 내용 */}
+                {isOpen && (
+                  <div>
+                    {group.allScoutings.length === 0 ? (
+                      <div className="px-5 py-8 text-center text-sm text-gray-400">
+                        아직 컨택한 코치가 없습니다
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-gray-400 shrink-0">기간:</span>
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
-                        />
-                        <span className="text-xs text-gray-400">~</span>
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none"
-                        />
-                      </div>
+                    ) : (
+                      sortedDateKeys.map(dateKey => {
+                        const scoutingsForDate = group.dateRows.get(dateKey)!
+                        return (
+                          <div key={dateKey} className="border-t border-gray-100">
+                            {/* 날짜 행 */}
+                            <div className="px-5 py-2.5 flex items-start gap-3">
+                              <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap shrink-0 pt-0.5 min-w-[72px]">
+                                {formatFullDate(dateKey)}
+                              </span>
+                              {/* 코치 칩들 */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {scoutingsForDate.map(s => {
+                                  const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.scouting
+                                  const isUpdating = updating === s.id
+                                  const isConfirming = confirmTarget === s.id
+                                  return (
+                                    <div key={s.id} className="flex flex-col">
+                                      <div className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
+                                        selectedRows.has(s.id) ? "border-blue-300 bg-blue-50/50" :
+                                        s.status === "cancelled" ? "border-gray-200 bg-gray-50 opacity-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                                      }`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedRows.has(s.id)}
+                                          onChange={() => toggleRow(s.id)}
+                                          className="w-3 h-3 accent-[#1976D2] cursor-pointer"
+                                        />
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                          s.status === "scouting" ? "bg-[#F57C00]" :
+                                          s.status === "accepted" ? "bg-[#388E3C]" :
+                                          s.status === "confirmed" ? "bg-[#1976D2]" :
+                                          s.status === "rejected" ? "bg-[#D32F2F]" : "bg-gray-400"
+                                        }`} />
+                                        <Link
+                                          href={`/coaches/${s.coachId}`}
+                                          className="font-medium text-[#333] hover:text-[#1976D2] transition-colors"
+                                        >
+                                          {s.coach.name}
+                                        </Link>
+                                        {copiedId === s.id && (
+                                          <span className="text-[10px] text-green-600 font-medium">복사됨!</span>
+                                        )}
 
-                      {weekGroups.length > 0 && (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-gray-400 shrink-0">시간 일괄 입력:</span>
-                            <input
-                              type="text"
-                              value={allTimeInput}
-                              onChange={(e) => {
-                                setAllTimeInput(e.target.value)
-                                const v = e.target.value
-                                setDateTimes(prev => {
-                                  const next = { ...prev }
-                                  for (const d of dateChips) {
-                                    if (selectedDates.has(d.date)) next[d.date] = v
-                                  }
-                                  return next
-                                })
-                              }}
-                              placeholder="9~18"
-                              className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
-                            />
-                            {[["09:00~18:00", "09:00-18:00"], ["08:30~17:30", "08:30-17:30"]].map(([v, label]) => (
-                              <button
-                                key={v}
-                                onClick={() => {
-                                  setAllTimeInput(v)
-                                  setDateTimes(prev => {
-                                    const next = { ...prev }
-                                    for (const d of dateChips) {
-                                      if (selectedDates.has(d.date)) next[d.date] = v
-                                    }
-                                    return next
-                                  })
-                                }}
-                                className={`cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
-                                  allTimeInput === v
-                                    ? "bg-[#1976D2] text-white"
-                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
+                                        {/* 액션 버튼들 */}
+                                        {s.status === "scouting" && !isConfirming && (
+                                          <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
+                                            className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">취소</button>
+                                        )}
+                                        {s.status === "accepted" && !isConfirming && (
+                                          <>
+                                            <button onClick={() => setConfirmTarget(s.id)} disabled={isUpdating}
+                                              className="cursor-pointer text-[10px] text-[#1976D2] font-medium hover:text-[#1565C0] disabled:opacity-50">확정</button>
+                                            <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
+                                              className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">취소</button>
+                                          </>
+                                        )}
+                                        {s.status === "confirmed" && !isConfirming && (
+                                          <>
+                                            <button onClick={() => {
+                                              setCourseName(s.course?.name || s.courseName || "")
+                                              setStartDate(s.course?.startDate ? s.course.startDate.slice(0, 10) : (s.hireStart || ""))
+                                              setEndDate(s.course?.endDate ? s.course.endDate.slice(0, 10) : (s.hireEnd || ""))
+                                              if (s.scheduleText) {
+                                                const lines = s.scheduleText.split("\n")
+                                                const times: Record<string, string> = {}
+                                                for (const line of lines) {
+                                                  const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
+                                                  if (m) times[m[1]] = `${m[2]}~${m[3]}`
+                                                }
+                                                setDateTimes(times)
+                                                setAllTimeInput(Object.values(times)[0] || "")
+                                              } else { setDateTimes({}); setAllTimeInput("") }
+                                              setConfirmTarget(s.id)
+                                            }} disabled={isUpdating}
+                                              className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">수정</button>
+                                            <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
+                                              className="cursor-pointer text-[10px] text-red-400 hover:text-red-600 disabled:opacity-50">취소</button>
+                                          </>
+                                        )}
+                                        {s.status === "cancelled" && (
+                                          <button onClick={() => updateStatus(s.id, "scouting")} disabled={isUpdating}
+                                            className="cursor-pointer text-[10px] text-[#F57C00] hover:text-[#E65100] disabled:opacity-50">
+                                            {isUpdating ? "..." : "복구"}
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {/* 확정 모달 (인라인) */}
+                                      {isConfirming && (
+                                        <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2.5">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-gray-400 shrink-0">과정명:</span>
+                                            {s.courseId ? (
+                                              <span className="text-xs font-medium text-[#333]">{s.course?.name || courseName}</span>
+                                            ) : (
+                                              <input
+                                                type="text"
+                                                value={courseName}
+                                                onChange={(e) => setCourseName(e.target.value)}
+                                                placeholder="선택"
+                                                autoFocus={!courseName}
+                                                onKeyDown={(e) => { if (e.key === "Escape") setConfirmTarget(null) }}
+                                                className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
+                                              />
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-gray-400 shrink-0">기간:</span>
+                                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                                              className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none" />
+                                            <span className="text-xs text-gray-400">~</span>
+                                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                                              className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none" />
+                                          </div>
+
+                                          {weekGroups.length > 0 && (
+                                            <>
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-[11px] text-gray-400 shrink-0">시간:</span>
+                                                <input type="text" value={allTimeInput}
+                                                  onChange={(e) => {
+                                                    setAllTimeInput(e.target.value)
+                                                    const v = e.target.value
+                                                    setDateTimes(prev => {
+                                                      const next = { ...prev }
+                                                      for (const d of dateChips) { if (selectedDates.has(d.date)) next[d.date] = v }
+                                                      return next
+                                                    })
+                                                  }}
+                                                  placeholder="9~18"
+                                                  className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none" />
+                                                {[["09:00~18:00", "9-18"], ["08:30~17:30", "8:30-17:30"]].map(([v, label]) => (
+                                                  <button key={v} onClick={() => {
+                                                    setAllTimeInput(v)
+                                                    setDateTimes(prev => {
+                                                      const next = { ...prev }
+                                                      for (const d of dateChips) { if (selectedDates.has(d.date)) next[d.date] = v }
+                                                      return next
+                                                    })
+                                                  }} className={`cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${allTimeInput === v ? "bg-[#1976D2] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                                                    {label}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                              {weekGroups.map((wg, gi) => (
+                                                <div key={gi} className="flex items-center gap-1.5 flex-wrap">
+                                                  {wg.map((d) => {
+                                                    const sel = selectedDates.has(d.date)
+                                                    const dn = DAY_NAMES[new Date(d.date + "T12:00:00Z").getUTCDay()]
+                                                    return (
+                                                      <div key={d.date} className="flex items-center gap-0.5">
+                                                        <button onClick={() => toggleDate(d.date)}
+                                                          className={`cursor-pointer rounded-l-lg px-1.5 py-1 text-[11px] font-semibold transition-colors ${sel ? "bg-[#1976D2] text-white" : d.isOff ? "bg-red-50 text-red-300" : "bg-gray-100 text-gray-300"}`}>
+                                                          {d.dayOfMonth}({dn})
+                                                        </button>
+                                                        {sel && (
+                                                          <input type="text" value={dateTimes[d.date] || ""}
+                                                            onChange={(e) => setDateTimes(prev => ({ ...prev, [d.date]: e.target.value }))}
+                                                            placeholder={defaultTime || "09:00~18:00"}
+                                                            className="w-24 rounded-r-lg border border-l-0 border-gray-200 px-1.5 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none" />
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              ))}
+                                            </>
+                                          )}
+
+                                          {outputLines.length > 0 && (
+                                            <div className="rounded-lg bg-gray-50 px-3 py-2 space-y-0.5">
+                                              {outputLines.map((line) => (
+                                                <div key={line} className="text-[11px] text-gray-500 font-mono">{line}</div>
+                                              ))}
+                                            </div>
+                                          )}
+
+                                          <div className="flex items-center gap-2">
+                                            <button onClick={() => updateStatus(s.id, "confirmed")} disabled={isUpdating}
+                                              className="cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50">
+                                              {isUpdating ? "..." : "확정"}
+                                            </button>
+                                            <button onClick={() => setConfirmTarget(null)}
+                                              className="cursor-pointer rounded-full px-2 py-1.5 text-[11px] text-gray-400 hover:text-gray-600">
+                                              닫기
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
                           </div>
-
-                          {weekGroups.map((group, gi) => (
-                            <div key={gi} className="flex items-center gap-2 flex-wrap">
-                              {group.map((d) => {
-                                const selected = selectedDates.has(d.date)
-                                const dayName = DAY_NAMES[new Date(d.date + "T12:00:00Z").getUTCDay()]
-                                return (
-                                  <div key={d.date} className="flex items-center gap-0.5">
-                                    <button
-                                      onClick={() => toggleDate(d.date)}
-                                      className={`cursor-pointer rounded-l-lg px-1.5 py-1 text-[11px] font-semibold transition-colors ${
-                                        selected
-                                          ? "bg-[#1976D2] text-white"
-                                          : d.isOff
-                                            ? "bg-red-50 text-red-300"
-                                            : "bg-gray-100 text-gray-300"
-                                      }`}
-                                    >
-                                      {d.dayOfMonth}({dayName})
-                                    </button>
-                                    {selected && (
-                                      <input
-                                        type="text"
-                                        value={dateTimes[d.date] || ""}
-                                        onChange={(e) => setDateTimes(prev => ({ ...prev, [d.date]: e.target.value }))}
-                                        placeholder={defaultTime || "09:00~18:00"}
-                                        className="w-24 rounded-r-lg border border-l-0 border-gray-200 px-1.5 py-1 text-[11px] text-[#333] placeholder:text-gray-300 focus:border-[#1976D2] focus:outline-none"
-                                      />
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ))}
-                        </>
-                      )}
-
-                      {outputLines.length > 0 && (
-                        <div className="rounded-lg bg-gray-50 px-3 py-2 space-y-0.5">
-                          {outputLines.map((line) => (
-                            <div key={line} className="text-[11px] text-gray-500 font-mono">
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => updateStatus(s.id, "confirmed")}
-                          disabled={isUpdating}
-                          className="cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50"
-                        >
-                          {isUpdating ? "..." : "확정"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmTarget(null)}
-                          className="cursor-pointer rounded-full px-2 py-1.5 text-[11px] text-gray-400 hover:text-gray-600"
-                        >
-                          닫기
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )
           })
         )}
       </div>
+
+      </>}
 
     </div>
   )
