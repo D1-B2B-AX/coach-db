@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 
 import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
 import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
@@ -47,8 +47,18 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
-  const [selectedStart, setSelectedStart] = useState<string | null>(null)
-  const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
+
+  // Derived: min/max for API calls and child components
+  const selectedStart = useMemo(() => {
+    if (selectedDates.size === 0) return null
+    return [...selectedDates].sort()[0]
+  }, [selectedDates])
+  const selectedEnd = useMemo(() => {
+    if (selectedDates.size <= 1) return null
+    const sorted = [...selectedDates].sort()
+    return sorted[sorted.length - 1]
+  }, [selectedDates])
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
@@ -220,27 +230,12 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleSelectDate(dateStr: string) {
-    const todayStr = formatDate(new Date())
-
-    // 이미 선택된 날짜를 다시 누르면 선택 해제
-    if (dateStr === selectedStart && !selectedEnd) {
-      setSelectedStart(null)
-      return
-    }
-
-    // 과거 날짜는 단일 선택만 (범위 선택 불가)
-    if (dateStr < todayStr) {
-      setSelectedStart(dateStr)
-      setSelectedEnd(null)
-      return
-    }
-
-    if (!selectedEnd && selectedStart && selectedStart >= todayStr && dateStr > selectedStart) {
-      setSelectedEnd(dateStr)
-    } else {
-      setSelectedStart(dateStr)
-      setSelectedEnd(null)
-    }
+    setSelectedDates(prev => {
+      const next = new Set(prev)
+      if (next.has(dateStr)) next.delete(dateStr)
+      else next.add(dateStr)
+      return next
+    })
   }
 
   function handleTimeFilterChange(filter: string) {
@@ -272,13 +267,12 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     const today = new Date()
     setCurrentYear(today.getFullYear())
     setCurrentMonth(today.getMonth())
-    setSelectedStart(formatDate(today))
-    setSelectedEnd(null)
+    setSelectedDates(new Set([formatDate(today)]))
     setTimeFilter("all")
   }
 
   function handleReset() {
-    setSelectedEnd(null)
+    setSelectedDates(new Set())
     setTimeFilter("all")
   }
 
@@ -288,26 +282,31 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   async function handleScoutToggle(coachId: string) {
-    console.log('[컨택] 토글:', coachId, 'date:', selectedStart)
-    if (!selectedStart) return
+    if (selectedDates.size === 0) return
+    const dates = [...selectedDates].sort()
     try {
-      const res = await fetch('/api/scoutings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachId, date: selectedStart, ...(selectedCourseId && { courseId: selectedCourseId }) }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setScoutedCoachIds((prev) => {
-          const next = new Set(prev)
-          if (data.action === 'added') next.add(coachId)
-          else next.delete(coachId)
-          return next
+      let addedCount = 0
+      let removedCount = 0
+      for (const date of dates) {
+        const res = await fetch('/api/scoutings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coachId, date, ...(selectedCourseId && { courseId: selectedCourseId }) }),
         })
-      } else {
-        const err = await res.json().catch(() => ({}))
-        console.error('컨택 토글 실패:', res.status, err)
-        setToastMessage(`컨택 처리 실패: ${err.error || res.statusText}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.action === 'added') addedCount++
+          else removedCount++
+        }
+      }
+      setScoutedCoachIds((prev) => {
+        const next = new Set(prev)
+        if (addedCount > 0) next.add(coachId)
+        if (removedCount > 0 && addedCount === 0) next.delete(coachId)
+        return next
+      })
+      if (dates.length > 1) {
+        setToastMessage(`${dates.length}개 날짜에 컨택 처리 완료`)
         setShowToast(true)
       }
     } catch (e) {
@@ -326,6 +325,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           month={currentMonth}
           selectedStart={selectedStart}
           selectedEnd={selectedEnd}
+          selectedDates={selectedDates}
           monthData={monthData}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
@@ -359,6 +359,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           selectedCourseId={selectedCourseId}
           onCourseChange={setSelectedCourseId}
           onCourseCreate={(course) => setCourses((prev) => [course, ...prev])}
+          selectedDatesCount={selectedDates.size}
+          onReset={handleReset}
         />
       </div>
 

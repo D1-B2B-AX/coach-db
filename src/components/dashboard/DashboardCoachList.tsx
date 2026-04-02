@@ -45,6 +45,8 @@ interface DashboardCoachListProps {
   selectedCourseId?: string | null
   onCourseChange?: (courseId: string | null) => void
   onCourseCreate?: (course: CourseOption) => void
+  selectedDatesCount?: number
+  onReset?: () => void
 }
 
 const RATING_FILTERS = [
@@ -127,6 +129,8 @@ export default function DashboardCoachList({
   selectedCourseId,
   onCourseChange,
   onCourseCreate,
+  selectedDatesCount,
+  onReset,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -238,31 +242,46 @@ export default function DashboardCoachList({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-      {/* Filter summary */}
+      {/* Filter summary + course selector */}
       {selectedDate && (
-        <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-          {summaryNode}
-          {selectedIds.size > 0 && (
-            <button
-              onClick={handleExport}
-              className="cursor-pointer rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
-            >
-              연락처 내보내기 ({selectedIds.size})
-            </button>
+        <div className="border-b border-gray-100 px-5 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {summaryNode}
+            {selectedDatesCount && selectedDatesCount > 1 && (
+              <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+                {selectedDatesCount}일
+              </span>
+            )}
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleExport}
+                className="cursor-pointer shrink-0 rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                내보내기 ({selectedIds.size})
+              </button>
+            )}
+            {onReset && (
+              <button
+                onClick={onReset}
+                className="cursor-pointer shrink-0 rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+          {courses && onCourseChange && onCourseCreate && (
+            <div className="shrink-0">
+              <CourseSelector
+                courses={courses}
+                selectedCourseId={selectedCourseId ?? null}
+                onCourseChange={onCourseChange}
+                onCourseCreate={onCourseCreate}
+                defaultStartDate={selectedDate}
+                defaultEndDate={selectedEnd}
+                compact
+              />
+            </div>
           )}
-        </div>
-      )}
-      {/* Course selector */}
-      {courses && onCourseChange && onCourseCreate && (
-        <div className="border-b border-gray-100 px-5 py-2.5">
-          <CourseSelector
-            courses={courses}
-            selectedCourseId={selectedCourseId ?? null}
-            onCourseChange={onCourseChange}
-            onCourseCreate={onCourseCreate}
-            defaultStartDate={selectedDate}
-            defaultEndDate={selectedEnd}
-          />
         </div>
       )}
       {/* Coach rows */}

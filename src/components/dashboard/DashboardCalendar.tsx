@@ -5,8 +5,9 @@ import { isOff } from "@/lib/holidays"
 interface DashboardCalendarProps {
   year: number
   month: number // 0-based
-  selectedStart: string | null // "YYYY-MM-DD"
-  selectedEnd: string | null   // "YYYY-MM-DD" or null for single date
+  selectedStart: string | null // "YYYY-MM-DD" (min of selectedDates)
+  selectedEnd: string | null   // "YYYY-MM-DD" (max of selectedDates) or null
+  selectedDates?: Set<string>  // individual selected dates for multi-select
   monthData: Record<string, number> // { "2026-04-01": 3, ... }
   onSelectDate: (dateStr: string) => void
   onPrevMonth: () => void
@@ -36,6 +37,7 @@ export default function DashboardCalendar({
   month,
   selectedStart,
   selectedEnd,
+  selectedDates,
   monthData,
   onSelectDate,
   onPrevMonth,
@@ -151,10 +153,8 @@ export default function DashboardCalendar({
           const count = monthData[key] ?? 0
           const isToday = key === todayStr
           const isPast = key < todayStr
-          const isStart = key === selectedStart
-          const isEnd = key === selectedEnd
-          const isInRange = !!(selectedStart && selectedEnd && key > selectedStart && key < selectedEnd)
-          const isSelected = isStart || isEnd
+          const isSelected = selectedDates ? selectedDates.has(key) : (key === selectedStart || key === selectedEnd)
+          const isInRange = !selectedDates && !!(selectedStart && selectedEnd && key > selectedStart && key < selectedEnd)
           const off = isOff(key, dow)
 
           let cellClasses =

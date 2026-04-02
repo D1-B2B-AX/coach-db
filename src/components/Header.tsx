@@ -73,13 +73,7 @@ export default function Header() {
               >
                 전체 코치
               </Link>
-            </nav>
-          </div>
-          {/* Right: notifications + user */}
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <NotificationBell />
-            {isAdmin && (
-              <>
+              {isAdmin && (
                 <Link
                   href="/admin"
                   className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
@@ -90,9 +84,12 @@ export default function Header() {
                 >
                   관리자
                 </Link>
-                <span className="h-4 w-px bg-gray-200" />
-              </>
-            )}
+              )}
+            </nav>
+          </div>
+          {/* Right: notifications + user */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <Link
               href="/mypage"
               className={`whitespace-nowrap text-sm font-medium transition-colors ${

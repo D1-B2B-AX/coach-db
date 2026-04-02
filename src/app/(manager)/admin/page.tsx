@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
+import CompanyAliasManager from "@/components/CompanyAliasManager"
 
 interface Manager {
   id: string
@@ -37,7 +38,7 @@ export default function AdminPage() {
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("links")
+  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync" | "aliases">("links")
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [managerFilter, setManagerFilter] = useState<string | null>("all")
@@ -243,6 +244,7 @@ export default function AdminPage() {
     { key: "deleted" as const, label: `삭제 내역 (${deletedCoaches.length})` },
     { key: "managers" as const, label: `매니저 (${managers.length})` },
     { key: "sync" as const, label: "동기화" },
+    { key: "aliases" as const, label: "회사명 매핑" },
   ]
 
   return (
@@ -841,6 +843,9 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        )}
+        {activeTab === "aliases" && (
+          <CompanyAliasManager />
         )}
       </div>
 
