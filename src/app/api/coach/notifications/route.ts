@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
           courseName: true,
           note: true,
           date: true,
-          manager: { select: { name: true } },
+          hireStart: true,
+          hireEnd: true,
+          manager: { select: { name: true, email: true } },
         },
       })
     : []
@@ -66,20 +68,36 @@ export async function GET(request: NextRequest) {
     }
 
     const courseName = scouting.courseName ?? null
-    const managerName = scouting.manager.name
+    const managerName = typeof data.managerName === 'string' && data.managerName.trim()
+      ? data.managerName.trim()
+      : scouting.manager.name
+    const managerEmail = typeof data.managerEmail === 'string' && data.managerEmail.trim()
+      ? data.managerEmail.trim()
+      : scouting.manager.email
     const date = scouting.date.toISOString().slice(0, 10)
+    const hireStart = scouting.hireStart ?? null
+    const hireEnd = scouting.hireEnd ?? null
 
     let displayText: string | null = formatScoutingDisplay({
       date,
       managerName,
+      managerEmail,
       courseName,
       companyAlias: null,
       restCourseName: null,
+      hireStart,
+      hireEnd,
     })
     if (displayText === '') displayText = null
 
     return {
       ...base,
+      data: {
+        ...(data as Record<string, unknown>),
+        hireStart,
+        hireEnd,
+        managerEmail,
+      },
       enriched: { displayText, courseName, note: scouting.note },
     }
   })

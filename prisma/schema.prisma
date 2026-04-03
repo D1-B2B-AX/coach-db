@@ -92,7 +92,7 @@ model Scouting {
   managerId String         @map("manager_id")
   courseId   String?        @map("course_id")
   date      DateTime       @db.Date
-  note       String?        @db.VarChar(100)
+  note       String?        @db.Text
   status     ScoutingStatus @default(scouting)
   courseName    String?   @map("course_name") @db.VarChar(200)
   hireStart     String?   @map("hire_start") @db.VarChar(10)
@@ -113,12 +113,16 @@ model Scouting {
 // ─── 과정 ───
 
 model Course {
-  id        String    @id @default(uuid())
-  name      String    @db.VarChar(200)
-  managerId String    @map("manager_id")
-  startDate DateTime? @map("start_date") @db.Date
-  endDate   DateTime? @map("end_date") @db.Date
-  createdAt DateTime  @default(now()) @map("created_at")
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(200)
+  description String?   @db.Text
+  managerId   String    @map("manager_id")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  workHours   String?   @map("work_hours") @db.VarChar(100)
+  location    String?   @db.VarChar(200)
+  hourlyRate  Int?      @map("hourly_rate")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   manager   Manager   @relation(fields: [managerId], references: [id], onDelete: Cascade)
   scoutings Scouting[]

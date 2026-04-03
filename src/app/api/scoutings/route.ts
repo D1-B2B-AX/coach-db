@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { SCOUTING_REQUEST_TRIGGER } from '@/lib/scouting-state-machine'
 import { createNotification, expireScoutingRequestNotifications } from '@/lib/notification-service'
+import { toDateOnly } from '@/lib/date-utils'
 
 // GET /api/scoutings?coachId=...&date=...&endDate=...&managerId=...&status=...
 export async function GET(request: NextRequest) {
@@ -22,9 +23,9 @@ export async function GET(request: NextRequest) {
     if (managerId) where.managerId = auth.manager.id
     if (status) where.status = status
     if (date && endDate) {
-      where.date = { gte: new Date(date), lte: new Date(endDate) }
+      where.date = { gte: toDateOnly(date), lte: toDateOnly(endDate) }
     } else if (date) {
-      where.date = new Date(date)
+      where.date = toDateOnly(date)
     }
 
     const courseId = searchParams.get('courseId')
@@ -64,12 +65,14 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note, courseId, courseName, mode } = (await request.json()) as {
+    const { coachId, date, note, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
       coachId: string
       date: string
       note?: string
       courseId?: string
       courseName?: string
+      hireStart?: string
+      hireEnd?: string
       mode?: 'toggle' | 'upsert'
     }
 
@@ -77,16 +80,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'coachId and date required' }, { status: 400 })
     }
 
-    const dateObj = new Date(date)
+    const trimmedCourseName = courseName?.trim() || null
+    const trimmedNote = note?.trim() || null
+    const trimmedHireStart = hireStart?.trim() || null
+    const trimmedHireEnd = hireEnd?.trim() || null
 
-    const existing = await prisma.scouting.findUnique({
+    if (trimmedCourseName && trimmedCourseName.length > 200) {
+      return NextResponse.json({ error: '과정명은 200자 이내여야 합니다' }, { status: 400 })
+    }
+
+    const dateObj = toDateOnly(date)
+    const nextDateObj = new Date(dateObj)
+    nextDateObj.setUTCDate(nextDateObj.getUTCDate() + 1)
+
+    const existing = await prisma.scouting.findFirst({
       where: {
-        coachId_date_managerId: {
-          coachId,
-          date: dateObj,
-          managerId: auth.manager.id,
+        coachId,
+        managerId: auth.manager.id,
+        date: {
+          gte: dateObj,
+          lt: nextDateObj,
         },
       },
+      orderBy: { createdAt: 'desc' },
     })
 
     if (existing) {
@@ -97,31 +113,40 @@ export async function POST(request: NextRequest) {
           data: {
             status: 'scouting',
             ...(courseId !== undefined && { courseId: courseId || null }),
-            ...(courseName !== undefined && { courseName: courseName.trim() || null }),
-            ...(note !== undefined && { note: note.trim() || null }),
+            ...(courseName !== undefined && { courseName: trimmedCourseName }),
+            ...(note !== undefined && { note: trimmedNote }),
+            ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
+            ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },
           select: {
-            id: true, coachId: true, date: true, status: true,
+            id: true, coachId: true, date: true, status: true, hireStart: true, hireEnd: true,
             manager: { select: { id: true, name: true } },
             coach: { select: { id: true, name: true, accessToken: true } },
           },
         })
 
-        // T1 알림 — 코치에게 섭외 요청
+        // T1 알림 — 코치에게 찜꽁
         const dateStr = updated.date.toISOString().slice(0, 10)
-        await createNotification({
-          trigger: SCOUTING_REQUEST_TRIGGER,
-          recipientCoachId: updated.coachId,
-          data: {
-            scoutingId: updated.id,
-            coachId: updated.coachId,
-            managerId: auth.manager.id,
-            managerName: updated.manager.name,
-            date: dateStr,
-            accessToken: updated.coach.accessToken,
-            clickUrl: `/coach?token=${updated.coach.accessToken}`,
-          },
-        })
+        try {
+          await createNotification({
+            trigger: SCOUTING_REQUEST_TRIGGER,
+            recipientCoachId: updated.coachId,
+            data: {
+              scoutingId: updated.id,
+              coachId: updated.coachId,
+              managerId: auth.manager.id,
+              managerName: updated.manager.name,
+              managerEmail: auth.manager.email,
+              date: dateStr,
+              hireStart: updated.hireStart ?? undefined,
+              hireEnd: updated.hireEnd ?? undefined,
+              accessToken: updated.coach.accessToken,
+              clickUrl: `/coach?token=${updated.coach.accessToken}`,
+            },
+          })
+        } catch (notificationError) {
+          console.error('[POST /api/scoutings] Notification error (restore):', notificationError)
+        }
 
         return NextResponse.json({ action: 'added', scouting: updated })
       }
@@ -132,10 +157,12 @@ export async function POST(request: NextRequest) {
           where: { id: existing.id },
           data: {
             ...(courseId !== undefined && { courseId: courseId || null }),
-            ...(courseName !== undefined && { courseName: courseName.trim() || null }),
-            ...(note !== undefined && { note: note.trim() || null }),
+            ...(courseName !== undefined && { courseName: trimmedCourseName }),
+            ...(note !== undefined && { note: trimmedNote }),
+            ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
+            ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },
-          select: { id: true, status: true, courseId: true, courseName: true, note: true },
+          select: { id: true, status: true, courseId: true, courseName: true, note: true, hireStart: true, hireEnd: true },
         })
         return NextResponse.json({ action: 'updated', scouting: updated })
       }
@@ -153,37 +180,129 @@ export async function POST(request: NextRequest) {
     }
 
     // 신규 생성
-    const scouting = await prisma.scouting.create({
-      data: {
-        coachId,
-        managerId: auth.manager.id,
-        date: dateObj,
-        note: note?.trim() || null,
-        courseId: courseId || null,
-        courseName: courseName?.trim() || null,
-      },
-      select: {
-        id: true, coachId: true, date: true, status: true,
-        manager: { select: { id: true, name: true } },
-        coach: { select: { id: true, name: true, accessToken: true } },
-      },
-    })
+    let scouting
+    try {
+      scouting = await prisma.scouting.create({
+        data: {
+          coachId,
+          managerId: auth.manager.id,
+          date: dateObj,
+          note: trimmedNote,
+          courseId: courseId || null,
+          courseName: trimmedCourseName,
+          hireStart: trimmedHireStart,
+          hireEnd: trimmedHireEnd,
+        },
+        select: {
+          id: true, coachId: true, date: true, status: true, hireStart: true, hireEnd: true,
+          manager: { select: { id: true, name: true } },
+          coach: { select: { id: true, name: true, accessToken: true } },
+        },
+      })
+    } catch (createError) {
+      // 빠른 연속 요청이나 날짜 정규화 차이로 중복 생성이 날 수 있어,
+      // 다시 조회해서 기존 레코드를 업데이트/복원 경로로 처리한다.
+      const retryExisting = await prisma.scouting.findFirst({
+        where: {
+          coachId,
+          managerId: auth.manager.id,
+          date: {
+            gte: dateObj,
+            lt: nextDateObj,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (!retryExisting) {
+        throw createError
+      }
 
-    // T1 알림 — 코치에게 섭외 요청
+      if (retryExisting.status === 'cancelled') {
+        const restored = await prisma.scouting.update({
+          where: { id: retryExisting.id },
+          data: {
+            status: 'scouting',
+            ...(courseId !== undefined && { courseId: courseId || null }),
+            ...(courseName !== undefined && { courseName: trimmedCourseName }),
+            ...(note !== undefined && { note: trimmedNote }),
+            ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
+            ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
+          },
+          select: {
+            id: true, coachId: true, date: true, status: true, hireStart: true, hireEnd: true,
+            manager: { select: { id: true, name: true } },
+            coach: { select: { id: true, name: true, accessToken: true } },
+          },
+        })
+        const dateStr = restored.date.toISOString().slice(0, 10)
+        try {
+          await createNotification({
+            trigger: SCOUTING_REQUEST_TRIGGER,
+            recipientCoachId: restored.coachId,
+            data: {
+              scoutingId: restored.id,
+              coachId: restored.coachId,
+              managerId: auth.manager.id,
+              managerName: restored.manager.name,
+              managerEmail: auth.manager.email,
+              date: dateStr,
+              hireStart: restored.hireStart ?? undefined,
+              hireEnd: restored.hireEnd ?? undefined,
+              accessToken: restored.coach.accessToken,
+              clickUrl: `/coach?token=${restored.coach.accessToken}`,
+            },
+          })
+        } catch (notificationError) {
+          console.error('[POST /api/scoutings] Notification error (retry restore):', notificationError)
+        }
+        return NextResponse.json({ action: 'added', scouting: restored })
+      }
+
+      if (mode === 'upsert') {
+        const updated = await prisma.scouting.update({
+          where: { id: retryExisting.id },
+          data: {
+            ...(courseId !== undefined && { courseId: courseId || null }),
+            ...(courseName !== undefined && { courseName: trimmedCourseName }),
+            ...(note !== undefined && { note: trimmedNote }),
+            ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
+            ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
+          },
+          select: { id: true, status: true, courseId: true, courseName: true, note: true, hireStart: true, hireEnd: true },
+        })
+        return NextResponse.json({ action: 'updated', scouting: updated })
+      }
+
+      const cancelled = await prisma.scouting.update({
+        where: { id: retryExisting.id },
+        data: { status: 'cancelled' },
+      })
+      await expireScoutingRequestNotifications(cancelled.id)
+      return NextResponse.json({ action: 'removed' })
+    }
+
+    // T1 알림 — 코치에게 찜꽁
     const dateStr = scouting.date.toISOString().slice(0, 10)
-    await createNotification({
-      trigger: SCOUTING_REQUEST_TRIGGER,
-      recipientCoachId: scouting.coachId,
-      data: {
-        scoutingId: scouting.id,
-        coachId: scouting.coachId,
-        managerId: auth.manager.id,
-        managerName: scouting.manager.name,
-        date: dateStr,
-        accessToken: scouting.coach.accessToken,
-        clickUrl: `/coach?token=${scouting.coach.accessToken}`,
-      },
-    })
+    try {
+      await createNotification({
+        trigger: SCOUTING_REQUEST_TRIGGER,
+        recipientCoachId: scouting.coachId,
+        data: {
+          scoutingId: scouting.id,
+          coachId: scouting.coachId,
+          managerId: auth.manager.id,
+          managerName: scouting.manager.name,
+          managerEmail: auth.manager.email,
+          date: dateStr,
+          hireStart: scouting.hireStart ?? undefined,
+          hireEnd: scouting.hireEnd ?? undefined,
+          accessToken: scouting.coach.accessToken,
+          clickUrl: `/coach?token=${scouting.coach.accessToken}`,
+        },
+      })
+    } catch (notificationError) {
+      console.error('[POST /api/scoutings] Notification error (create):', notificationError)
+    }
 
     return NextResponse.json({ action: 'added', scouting })
   } catch (e) {

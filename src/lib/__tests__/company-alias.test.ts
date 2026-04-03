@@ -14,7 +14,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: null,
       restCourseName: null,
     })
-    expect(result).toBe('4/5 섭외 요청 (홍길동 매니저)')
+    expect(result).toBe('4/5 찜꽁 (홍길동 매니저)')
   })
 
   it('courseName empty string → same as null', () => {
@@ -24,7 +24,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: null,
       restCourseName: null,
     })
-    expect(result).toBe('4/5 섭외 요청 (홍길동 매니저)')
+    expect(result).toBe('4/5 찜꽁 (홍길동 매니저)')
   })
 
   it('courseName with company alias → alias + restCourseName', () => {
@@ -38,7 +38,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: companyName ? 'S사' : null,
       restCourseName,
     })
-    expect(result).toBe('4/5 섭외 요청 — S사 AI개발과정 (홍길동 매니저)')
+    expect(result).toBe('4/5 찜꽁 — S사 AI개발과정 (홍길동 매니저)')
   })
 
   it('companyAlias null but courseName exists → courseName displayed', () => {
@@ -48,7 +48,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: null,
       restCourseName: null,
     })
-    expect(result).toBe('4/5 섭외 요청 — LG전자 신입과정 (홍길동 매니저)')
+    expect(result).toBe('4/5 찜꽁 — LG전자 신입과정 (홍길동 매니저)')
   })
 
   it('no company match → courseName displayed as-is', () => {
@@ -58,7 +58,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: null,
       restCourseName: null,
     })
-    expect(result).toBe('4/5 섭외 요청 — 2026 상반기 프로그래밍 (홍길동 매니저)')
+    expect(result).toBe('4/5 찜꽁 — 2026 상반기 프로그래밍 (홍길동 매니저)')
   })
 
   it('date formatting: december date', () => {
@@ -69,7 +69,7 @@ describe('formatScoutingDisplay', () => {
       companyAlias: null,
       restCourseName: null,
     })
-    expect(result).toBe('12/25 섭외 요청 (홍길동 매니저)')
+    expect(result).toBe('12/25 찜꽁 (홍길동 매니저)')
   })
 })
 

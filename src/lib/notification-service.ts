@@ -11,7 +11,10 @@ interface CreateNotificationParams {
     managerId?: string
     coachName?: string
     managerName?: string
+    managerEmail?: string
     date?: string
+    hireStart?: string
+    hireEnd?: string
     courseName?: string
     accessToken?: string
     clickUrl: string
@@ -38,7 +41,7 @@ export async function createNotification(
   const { trigger, recipientManagerId, recipientCoachId, data } = params
 
   const title = trigger.type === 'scouting_request'
-    ? '섭외 요청'
+    ? '찜꽁'
     : trigger.type === 'coach_accepted'
       ? '코치 수락'
       : trigger.type === 'coach_rejected'
@@ -52,6 +55,10 @@ export async function createNotification(
   const body = renderTemplate(trigger.messageTemplate, {
     coachName: data.coachName,
     managerName: data.managerName,
+    managerEmail: data.managerEmail,
+    managerLabel: data.managerEmail
+      ? `${data.managerName || ''}매니저 (${data.managerEmail})`
+      : data.managerName,
     date: data.date,
     courseName: data.courseName,
     accessToken: data.accessToken,

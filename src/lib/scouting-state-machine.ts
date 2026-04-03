@@ -85,6 +85,6 @@ export function getNotificationTrigger(
 export const SCOUTING_REQUEST_TRIGGER: NotificationTrigger = {
   type: 'scouting_request',
   recipientRole: 'coach',
-  messageTemplate: '{managerName}님이 {date} 섭외를 요청했습니다',
+  messageTemplate: '{managerLabel}가 {date} 찜꽁했습니다',
   clickUrlPattern: '/coach?token={accessToken}',
 }

@@ -35,16 +35,21 @@ function formatDate(isoDate: string): string {
 export function formatScoutingDisplay(params: {
   date: string
   managerName: string
+  managerEmail?: string | null
   courseName: string | null
   companyAlias: string | null
   restCourseName: string | null
+  hireStart?: string | null
+  hireEnd?: string | null
 }): string {
-  const { date, managerName, companyAlias } = params
+  const { date, managerName, managerEmail, companyAlias, hireStart, hireEnd } = params
   const courseName = params.courseName?.trim() || null
   const restCourseName = params.restCourseName?.trim() || null
 
   const dateStr = formatDate(date)
-  const base = `${dateStr} 섭외 요청 (${managerName} 매니저)`
+  const timeStr = hireStart && hireEnd ? ` ${hireStart}~${hireEnd}` : ''
+  const managerLabel = managerEmail ? `${managerName}매니저 (${managerEmail})` : `${managerName}매니저`
+  const base = `${dateStr}${timeStr} 찜꽁 (${managerLabel})`
 
   if (!courseName) {
     return base
@@ -52,10 +57,10 @@ export function formatScoutingDisplay(params: {
 
   if (companyAlias) {
     const rest = restCourseName || ''
-    const result = `${dateStr} 섭외 요청 — ${companyAlias} ${rest} (${managerName} 매니저)`.replace(/\s+/g, ' ').trim()
+    const result = `${dateStr}${timeStr} 찜꽁 — ${companyAlias} ${rest} (${managerLabel})`.replace(/\s+/g, ' ').trim()
     return result || base
   }
 
-  const result = `${dateStr} 섭외 요청 — ${courseName} (${managerName} 매니저)`
+  const result = `${dateStr}${timeStr} 찜꽁 — ${courseName} (${managerLabel})`
   return result || base
 }
