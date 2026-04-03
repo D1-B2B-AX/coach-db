@@ -384,6 +384,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                   const isConfirmed = engagementDates.has(key)
                   const isAvailable = availableDates.has(key)
                   const isScouted = scoutingDates.has(key)
+                  const scoutedManagerName = isScouted ? (scoutingDates.get(key) || "").trim() : ""
                   const isSelected = selectedDay === key
 
                   let cellClass =
@@ -417,7 +418,13 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                       key={key}
                       className={cellClass}
                       onClick={() => setSelectedDay(isSelected ? null : key)}
-                      title={isScouted ? `찜꽁중 (${scoutingDates.get(key)})` : undefined}
+                      title={
+                        isScouted
+                          ? scoutedManagerName
+                            ? `찜꽁중 · ${scoutedManagerName}`
+                            : "찜꽁중"
+                          : undefined
+                      }
                     >
                       {d}
                     </div>
@@ -502,7 +509,9 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                 ]
                 merged.sort((a, b) => a.startTime.localeCompare(b.startTime))
 
-                const scoutManager = scoutingDates.get(selectedDay)
+                const hasScoutInfo = scoutingDates.has(selectedDay)
+                const scoutManagerRaw = scoutingDates.get(selectedDay) || ""
+                const scoutManager = scoutManagerRaw.trim()
                 const availItems = merged.filter(m => m.type === "avail")
                 const engItems = merged.filter(m => m.type === "eng")
 
@@ -516,18 +525,18 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                     {availLabel && (
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-[#2E7D32]">{availLabel}</span>
-                        {scoutManager !== undefined && (
-                          <>
-                            <Badge variant="status" tone="orange">찜꽁중</Badge>
-                            {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
-                          </>
+                        {hasScoutInfo && (
+                          <Badge variant="status" tone="orange">
+                            {scoutManager ? `찜꽁중 · ${scoutManager}` : "찜꽁중"}
+                          </Badge>
                         )}
                       </div>
                     )}
-                    {!availLabel && scoutManager !== undefined && (
+                    {!availLabel && hasScoutInfo && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Badge variant="status" tone="orange">찜꽁중</Badge>
-                        {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
+                        <Badge variant="status" tone="orange">
+                          {scoutManager ? `찜꽁중 · ${scoutManager}` : "찜꽁중"}
+                        </Badge>
                       </div>
                     )}
                     {engItems.map((item, i) => (
