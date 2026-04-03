@@ -48,7 +48,7 @@ interface DashboardCoachListProps {
   onStatusFilterChange: (filter: string) => void
   engagementFilter: string
   onEngagementFilterChange: (filter: string) => void
-  scoutedCoachIds?: Set<string>
+  scoutingManagers?: Record<string, string>
   onBulkScout?: (coachIds: string[]) => void
   courses?: CourseOption[]
   selectedCourseId?: string | null
@@ -390,6 +390,7 @@ export default function DashboardCoachList({
               const courseName = latest
                 ? latest.courseName.replace(/\[부가세\s*별도\]\s*/g, "").replace(/\(B2B\)\s*/g, "").replace(/_/g, " ").trim()
                 : null
+              const managerLabel = scoutingManagers?.[coach.id]
               return (
                 <TableRow
                   key={coach.id}
@@ -407,9 +408,9 @@ export default function DashboardCoachList({
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
-                    {scoutedCoachIds?.has(coach.id) && (
+                    {managerLabel && (
                       <Badge variant="status" tone="orange" className="shrink-0">
-                        찜꽁중
+                        {`찜꽁중 · ${managerLabel}`}
                       </Badge>
                     )}
                   </div>

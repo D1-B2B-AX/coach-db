@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { isHoliday } from "@/lib/holidays"
+import Badge from "@/components/ui/Badge"
 
 interface Scouting {
   id: string
@@ -36,7 +37,7 @@ interface CourseGroup {
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; activeClassName: string }> = {
   all: { label: "전체", className: "bg-gray-100 text-gray-500", activeClassName: "bg-[#333] text-white" },
-  scouting: { label: "컨택중", className: "bg-[#FFF3E0] text-[#F57C00]", activeClassName: "bg-[#F57C00] text-white" },
+  scouting: { label: "찜꽁중", className: "bg-[#FFF3E0] text-[#F57C00]", activeClassName: "bg-[#F57C00] text-white" },
   accepted: { label: "수락", className: "bg-[#E8F5E9] text-[#388E3C]", activeClassName: "bg-[#388E3C] text-white" },
   rejected: { label: "거절", className: "bg-[#FFEBEE] text-[#D32F2F]", activeClassName: "bg-[#D32F2F] text-white" },
   confirmed: { label: "확정", className: "bg-[#E3F2FD] text-[#1976D2]", activeClassName: "bg-[#1976D2] text-white" },
@@ -113,8 +114,29 @@ export default function MyPage() {
   const [exporting, setExporting] = useState(false)
 
   // 과정 목록
-  const [courses, setCourses] = useState<{ id: string; name: string; startDate: string | null; endDate: string | null; createdAt: string }[]>([])
+  const [courses, setCourses] = useState<{
+    id: string
+    name: string
+    description: string | null
+    startDate: string | null
+    endDate: string | null
+    workHours: string | null
+    location: string | null
+    hourlyRate: number | null
+    createdAt: string
+  }[]>([])
   const [openAccordions, setOpenAccordions] = useState<Set<string | null>>(new Set())
+
+  // 과정 편집 모달
+  const [editCourseId, setEditCourseId] = useState<string | null>(null)
+  const [editCourseName, setEditCourseName] = useState("")
+  const [editCourseDesc, setEditCourseDesc] = useState("")
+  const [editCourseStart, setEditCourseStart] = useState("")
+  const [editCourseEnd, setEditCourseEnd] = useState("")
+  const [editCourseWorkHours, setEditCourseWorkHours] = useState("")
+  const [editCourseLocation, setEditCourseLocation] = useState("")
+  const [editCourseHourlyRate, setEditCourseHourlyRate] = useState("")
+  const [editCourseSaving, setEditCourseSaving] = useState(false)
 
   // 확정 모달 과정 정보
   const [courseName, setCourseName] = useState("")
@@ -159,8 +181,26 @@ export default function MyPage() {
       const res = await fetch("/api/courses")
       if (res.ok) {
         const data = await res.json()
-        const list = (data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null; createdAt: string }) => ({
-          id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, createdAt: c.createdAt,
+        const list = (data.courses || []).map((c: {
+          id: string
+          name: string
+          description: string | null
+          startDate: string | null
+          endDate: string | null
+          workHours: string | null
+          location: string | null
+          hourlyRate: number | null
+          createdAt: string
+        }) => ({
+          id: c.id,
+          name: c.name,
+          description: c.description || null,
+          startDate: c.startDate,
+          endDate: c.endDate,
+          workHours: c.workHours || null,
+          location: c.location || null,
+          hourlyRate: c.hourlyRate ?? null,
+          createdAt: c.createdAt,
         }))
         setCourses(list)
         // 초기에 모든 과정 아코디언 열기
@@ -343,6 +383,26 @@ export default function MyPage() {
           setConfirmTarget(null)
           const found = scoutings.find(x => x.id === id)
           if (found) {
+            // 같은 과정+날짜의 다른 수락 코치들 자동 취소
+            const siblings = scoutings.filter(s =>
+              s.id !== id &&
+              s.status === "accepted" &&
+              s.date.slice(0, 10) === found.date.slice(0, 10) &&
+              s.courseId === found.courseId
+            )
+            for (const sib of siblings) {
+              fetch(`/api/scoutings/${sib.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "cancelled" }),
+              })
+            }
+            if (siblings.length > 0) {
+              setScoutings(prev => prev.map(s =>
+                siblings.some(sib => sib.id === s.id) ? { ...s, status: "cancelled" } : s
+              ))
+            }
+
             const row = buildSheetRow({
               ...found,
               courseName: courseName || found.courseName,
@@ -429,6 +489,72 @@ export default function MyPage() {
 
   const allChecked = filtered.length > 0 && selectedRows.size === filtered.length
 
+  function openEditCourse(courseId: string) {
+    const c = courses.find(x => x.id === courseId)
+    if (!c) return
+    setEditCourseId(courseId)
+    setEditCourseName(c.name)
+    setEditCourseDesc(c.description || "")
+    setEditCourseStart(c.startDate?.slice(0, 10) || "")
+    setEditCourseEnd(c.endDate?.slice(0, 10) || "")
+    setEditCourseWorkHours(c.workHours || "")
+    setEditCourseLocation(c.location || "")
+    setEditCourseHourlyRate(c.hourlyRate !== null && c.hourlyRate !== undefined ? String(c.hourlyRate) : "")
+  }
+
+  async function deleteEditCourse() {
+    if (!editCourseId) return
+    if (!confirm("이 과정을 삭제하시겠습니까? 연결된 찜꽁은 '과정 미지정'으로 이동합니다.")) return
+    setEditCourseSaving(true)
+    try {
+      const res = await fetch(`/api/courses/${editCourseId}`, { method: "DELETE" })
+      if (res.ok) {
+        setCourses(prev => prev.filter(c => c.id !== editCourseId))
+        setEditCourseId(null)
+      }
+    } catch { /* silently fail */ }
+    finally { setEditCourseSaving(false) }
+  }
+
+  async function saveEditCourse() {
+    if (!editCourseId || !editCourseName.trim()) return
+    const parsedHourlyRate = editCourseHourlyRate.trim() ? Number(editCourseHourlyRate) : null
+    if (parsedHourlyRate !== null && (!Number.isFinite(parsedHourlyRate) || parsedHourlyRate < 0)) {
+      alert("시급은 0 이상의 숫자로 입력해주세요.")
+      return
+    }
+    setEditCourseSaving(true)
+    try {
+      const res = await fetch(`/api/courses/${editCourseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editCourseName.trim(),
+          description: editCourseDesc.trim() || null,
+          startDate: editCourseStart || null,
+          endDate: editCourseEnd || null,
+          workHours: editCourseWorkHours.trim() || null,
+          location: editCourseLocation.trim() || null,
+          hourlyRate: parsedHourlyRate,
+        }),
+      })
+      if (res.ok) {
+        setCourses(prev => prev.map(c => c.id === editCourseId ? {
+          ...c,
+          name: editCourseName.trim(),
+          description: editCourseDesc.trim() || null,
+          startDate: editCourseStart || null,
+          endDate: editCourseEnd || null,
+          workHours: editCourseWorkHours.trim() || null,
+          location: editCourseLocation.trim() || null,
+          hourlyRate: parsedHourlyRate,
+        } : c))
+        setEditCourseId(null)
+      }
+    } catch { /* silently fail */ }
+    finally { setEditCourseSaving(false) }
+  }
+
   function toggleAccordion(courseId: string | null) {
     setOpenAccordions(prev => {
       const next = new Set(prev)
@@ -464,15 +590,17 @@ export default function MyPage() {
         {(["all", "scouting", "accepted", "rejected", "confirmed", "cancelled"] as const).map((key) => {
           const cfg = STATUS_CONFIG[key]
           const active = statusFilter === key
+          const count = counts[key] || 0
+          const isZeroState = count === 0
           return (
             <button
               key={key}
               onClick={() => { setStatusFilter(key); setSelectedRows(new Set()) }}
               className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                active ? cfg.activeClassName : cfg.className
+                isZeroState ? "bg-gray-100 text-gray-400 grayscale opacity-70" : active ? cfg.activeClassName : cfg.className
               }`}
             >
-              {cfg.label} ({counts[key]})
+              {cfg.label} ({count})
             </button>
           )
         })}
@@ -534,6 +662,14 @@ export default function MyPage() {
                   <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▶</span>
                   <span className="font-semibold text-sm text-[#333]">{group.name}</span>
                   <span className="text-[11px] text-gray-400">{formatPeriod(group.startDate, group.endDate)}</span>
+                  {group.id && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditCourse(group.id!) }}
+                      className="cursor-pointer rounded-full px-2 py-0.5 text-[10px] text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+                    >
+                      수정
+                    </button>
+                  )}
                   <div className="flex items-center gap-1.5 ml-auto">
                     {(["scouting", "accepted", "confirmed", "rejected"] as const).map(st => {
                       const count = statusCounts[st] || 0
@@ -573,12 +709,26 @@ export default function MyPage() {
                                   const isConfirming = confirmTarget === s.id
                                   return (
                                     <div key={s.id} className="flex flex-col">
-                                      <div className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
-                                        s.status === "cancelled" ? "border-gray-200 bg-gray-50 opacity-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                                      <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-all ${
+                                        s.status === "cancelled" ? "border border-gray-200 bg-gray-50 opacity-50" : "border border-gray-100 bg-[#F9FAFB] hover:border-gray-200 hover:bg-gray-50"
                                       }`}>
-                                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${cfg.className}`}>
+                                        <Badge
+                                          variant="status"
+                                          tone={
+                                            s.status === "scouting"
+                                              ? "orange"
+                                              : s.status === "accepted"
+                                                ? "green"
+                                                : s.status === "confirmed"
+                                                  ? "blue"
+                                                  : s.status === "rejected"
+                                                    ? "red"
+                                                    : "gray"
+                                          }
+                                          className="shrink-0 px-1.5 py-0.5 text-[9px]"
+                                        >
                                           {cfg.label}
-                                        </span>
+                                        </Badge>
                                         <Link
                                           href={`/coaches/${s.coachId}`}
                                           className="font-medium text-[#333] hover:text-[#1976D2] transition-colors"
@@ -591,15 +741,27 @@ export default function MyPage() {
 
                                         {/* 액션 버튼들 */}
                                         {s.status === "scouting" && !isConfirming && (
-                                          <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
-                                            className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">취소</button>
+                                            <button
+                                              onClick={() => { if (confirm("이 찜꽁을 취소하시겠습니까?")) updateStatus(s.id, "cancelled") }}
+                                              disabled={isUpdating}
+                                              className="inline-flex cursor-pointer items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#B45353] hover:bg-[#FEF2F2] hover:text-[#991B1B] disabled:opacity-50"
+                                            >
+                                              <span aria-hidden="true">X</span>
+                                              <span>취소</span>
+                                            </button>
                                         )}
                                         {s.status === "accepted" && !isConfirming && (
                                           <>
                                             <button onClick={() => setConfirmTarget(s.id)} disabled={isUpdating}
                                               className="cursor-pointer text-[10px] text-[#1976D2] font-medium hover:text-[#1565C0] disabled:opacity-50">확정</button>
-                                            <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
-                                              className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">취소</button>
+                                            <button
+                                              onClick={() => { if (confirm("이 수락을 취소하시겠습니까?")) updateStatus(s.id, "cancelled") }}
+                                              disabled={isUpdating}
+                                              className="inline-flex cursor-pointer items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#B45353] hover:bg-[#FEF2F2] hover:text-[#991B1B] disabled:opacity-50"
+                                            >
+                                              <span aria-hidden="true">X</span>
+                                              <span>취소</span>
+                                            </button>
                                           </>
                                         )}
                                         {s.status === "confirmed" && !isConfirming && (
@@ -622,7 +784,10 @@ export default function MyPage() {
                                             }} disabled={isUpdating}
                                               className="cursor-pointer text-[10px] text-gray-400 hover:text-gray-600 disabled:opacity-50">수정</button>
                                             <button onClick={() => updateStatus(s.id, "cancelled")} disabled={isUpdating}
-                                              className="cursor-pointer text-[10px] text-red-400 hover:text-red-600 disabled:opacity-50">취소</button>
+                                              className="inline-flex cursor-pointer items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#B45353] hover:bg-[#FEF2F2] hover:text-[#991B1B] disabled:opacity-50">
+                                              <span aria-hidden="true">X</span>
+                                              <span>취소</span>
+                                            </button>
                                           </>
                                         )}
                                         {s.status === "cancelled" && (
@@ -724,7 +889,13 @@ export default function MyPage() {
                                           )}
 
                                           <div className="flex items-center gap-2">
-                                            <button onClick={() => updateStatus(s.id, "confirmed")} disabled={isUpdating}
+                                            <button onClick={() => {
+                                              const siblings = scoutings.filter(x => x.id !== s.id && x.status === "accepted" && x.date.slice(0, 10) === s.date.slice(0, 10) && x.courseId === s.courseId)
+                                              const msg = siblings.length > 0
+                                                ? `${s.coach.name} 코치를 확정하시겠습니까?\n같은 날짜의 다른 수락 코치 ${siblings.length}명은 자동 취소됩니다.`
+                                                : `${s.coach.name} 코치를 확정하시겠습니까?`
+                                              if (confirm(msg)) updateStatus(s.id, "confirmed")
+                                            }} disabled={isUpdating}
                                               className="cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium bg-[#1976D2] text-white hover:bg-[#1565C0] transition-colors disabled:opacity-50">
                                               {isUpdating ? "..." : "확정"}
                                             </button>
@@ -753,6 +924,129 @@ export default function MyPage() {
       </div>
 
       </>
+
+      {/* 과정 편집 모달 */}
+      {editCourseId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !editCourseSaving && setEditCourseId(null)}
+        >
+          <div
+            className="w-full max-w-[560px] rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-[#333]">과정 수정</h3>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-600">과정명</span>
+                <input
+                  type="text"
+                  value={editCourseName}
+                  onChange={(e) => setEditCourseName(e.target.value)}
+                  maxLength={200}
+                  disabled={editCourseSaving}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">시작일</span>
+                  <input
+                    type="date"
+                    value={editCourseStart}
+                    onChange={(e) => setEditCourseStart(e.target.value)}
+                    disabled={editCourseSaving}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">종료일</span>
+                  <input
+                    type="date"
+                    value={editCourseEnd}
+                    onChange={(e) => setEditCourseEnd(e.target.value)}
+                    disabled={editCourseSaving}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">근무시간</span>
+                  <input
+                    type="text"
+                    value={editCourseWorkHours}
+                    onChange={(e) => setEditCourseWorkHours(e.target.value)}
+                    placeholder="예: 오전 09:00~13:00"
+                    disabled={editCourseSaving}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">장소</span>
+                  <input
+                    type="text"
+                    value={editCourseLocation}
+                    onChange={(e) => setEditCourseLocation(e.target.value)}
+                    placeholder="예: 강남 본사"
+                    disabled={editCourseSaving}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">시급</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={editCourseHourlyRate}
+                    onChange={(e) => setEditCourseHourlyRate(e.target.value)}
+                    placeholder="예: 15000"
+                    disabled={editCourseSaving}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-600">과정 내용</span>
+                <textarea
+                  value={editCourseDesc}
+                  onChange={(e) => setEditCourseDesc(e.target.value)}
+                  placeholder="코치에게 보여질 과정 설명을 입력하세요"
+                  rows={4}
+                  disabled={editCourseSaving}
+                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={deleteEditCourse}
+                disabled={editCourseSaving}
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-500 hover:bg-red-50 disabled:opacity-50"
+              >
+                삭제
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditCourseId(null)}
+                  disabled={editCourseSaving}
+                  className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={saveEditCourse}
+                  disabled={editCourseSaving || !editCourseName.trim()}
+                  className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-2 text-sm font-medium text-white hover:bg-[#1565C0] disabled:opacity-50"
+                >
+                  {editCourseSaving ? "저장 중..." : "저장"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

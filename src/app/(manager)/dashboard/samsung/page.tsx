@@ -6,7 +6,7 @@ import DashboardContent from '../_components/DashboardContent'
 
 export default function SamsungDashboardPage() {
   const router = useRouter()
-  const [authorized, setAuthorized] = useState<boolean | null>(null)
+  const [accessState, setAccessState] = useState<"checking" | "allowed" | "denied">("checking")
 
   useEffect(() => {
     async function checkAccess() {
@@ -15,21 +15,37 @@ export default function SamsungDashboardPage() {
         if (res.ok) {
           const data = await res.json()
           if (data.role === 'admin' || data.role === 'samsung_admin') {
-            setAuthorized(true)
+            setAccessState("allowed")
           } else {
-            router.replace('/dashboard')
+            setAccessState("denied")
           }
         } else {
-          router.replace('/dashboard')
+          setAccessState("denied")
         }
       } catch {
-        router.replace('/dashboard')
+        setAccessState("denied")
       }
     }
     checkAccess()
-  }, [router])
+  }, [])
 
-  if (!authorized) return null
+  useEffect(() => {
+    if (accessState === "denied") {
+      router.replace("/403")
+    }
+  }, [accessState, router])
+
+  if (accessState === "checking") {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+        <div className="py-12 text-center text-sm text-gray-400">권한을 확인하는 중...</div>
+      </div>
+    )
+  }
+
+  if (accessState === "denied") {
+    return null
+  }
 
   return <DashboardContent variant="samsung" />
 }

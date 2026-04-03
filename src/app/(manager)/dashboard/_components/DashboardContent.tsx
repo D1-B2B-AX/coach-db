@@ -63,7 +63,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
-  const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
+  const [scoutingManagers, setScoutingManagers] = useState<Record<string, string>>({})
   const [statusData, setStatusData] = useState<StatusData | null>(null)
   const [timeFilter, setTimeFilter] = useState<string>("08-13,13-18")
 
@@ -96,6 +96,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [bulkCoachIds, setBulkCoachIds] = useState<string[]>([])
   const [bulkCourseName, setBulkCourseName] = useState("")
   const [bulkCourseDescription, setBulkCourseDescription] = useState("")
+  const [bulkHireStart, setBulkHireStart] = useState("")
+  const [bulkHireEnd, setBulkHireEnd] = useState("")
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkError, setBulkError] = useState("")
 
@@ -146,8 +148,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   // Fetch coaches for selected date (or date range)
   const fetchCoaches = useCallback(async () => {
     if (!selectedStart) {
-      setCoaches([])
-      setScoutedCoachIds(new Set())
+    setCoaches([])
+    setScoutingManagers({})
       return
     }
     setCoachLoading(true)
@@ -177,11 +179,22 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       }
       if (scoutRes.ok) {
         const data = await scoutRes.json()
-        setScoutedCoachIds(new Set(
-          (data.scoutings || [])
-            .filter((s: { status?: string }) => s.status !== 'cancelled')
-            .map((s: { coachId: string }) => s.coachId)
-        ))
+        const mapping: Record<string, string> = {}
+        for (const s of (data.scoutings || [])) {
+          if (s.status === 'cancelled') continue
+          const coachId = s.coachId
+          if (!coachId) continue
+          const managerName = (s.manager?.name || '').trim() || '매니저'
+          const existing = mapping[coachId]
+          if (existing) {
+            if (!existing.includes(managerName)) {
+              mapping[coachId] = `${existing}, ${managerName}`
+            }
+          } else {
+            mapping[coachId] = managerName
+          }
+        }
+        setScoutingManagers(mapping)
       }
     } catch {
       // silently fail
@@ -352,6 +365,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setBulkCoachIds(coachIds)
     setBulkCourseName(selectedCourse?.name ?? "")
     setBulkCourseDescription("")
+    setBulkHireStart("")
+    setBulkHireEnd("")
     setBulkError("")
     setShowScoutModal(true)
   }
@@ -364,28 +379,49 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       setBulkError("과정명을 입력해주세요.")
       return
     }
+    const hireStart = bulkHireStart.trim()
+    const hireEnd = bulkHireEnd.trim()
+    if ((hireStart && !hireEnd) || (!hireStart && hireEnd)) {
+      setBulkError("시간은 시작과 종료를 함께 입력해주세요.")
+      return
+    }
+    if (hireStart && hireEnd && hireStart >= hireEnd) {
+      setBulkError("종료 시간은 시작 시간보다 늦어야 합니다.")
+      return
+    }
     const dates = getSelectedDateRange()
     setBulkSending(true)
     setBulkError("")
     try {
       let successCount = 0
       let failedCount = 0
+      let firstErrorMessage = ""
       for (const coachId of bulkCoachIds) {
         for (const date of dates) {
           const res = await fetch('/api/scoutings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              coachId,
-              date,
-              mode: 'upsert',
-              courseName,
-              note: bulkCourseDescription.trim() || undefined,
-              ...(selectedCourseId && { courseId: selectedCourseId }),
-            }),
-          })
-          if (res.ok) successCount++
-          else failedCount++
+              body: JSON.stringify({
+                coachId,
+                date,
+                mode: 'upsert',
+                courseName,
+                note: bulkCourseDescription.trim() || undefined,
+                hireStart: hireStart || undefined,
+                hireEnd: hireEnd || undefined,
+                ...(selectedCourseId && { courseId: selectedCourseId }),
+              }),
+            })
+          if (res.ok) {
+            successCount++
+            continue
+          }
+
+          const data = await res.json().catch(() => ({}))
+          const errorMessage = typeof data?.error === "string" ? data.error : `${res.status} ${res.statusText}`
+          if (!firstErrorMessage) firstErrorMessage = errorMessage
+          console.error("[submitBulkScout] POST /api/scoutings failed", { coachId, date, status: res.status, errorMessage, data })
+          failedCount++
         }
       }
       // 섭외된 코치 목록 갱신
@@ -401,7 +437,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       if (failedCount === 0) {
         setShowScoutModal(false)
       } else {
-        setBulkError("일부 전송에 실패했습니다. 다시 시도해주세요.")
+        setBulkError(firstErrorMessage || "일부 전송에 실패했습니다. 다시 시도해주세요.")
       }
     } catch (e) {
       console.error('일괄 컨택 에러:', e)
@@ -451,7 +487,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onStatusFilterChange={setStatusFilter}
           engagementFilter={engagementFilter}
           onEngagementFilterChange={setEngagementFilter}
-          scoutedCoachIds={scoutedCoachIds}
+          scoutingManagers={scoutingManagers}
           onBulkScout={openBulkScoutModal}
           courses={courses}
           selectedCourseId={selectedCourseId}
@@ -511,12 +547,59 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
                   value={bulkCourseDescription}
                   onChange={(e) => setBulkCourseDescription(e.target.value)}
                   placeholder="실습코치에게 전달할 설명을 입력하세요"
-                  maxLength={1000}
                   rows={4}
                   disabled={bulkSending}
                   className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
                 />
               </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="block text-xs font-medium text-gray-600">시간</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkHireStart("08:00")
+                        setBulkHireEnd("13:00")
+                      }}
+                      disabled={bulkSending}
+                      className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${bulkHireStart === "08:00" && bulkHireEnd === "13:00" ? "bg-[#1976D2] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"} disabled:opacity-50`}
+                    >
+                      오전
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkHireStart("13:00")
+                        setBulkHireEnd("18:00")
+                      }}
+                      disabled={bulkSending}
+                      className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${bulkHireStart === "13:00" && bulkHireEnd === "18:00" ? "bg-[#1976D2] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"} disabled:opacity-50`}
+                    >
+                      오후
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="time"
+                    value={bulkHireStart}
+                    onChange={(e) => setBulkHireStart(e.target.value)}
+                    disabled={bulkSending}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={bulkHireEnd}
+                    onChange={(e) => setBulkHireEnd(e.target.value)}
+                    disabled={bulkSending}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                  />
+                </div>
+                <p className="text-[11px] leading-relaxed text-gray-500">
+                  코치 화면에 날짜와 함께 표시됩니다. 오전/오후 중 하나를 바로 넣을 수 있습니다.
+                </p>
+              </div>
               {bulkError && <p className="text-xs text-red-600">{bulkError}</p>}
             </div>
             <div className="mt-4 flex justify-end gap-2">

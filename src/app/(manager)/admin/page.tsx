@@ -33,6 +33,7 @@ const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
 
 export default function AdminPage() {
   const router = useRouter()
+  const [accessState, setAccessState] = useState<"checking" | "allowed" | "denied">("checking")
   const [managers, setManagers] = useState<Manager[]>([])
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,6 +58,29 @@ export default function AdminPage() {
   const [savingAppNote, setSavingAppNote] = useState<string | null>(null)
 
   useEscClose(confirmAction !== null, () => setConfirmAction(null))
+
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (!res.ok) {
+          setAccessState("denied")
+          return
+        }
+        const data = await res.json()
+        setAccessState(data.role === "admin" ? "allowed" : "denied")
+      } catch {
+        setAccessState("denied")
+      }
+    }
+    checkAccess()
+  }, [])
+
+  useEffect(() => {
+    if (accessState === "denied") {
+      router.replace("/403")
+    }
+  }, [accessState, router])
 
   const fetchManagers = useCallback(async () => {
     try {
@@ -95,13 +119,14 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
+    if (accessState !== "allowed") return
     async function load() {
       setLoading(true)
       await Promise.all([fetchManagers(), fetchDeletedCoaches(), fetchPendingCoaches()])
       setLoading(false)
     }
     load()
-  }, [fetchManagers, fetchDeletedCoaches, fetchPendingCoaches])
+  }, [accessState, fetchManagers, fetchDeletedCoaches, fetchPendingCoaches])
 
   // Filter managers by preset + search
   const filteredManagers = useMemo(() => {
@@ -221,6 +246,18 @@ export default function AdminPage() {
     }
   }
 
+  if (accessState === "checking") {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+        <div className="py-12 text-center text-sm text-gray-400">권한을 확인하는 중...</div>
+      </div>
+    )
+  }
+
+  if (accessState === "denied") {
+    return null
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
@@ -239,7 +276,7 @@ export default function AdminPage() {
 
   const TABS = [
     { key: "links" as const, label: "일정 등록 링크" },
-    { key: "applications" as const, label: `코치 신청${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
+    // { key: "applications" as const, label: `코치 신청${pendingCoaches.length > 0 ? ` (${pendingCoaches.length})` : ""}` },
     { key: "deleted" as const, label: `삭제 내역 (${deletedCoaches.length})` },
     { key: "managers" as const, label: `매니저 (${managers.length})` },
     { key: "sync" as const, label: "동기화" },
@@ -278,17 +315,21 @@ export default function AdminPage() {
                 { key: "samsung_admin", label: "삼전관리자", color: "bg-[#FFF3E0] text-[#E65100]", activeColor: "bg-[#E65100] text-white" },
                 { key: "user", label: "일반", color: "bg-[#E3F2FD] text-[#1976D2]", activeColor: "bg-[#1976D2] text-white" },
                 { key: "blocked", label: "차단", color: "bg-[#FBE9E7] text-[#D84315]", activeColor: "bg-[#D84315] text-white" },
-              ] as const).map((preset) => (
-                <button
-                  key={preset.key}
-                  onClick={() => { setManagerFilter(preset.key); setSelectedIds(new Set()) }}
-                  className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    managerFilter === preset.key ? preset.activeColor : preset.color
-                  }`}
-                >
-                  {preset.label} ({managerRoleCounts[preset.key]})
-                </button>
-              ))}
+              ] as const).map((preset) => {
+                const count = managerRoleCounts[preset.key]
+                const isZeroState = count === 0
+                return (
+                  <button
+                    key={preset.key}
+                    onClick={() => { setManagerFilter(preset.key); setSelectedIds(new Set()) }}
+                    className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                      isZeroState ? "bg-gray-100 text-gray-400 grayscale opacity-70" : managerFilter === preset.key ? preset.activeColor : preset.color
+                    }`}
+                  >
+                    {preset.label} ({count})
+                  </button>
+                )
+              })}
             </div>
 
             <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
@@ -325,13 +366,13 @@ export default function AdminPage() {
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="검색"
-                      className="w-36 rounded-md border-0 bg-gray-50 py-1.5 pl-7 pr-2 text-sm text-gray-600 placeholder:text-gray-300 focus:bg-white focus:ring-1 focus:ring-[#1976D2] focus:outline-none transition-all"
+                      className="w-36 rounded-md border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-sm text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
                     />
                   </div>
                 </div>
               </div>
               {/* Table header */}
-              <div className="grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
+        <div className="grid grid-cols-[auto_80px_1fr_80px] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-[#6B7280]">
                 <div className="w-4 flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -788,7 +829,7 @@ export default function AdminPage() {
 
         {activeTab === "sync" && (
           <div className="space-y-4">
-            {/* 코치 신청 동기화 */}
+            {/* 코치 신청 동기화 — 현재 미사용
             <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
               <h3 className="text-sm font-semibold text-[#333]">코치 신청 동기화</h3>
               <p className="mt-2 text-sm text-gray-500">
@@ -825,6 +866,7 @@ export default function AdminPage() {
                 <a href="https://docs.google.com/spreadsheets/d/1xrkRqw3niREpZRIYuB6cEjOGm7Y45bEWkqP02vESR20" target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">구글폼 응답시트</a>
               </div>
             </div>
+            */}
 
             {/* 삼성전자 일정 동기화 */}
             <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
@@ -907,7 +949,7 @@ function CoachManagementTab() {
 
     } catch (err) { console.error("Failed to fetch send-links data:", err) }
     finally { setLoading(false) }
-  }, [yearMonth, currentMonth])
+  }, [yearMonth])
 
   useEffect(() => {
     fetchData()
@@ -1037,7 +1079,7 @@ function CoachManagementTab() {
               setSelectedCoachIds(new Set())
             }}
             className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-              selectedStatus === card.key ? card.activeColor : card.chipColor
+              card.count === 0 ? "bg-gray-100 text-gray-400 grayscale opacity-70" : selectedStatus === card.key ? card.activeColor : card.chipColor
             }`}
           >
             {card.label} ({card.count})
@@ -1098,13 +1140,13 @@ function CoachManagementTab() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="검색"
-                className="w-36 rounded-md border-0 bg-gray-50 py-1.5 pl-7 pr-2 text-sm text-gray-600 placeholder:text-gray-300 focus:bg-white focus:ring-1 focus:ring-[#1976D2] focus:outline-none transition-all"
+                className="w-36 rounded-md border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-sm text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
               />
             </div>
           </div>
         </div>
         {/* Table header */}
-        <div className="grid grid-cols-[auto_72px_120px_200px_1fr] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-400">
+        <div className="grid grid-cols-[auto_72px_120px_200px_1fr] items-center gap-5 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-[#6B7280]">
           <div className="w-4">
             <input
               type="checkbox"
