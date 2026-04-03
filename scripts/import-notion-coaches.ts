@@ -1,7 +1,7 @@
 /**
  * 노션 2026 DB 코치를 DB에 생성/업데이트.
  * - 26년 정보 우선
- * - 25년에만 있는 정보(포트폴리오, 메모 등) 보완
+ * - 2025 DB는 생년월일 보완 용도로만 사용
  * - 이미 DB에 있는 코치는 업데이트, 없으면 생성
  */
 import { config } from 'dotenv'
@@ -10,6 +10,7 @@ config({ path: '.env.local' })
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { generateAccessToken } from '../src/lib/coach-auth'
+import { normalizeWorkTypeString } from '../src/lib/work-type'
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -18,6 +19,13 @@ const prisma = new PrismaClient({
 const NOTION_API_KEY = process.env.NOTION_API_KEY!
 const DB_26_ID = process.env.NOTION_DATABASE_ID!
 const DB_25_ID = '19e4576d6ffa80a7b08bda382eeb1cd1'
+const EXCLUDED_TYPE_TAGS = new Set(['기존', '신규', '취소'])
+
+function parseArgs() {
+  return {
+    fillBirthdateFrom2025: process.argv.includes('--fill-birthdate-from-2025'),
+  }
+}
 
 async function fetchNotion(endpoint: string, body?: any) {
   const res = await fetch(`https://api.notion.com/v1${endpoint}`, {
@@ -48,6 +56,32 @@ function getMultiSelect(prop: any): string[] {
   return prop.multi_select?.map((s: any) => s.name).filter(Boolean) || []
 }
 
+function splitTags(raw: string): string[] {
+  return raw
+    .split(/[,/\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function parseTypeTags(prop: any): string[] {
+  if (!prop) return []
+  if (prop.type === 'multi_select') return getMultiSelect(prop)
+  return splitTags(getText(prop))
+}
+
+function normalizeTypeTags(values: string[]): string[] {
+  return [...new Set(values.filter((v) => !EXCLUDED_TYPE_TAGS.has(v.trim())))]
+}
+
+function sanitizeHistoryNote(raw: string): string {
+  if (!raw) return ''
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/삼전\s*전용으로.*$/g, '').trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
 async function fetchAll(dbId: string) {
   const pages: any[] = []
   let cursor: string | undefined
@@ -60,26 +94,6 @@ async function fetchAll(dbId: string) {
     cursor = res.has_more ? res.next_cursor : undefined
   } while (cursor)
   return pages
-}
-
-// Parse phone from 25년 "연락처 (번호&메일)" field — mixed format
-function parseContact25(raw: string): { phone: string; email: string } {
-  const parts = raw.split(/[\n\/,]/).map(s => s.trim()).filter(Boolean)
-  let phone = ''
-  let email = ''
-  for (const p of parts) {
-    if (p.includes('@')) email = email || p
-    else if (/\d{2,}/.test(p.replace(/-/g, ''))) phone = phone || p
-  }
-  return { phone, email }
-}
-
-// Merge workType: combine existing DB value and notion value, deduplicate
-function mergeWorkTypes(existing: string | null, notion: string | null): string | null {
-  const parts = new Set<string>()
-  if (existing) existing.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
-  if (notion) notion.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
-  return parts.size > 0 ? [...parts].join(', ') : null
 }
 
 // Parse birthDate from text — "YYYY-MM-DD", "YYYY.MM.DD", "YYMMDD", etc.
@@ -99,21 +113,22 @@ function parseBirthDate(raw: string): Date | null {
   return null
 }
 
-// Check if string looks like a URL
-function isUrl(s: string): boolean {
-  return /^https?:\/\//.test(s.trim())
-}
-
 async function main() {
+  const { fillBirthdateFrom2025 } = parseArgs()
   console.log('노션 데이터 조회 중...')
-  const [pages26, pages25] = await Promise.all([fetchAll(DB_26_ID), fetchAll(DB_25_ID)])
-  console.log(`26년: ${pages26.length}명, 25년: ${pages25.length}명\n`)
+  const pages26 = await fetchAll(DB_26_ID)
+  const pages25 = fillBirthdateFrom2025 ? await fetchAll(DB_25_ID) : []
+  console.log(`26년: ${pages26.length}명${fillBirthdateFrom2025 ? `, 25년(생년월일): ${pages25.length}명` : ''}\n`)
 
-  // Build 25년 lookup
-  const map25 = new Map<string, any>()
-  for (const p of pages25) {
-    const name = getText(p.properties['이름'])
-    if (name) map25.set(name, p.properties)
+  // Build 25년 lookup (생년월일만, 옵션)
+  const birthDate25ByName = new Map<string, Date>()
+  if (fillBirthdateFrom2025) {
+    for (const p of pages25) {
+      const name = getText(p.properties['이름'])
+      if (!name) continue
+      const birth25 = parseBirthDate(getText(p.properties['생년월일']))
+      if (birth25) birthDate25ByName.set(name, birth25)
+    }
   }
 
   let created = 0
@@ -125,51 +140,45 @@ async function main() {
     const name = getText(p26['이름'])
     if (!name) { skipped++; continue }
 
-    const p25 = map25.get(name)
-    const contact25 = p25 ? parseContact25(getText(p25['연락처 (번호&메일)'])) : { phone: '', email: '' }
+    // --- Build coach data (기본 2026만, 옵션 시 2025 생년월일만 fallback) ---
+    const phone = getText(p26['연락처']) || null
+    const email = getText(p26['이메일']) || null
+    const birthDate = parseBirthDate(getText(p26['생년월일'])) || birthDate25ByName.get(name) || null
+    const affiliation = getText(p26['소속']) || null
+    // 유형/근무 유형: 기존/신규/취소만 제외하고 나머지는 전부 반영
+    const wt26Values = normalizeTypeTags([
+      ...parseTypeTags(p26['근무 유형']),
+      ...parseTypeTags(p26['근무유형']),
+      ...parseTypeTags(p26['유형']),
+    ])
+    const workTypeValues = [...new Set(wt26Values)]
+    const workType = normalizeWorkTypeString(workTypeValues.join(', '))
 
-    // --- Build coach data (26 priority, 25 fallback) ---
-    const phone = getText(p26['연락처']) || contact25.phone || null
-    const email = getText(p26['이메일']) || contact25.email || null
-    const birthDateRaw = getText(p26['생년월일']) || (p25 ? getText(p25['생년월일']) : '')
-    const birthDate = parseBirthDate(birthDateRaw)
-    const affiliation = getText(p26['소속']) || (p25 ? getText(p25['소속']) : '') || null
-    const wt26 = getText(p26['근무 유형'])
-    const wt26type = getMultiSelect(p26['유형']).filter(v => v.includes('삼전')).join(', ') // 삼전 DS/DX만
-    const wt25 = p25 ? getText(p25['유형']) : ''
-    const workType = mergeWorkTypes(mergeWorkTypes(wt26 || null, wt26type || null), wt25 || null)
-
-    // Fields: 26년 교육 및 가능 분야 + 전문 분야, fallback 25년
+    // Fields: 26년 교육 및 가능 분야 + 전문 분야
     const fields26 = [...getMultiSelect(p26['교육 및 가능 분야']), ...getMultiSelect(p26['전문 분야'])]
-    const fields25 = p25 ? getMultiSelect(p25['가능분야']) : []
-    const fieldNames = [...new Set(fields26.length > 0 ? fields26 : fields25)]
+    const fieldNames = [...new Set(fields26)]
 
-    // Curriculums
+    // Curriculums: 26년만
     const curric26 = getMultiSelect(p26['가능 커리큘럼'])
-    const curric25 = p25 ? getMultiSelect(p25['가능 커리큘럼']) : []
-    const curricNames = [...new Set(curric26.length > 0 ? curric26 : curric25)]
+    const curricNames = [...new Set(curric26)]
 
-    // Portfolio
+    // Portfolio: 26년만
     const portfolio26 = getText(p26['이력서 및 포트폴리오'])
-    const note25 = p25 ? getText(p25['비고/참고사항']) : ''
-    const portfolioUrl = portfolio26 || (isUrl(note25) ? note25.split(',')[0].trim() : '') || null
+    const portfolioUrl = portfolio26 || null
 
-    // Self note: 26년 특이사항 + 25년 비고 텍스트 메모
-    const history26 = getText(p26[' 특이사항 / 히스토리']) || getText(p26['특이사항 / 히스토리'])
-    const noteText25 = (note25 && !isUrl(note25)) ? note25 : ''
+    // Self note: 26년 특이사항만
+    const history26Raw = getText(p26[' 특이사항 / 히스토리']) || getText(p26['특이사항 / 히스토리'])
+    const history26 = sanitizeHistoryNote(history26Raw)
     const selfNoteParts: string[] = []
     if (history26) selfNoteParts.push(history26)
-    if (noteText25) selfNoteParts.push(noteText25)
     const selfNote = selfNoteParts.join('\n') || null
 
-    // Availability detail
+    // Availability detail: 26년만
     const period26 = getText(p26['근무 가능 기간'])
     const detail26 = getText(p26['근무 가능 세부 내용'])
-    const availNote25 = p25 ? getText(p25['가능 여부 특이사항']) : ''
     const availParts: string[] = []
     if (period26) availParts.push(`근무 가능 기간: ${period26}`)
     if (detail26) availParts.push(detail26)
-    else if (availNote25 && !period26) availParts.push(availNote25)
     const availabilityDetail = availParts.join('\n') || null
 
     // --- Upsert coach ---
@@ -183,7 +192,7 @@ async function main() {
           email: email ?? existing.email,
           birthDate: birthDate ?? existing.birthDate,
           affiliation: affiliation ?? existing.affiliation,
-          workType: mergeWorkTypes(existing.workType, workType),
+          workType: workType ?? existing.workType,
           portfolioUrl: portfolioUrl ?? existing.portfolioUrl,
           selfNote: selfNote ?? existing.selfNote,
           availabilityDetail: availabilityDetail ?? existing.availabilityDetail,

@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { randomBytes } from 'crypto'
+import { normalizeWorkTypeString } from '../src/lib/work-type'
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -18,6 +19,7 @@ const prisma = new PrismaClient({
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY!
 const NOTION_DB_ID = process.env.NOTION_DATABASE_ID_2025!
+const EXCLUDED_TYPE_TAGS = new Set(['기존', '신규', '취소'])
 
 const MISSING = [
   '권문진', '김민재', '김수빈', '김승연', '김시은', '김예인',
@@ -56,13 +58,22 @@ function getMultiSelect(prop: any): string[] {
   return prop.multi_select?.map((s: any) => s.name) || []
 }
 
+function normalizeTypeTags(values: string[]): string[] {
+  return [...new Set(values.map((v) => v.trim()).filter((v) => v && !EXCLUDED_TYPE_TAGS.has(v)))]
+}
+
+function sanitizeHistoryNote(raw: string): string {
+  if (!raw) return ''
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/삼전\s*전용으로.*$/g, '').trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
 function mapWorkType(types: string[]): string | undefined {
-  const t = types[0]?.toLowerCase() || ''
-  if (t.includes('코치') || t.includes('프리랜서') || t.includes('freelance')) return 'freelance'
-  if (t.includes('조교')) return 'freelance'
-  if (t.includes('학생') || t.includes('student')) return 'student'
-  if (t.includes('정규') || t.includes('full')) return 'full_time'
-  return 'other'
+  const normalized = normalizeWorkTypeString(types.join(', '))
+  return normalized || undefined
 }
 
 const FIELD_MAP: Record<string, string> = {
@@ -95,11 +106,12 @@ async function getNotionCoaches(): Promise<Map<string, any>> {
     const email = getText(p['이메일'])
     const affiliation = getText(p['소속'])
     const birthDate = getText(p['생년월일'])
-    const workTypes = getMultiSelect(p['근무 유형'])
+    const workTypes = normalizeTypeTags(getMultiSelect(p['근무 유형']))
     const notionFields = getMultiSelect(p['교육 및 가능 분야'])
     const specialties = getMultiSelect(p['전문 분야'])
     const curriculums = getMultiSelect(p['가능 커리큘럼'])
-    const note = getText(p['특이사항 / 히스토리']) || getText(p[' 특이사항 / 히스토리'])
+    const noteRaw = getText(p['특이사항 / 히스토리']) || getText(p[' 특이사항 / 히스토리'])
+    const note = sanitizeHistoryNote(noteRaw)
 
     const fields = [...new Set([
       ...notionFields.map(f => FIELD_MAP[f] || f),
@@ -203,12 +215,8 @@ async function main() {
       if (sorted.length === 1) {
         coachData.hourlyRate = sorted[0]
       } else {
-        // Multiple rates — store the most recent (highest?) and note the range
+        // Multiple rates — store the highest value
         coachData.hourlyRate = sorted[sorted.length - 1]
-        const rateNote = `시급 이력: ${sorted.map(r => r.toLocaleString()).join('-')}원`
-        coachData.selfNote = coachData.selfNote
-          ? `${coachData.selfNote}\n${rateNote}`
-          : rateNote
       }
     }
 

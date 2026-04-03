@@ -58,21 +58,11 @@ async function main() {
     }
     const sorted = [...rates].sort((a, b) => a - b)
     const hourlyRate = sorted[sorted.length - 1]
-    const rateNote = sorted.length > 1
-      ? `시급 이력: ${sorted.map(r => r.toLocaleString()).join('-')}원`
-      : undefined
 
     const coach = await prisma.coach.findFirst({ where: { name } })
     if (!coach) continue
 
-    const updateData: any = { hourlyRate }
-    if (rateNote) {
-      updateData.selfNote = coach.selfNote
-        ? `${coach.selfNote}\n${rateNote}`
-        : rateNote
-    }
-
-    await prisma.coach.update({ where: { id: coach.id }, data: updateData })
+    await prisma.coach.update({ where: { id: coach.id }, data: { hourlyRate } })
     console.log(`✓ ${name}: ${sorted.map(r => r.toLocaleString()).join('-')}원`)
   }
 }

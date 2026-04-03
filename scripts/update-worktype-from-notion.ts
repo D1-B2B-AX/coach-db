@@ -10,6 +10,7 @@ import { google } from 'googleapis'
 import * as XLSX from 'xlsx'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { mergeWorkTypeStrings, normalizeWorkTypeString } from '../src/lib/work-type'
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -151,16 +152,20 @@ async function main() {
     const filtered = [...merged].filter(t => !IGNORE.has(t) && t.trim())
     if (filtered.length === 0) continue
 
-    const workType = filtered.join(', ')
+    const workType = normalizeWorkTypeString(filtered.join(', '))
+    if (!workType) continue
 
     // Only update if changed
     if (coach.workType === workType) continue
 
+    const merged = mergeWorkTypeStrings(coach.workType, workType)
+    if (merged === coach.workType) continue
+
     await prisma.coach.update({
       where: { id: coach.id },
-      data: { workType },
+      data: { workType: merged },
     })
-    console.log(`✓ ${coach.name}: ${workType}`)
+    console.log(`✓ ${coach.name}: ${merged}`)
     updated++
   }
 

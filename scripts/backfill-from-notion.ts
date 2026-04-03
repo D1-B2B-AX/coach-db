@@ -1,6 +1,6 @@
 /**
  * 프로덕션 DB에 이미 있는 active 코치들의 빈 필드를 노션 25년/26년 DB에서 채움.
- * - workType, birthDate만 대상
+ * - workType(2026만), birthDate(2026 우선 + 2025 보완)만 대상
  * - 코치 생성/삭제 안 함, pending 제외
  */
 import { config } from 'dotenv'
@@ -16,6 +16,13 @@ const prisma = new PrismaClient({
 const NOTION_API_KEY = process.env.NOTION_API_KEY!
 const DB_26_ID = process.env.NOTION_DATABASE_ID!
 const DB_25_ID = '19e4576d6ffa80a7b08bda382eeb1cd1'
+const EXCLUDED_TYPE_TAGS = new Set(['기존', '신규', '취소'])
+
+function parseArgs() {
+  return {
+    fillBirthdateFrom2025: process.argv.includes('--fill-birthdate-from-2025'),
+  }
+}
 
 async function fetchNotion(endpoint: string, body?: any) {
   const res = await fetch(`https://api.notion.com/v1${endpoint}`, {
@@ -43,6 +50,23 @@ function getText(prop: any): string {
 function getMultiSelect(prop: any): string[] {
   if (!prop || prop.type !== 'multi_select') return []
   return prop.multi_select?.map((s: any) => s.name).filter(Boolean) || []
+}
+
+function splitTags(raw: string): string[] {
+  return raw
+    .split(/[,/\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function parseTypeTags(prop: any): string[] {
+  if (!prop) return []
+  if (prop.type === 'multi_select') return getMultiSelect(prop)
+  return splitTags(getText(prop))
+}
+
+function normalizeTypeTags(values: string[]): string[] {
+  return [...new Set(values.filter((v) => !EXCLUDED_TYPE_TAGS.has(v.trim())))]
 }
 
 async function fetchAll(dbId: string) {
@@ -73,41 +97,40 @@ function parseBirthDate(raw: string): Date | null {
   return null
 }
 
-function mergeWorkTypes(existing: string | null, notion: string | null): string | null {
-  const parts = new Set<string>()
-  if (existing) existing.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
-  if (notion) notion.split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s))
-  return parts.size > 0 ? [...parts].join(', ') : null
-}
-
 async function main() {
+  const { fillBirthdateFrom2025 } = parseArgs()
   console.log('노션 데이터 조회 중...')
-  const [pages26, pages25] = await Promise.all([fetchAll(DB_26_ID), fetchAll(DB_25_ID)])
-  console.log(`26년: ${pages26.length}명, 25년: ${pages25.length}명`)
+  const pages26 = await fetchAll(DB_26_ID)
+  const pages25 = fillBirthdateFrom2025 ? await fetchAll(DB_25_ID) : []
+  console.log(`26년: ${pages26.length}명${fillBirthdateFrom2025 ? `, 25년(생년월일): ${pages25.length}명` : ''}`)
 
   // Build lookup by name: { workType, birthDate }
   const notionData = new Map<string, { workType: string | null; birthDate: Date | null }>()
 
-  // 25년 먼저 (낮은 우선순위)
-  for (const p of pages25) {
-    const name = getText(p.properties['이름'])
-    if (!name) continue
-    const wt = getText(p.properties['유형']) || null
-    const bd = parseBirthDate(getText(p.properties['생년월일']))
-    notionData.set(name, { workType: wt, birthDate: bd })
+  // 25년 먼저 (생년월일만, 옵션)
+  if (fillBirthdateFrom2025) {
+    for (const p of pages25) {
+      const name = getText(p.properties['이름'])
+      if (!name) continue
+      const bd = parseBirthDate(getText(p.properties['생년월일']))
+      notionData.set(name, { workType: null, birthDate: bd })
+    }
   }
 
   // 26년 덮어쓰기 (높은 우선순위)
   for (const p of pages26) {
     const name = getText(p.properties['이름'])
     if (!name) continue
-    const wt26 = getText(p.properties['근무 유형'])
-    const wt26type = getMultiSelect(p.properties['유형']).filter(v => v.includes('삼전')).join(', ')
-    const wt = mergeWorkTypes(wt26 || null, wt26type || null)
+    const wtValues = normalizeTypeTags([
+      ...parseTypeTags(p.properties['근무 유형']),
+      ...parseTypeTags(p.properties['근무유형']),
+      ...parseTypeTags(p.properties['유형']),
+    ])
+    const wt = wtValues.length > 0 ? wtValues.join(', ') : null
     const bd = parseBirthDate(getText(p.properties['생년월일']))
     const prev = notionData.get(name)
     notionData.set(name, {
-      workType: wt || prev?.workType || null,
+      workType: wt || null,
       birthDate: bd || prev?.birthDate || null,
     })
   }
@@ -131,11 +154,10 @@ async function main() {
       updates.birthDate = notion.birthDate
     }
 
-    // workType: 노션 값을 머지 (기존 값 유지 + 노션 값 추가)
+    // workType: 노션 값을 우선 적용
     if (notion.workType) {
-      const merged = mergeWorkTypes(coach.workType, notion.workType)
-      if (merged !== coach.workType) {
-        updates.workType = merged
+      if (notion.workType !== coach.workType) {
+        updates.workType = notion.workType
       }
     }
 

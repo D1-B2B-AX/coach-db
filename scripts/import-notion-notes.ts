@@ -37,6 +37,15 @@ function getText(prop: any): string {
   return ''
 }
 
+function sanitizeHistoryNote(raw: string): string {
+  if (!raw) return ''
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/삼전\s*전용으로.*$/g, '').trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
 async function main() {
   console.log('노션 2026 DB 조회 중...')
   const allPages: any[] = []
@@ -63,7 +72,8 @@ async function main() {
     if (!coach) continue
 
     // 특이사항 / 히스토리
-    const history = getText(p[' 특이사항 / 히스토리']) || getText(p['특이사항 / 히스토리'])
+    const historyRaw = getText(p[' 특이사항 / 히스토리']) || getText(p['특이사항 / 히스토리'])
+    const history = sanitizeHistoryNote(historyRaw)
 
     // 근무 가능 기간 + 근무 가능 세부 내용
     const period = getText(p['근무 가능 기간'])
