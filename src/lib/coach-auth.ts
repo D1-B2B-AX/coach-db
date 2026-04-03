@@ -18,8 +18,8 @@ export async function validateCoachToken(token: string) {
     },
   })
 
-  if (!coach || coach.deletedAt || coach.status === 'inactive') return null
-  return { id: coach.id, name: coach.name }
+  if (!coach || coach.deletedAt) return null
+  return { id: coach.id, name: coach.name, status: coach.status }
 }
 
 /**

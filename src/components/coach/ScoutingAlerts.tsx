@@ -174,14 +174,14 @@ export default function ScoutingAlerts({ token }: { token: string }) {
 
   return (
     <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-      <div className="px-7 pt-5 pb-6">
+      <div className="px-5 pt-4 pb-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[#333]">받은 요청</h3>
           <span className="rounded-full bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#1976D2]">
             {pendingAlerts.length}건
           </span>
         </div>
-        <div className="min-h-[148px] space-y-2">
+        <div className="space-y-2">
           {loading && pendingAlerts.length === 0 && (
             <div className="rounded-xl border border-[#E1E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#5C6B7A]">
               요청을 불러오는 중입니다...

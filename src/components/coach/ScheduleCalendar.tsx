@@ -276,7 +276,7 @@ export default function ScheduleCalendar({
       {/* Bulk toggle */}
       {onBulkToggle && bulkStatus && (
         <div className="mt-5 flex items-center justify-center gap-1.5">
-          <span className="text-xs text-gray-400">모두 선택</span>
+          <span className="text-xs text-gray-400">일괄 선택</span>
           {TIME_RANGES.map(({ label, start, end }, i) => (
             <button
               key={label}

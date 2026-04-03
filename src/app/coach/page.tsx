@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import CoachHeader from "@/components/coach/CoachHeader"
 import ScheduleCalendar from "@/components/coach/ScheduleCalendar"
@@ -753,8 +753,32 @@ function CoachScheduleContent() {
     ? [...new Set(engSchedules.filter(es => es.date === selectedDay && (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")).map(es => cleanCourseName(es.courseName)))]
     : []
 
+  // 비활성 코치 → 안내 화면
+  if (coachInfo?.status === "inactive") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5] p-5">
+        <div className="w-full max-w-[400px] rounded-2xl bg-white p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+          <h2 className="text-lg font-semibold text-[#333]">다시 코치로 활동하고 싶으신가요?</h2>
+          <p className="mt-3 text-sm text-gray-500 leading-relaxed">
+            코치님의 복귀를 언제나 환영합니다!<br />
+            다시 활동을 시작할 준비가 되셨다면,<br />
+            아래 링크에 폼을 남겨주세요.
+          </p>
+          <a
+            href="https://forms.gle/b1BSX7yKYY1nyYCb6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-block rounded-lg bg-[#1976D2] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1565C0] transition-colors"
+          >
+            복귀 신청하기
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 pb-[120px] max-md:p-2.5 max-md:pb-[160px]">
+    <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 pb-10 max-md:p-2.5 max-md:pb-20">
       <div className="flex w-full max-w-[480px] flex-col items-center gap-4">
         {/* Main container */}
         <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
@@ -807,8 +831,8 @@ function CoachScheduleContent() {
         {/* 활동 중지 — 나의 스케줄 박스 바로 아래 */}
         {coachInfo && coachInfo.status !== "inactive" && (
           <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
+            window.alert("활동 중지 신청이 완료되었습니다.\n그동안 감사했습니다.")
             setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
-            showToast("활동 중지가 신청되었습니다")
           }} />
         )}
 
@@ -965,6 +989,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
   onDeactivated: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const sectionRef = useRef<HTMLDivElement>(null)
   const [step, setStep] = useState<"phone" | "form">("phone")
   const [phoneInput, setPhoneInput] = useState("")
   const [phoneError, setPhoneError] = useState("")
@@ -978,6 +1003,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
     if (input === stored) {
       setStep("form")
       setPhoneError("")
+      setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100)
     } else {
       setPhoneError("연락처가 일치하지 않습니다")
     }
@@ -1004,19 +1030,20 @@ function DeactivateSection({ token, phone, onDeactivated }: {
 
   if (!expanded) {
     return (
-      <div className="w-full mt-4 mb-2">
-        <button
-          onClick={() => setExpanded(true)}
-          className="w-full cursor-pointer text-center text-xs text-gray-400 hover:text-gray-500 transition-colors py-2"
-        >
-          활동을 쉬고 싶으신가요?
-        </button>
-      </div>
+      <button
+        onClick={() => {
+          setExpanded(true)
+          setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100)
+        }}
+        className="w-full -mt-2 cursor-pointer text-center text-xs text-gray-400 hover:text-gray-500 transition-colors py-1"
+      >
+        활동을 쉬고 싶으신가요?
+      </button>
     )
   }
 
   return (
-    <div className="w-[480px] max-md:w-full max-md:max-w-[480px] mt-4 mb-2">
+    <div ref={sectionRef} className="w-[480px] max-md:w-full max-md:max-w-[480px] -mt-2">
       <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden">
         <div className="px-5 pt-4 pb-1">
           <h3 className="text-sm font-semibold text-[#333]">활동 중지 신청</h3>
