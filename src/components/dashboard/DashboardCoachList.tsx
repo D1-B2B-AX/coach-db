@@ -269,26 +269,6 @@ export default function DashboardCoachList({
   }
 
   // Filter summary — natural sentence with highlights
-  const summaryNode = (() => {
-    if (!selectedDate) return null
-    const d = new Date(selectedDate + "T00:00:00")
-    const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
-
-    let datePart: string
-    if (selectedEnd) {
-      const d2 = new Date(selectedEnd + "T00:00:00")
-      datePart = `${d.getMonth() + 1}월 ${d.getDate()}일(${dayNames[d.getDay()]})~${d2.getMonth() + 1}월 ${d2.getDate()}일(${dayNames[d2.getDay()]})`
-    } else {
-      datePart = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dayNames[d.getDay()]}요일`
-    }
-
-    return (
-      <span className="text-[11px] leading-relaxed text-gray-500">
-        <span className="font-medium text-[#333]">{datePart}</span>
-      </span>
-    )
-  })()
-
   return (
     <Table className="min-w-0 overflow-hidden space-y-0">
       {/* Filter summary + course selector */}
@@ -297,7 +277,6 @@ export default function DashboardCoachList({
             <div className="flex flex-wrap items-center gap-2 min-w-0">
           {selectedDate ? (
             <>
-              {summaryNode}
               {selectedIds.size > 0 && onBulkScout && (
                 <Button
                   onClick={() => onBulkScout([...selectedIds])}
