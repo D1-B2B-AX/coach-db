@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
@@ -27,6 +27,17 @@ export default function Header() {
     }
     if (session) fetchRole()
   }, [session])
+
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
 
   const isAdmin = managerRole === 'admin'
   const hasSamsungAccess = managerRole === 'admin' || managerRole === 'samsung_admin'
@@ -100,13 +111,24 @@ export default function Header() {
             >
               요청 내역
             </Link>
-            <span className="text-sm text-gray-400">{session?.user?.name || session?.user?.email}</span>
-            <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              로그아웃
-            </button>
+            <div ref={userMenuRef} className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="cursor-pointer text-sm text-gray-500 hover:text-[#1565C0] transition-colors"
+              >
+                {session?.user?.name || session?.user?.email}
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-32 rounded-lg bg-white shadow-lg border border-gray-200 z-50 py-1">
+                  <button
+                    onClick={() => { setUserMenuOpen(false); signOut({ callbackUrl: '/login' }) }}
+                    className="w-full cursor-pointer text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
