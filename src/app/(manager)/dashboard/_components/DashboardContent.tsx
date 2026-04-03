@@ -424,12 +424,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           failedCount++
         }
       }
-      // 섭외된 코치 목록 갱신
-      setScoutedCoachIds((prev) => {
-        const next = new Set(prev)
-        for (const id of bulkCoachIds) next.add(id)
-        return next
-      })
+      // 섭외된 코치 목록 갱신 (다시 가져오기)
+      await fetchCoaches()
       setToastMessage(
         `${bulkCoachIds.length}명 × ${dates.length}일 컨택 완료 (${successCount}건${failedCount > 0 ? `, 실패 ${failedCount}건` : ''})`
       )

@@ -20,7 +20,7 @@ interface ScoutingNotification {
     courseName?: string
     clickUrl?: string
   } | null
-  enriched?: { displayText?: string | null; note?: string | null } | null
+  enriched?: { displayText?: string | null; courseName?: string | null; note?: string | null } | null
   readAt: string | null
   expired: boolean
   expiredAt: string | null
