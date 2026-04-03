@@ -447,7 +447,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                   <Badge variant="status" tone="orange">찜꽁중</Badge>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded-[10px] border-2 border-[#546E7A] bg-[#ECEFF1]" />
+                  <div className="h-3 w-3 rounded-[10px] border border-transparent bg-[#F4F6FA] ring-1 ring-[#D0D6DF]" />
                   선택 중
                 </div>
               </div>}
