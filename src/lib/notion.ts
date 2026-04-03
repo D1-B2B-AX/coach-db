@@ -18,6 +18,7 @@ export interface NotionCoach {
 const NOTION_API_KEY = process.env.NOTION_API_KEY!;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID!;
 const NOTION_DATABASE_ID_2025 = process.env.NOTION_DATABASE_ID_2025!;
+const NOTION_INCLUDE_2025 = process.env.NOTION_INCLUDE_2025 === "true";
 
 interface NotionRichText {
   plain_text: string;
@@ -50,6 +51,8 @@ interface NotionQueryResponse {
   next_cursor: string | null;
 }
 
+const EXCLUDED_TYPE_TAGS = new Set(["기존", "신규", "취소"]);
+
 function getText(property: NotionProperty | undefined): string {
   if (!property) return "";
   if (property.type === "title" && property.title) {
@@ -71,6 +74,32 @@ function getMultiSelect(property: NotionProperty | undefined): string[] {
     return [];
   }
   return property.multi_select.map((o) => o.name);
+}
+
+function splitTags(raw: string): string[] {
+  return raw
+    .split(/[,/\n]/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function normalizeTypeTags(values: string[]): string[] {
+  return [...new Set(values.filter((v) => !EXCLUDED_TYPE_TAGS.has(v.trim())))];
+}
+
+function parseTypeTags(property: NotionProperty | undefined): string[] {
+  if (!property) return [];
+  if (property.type === "multi_select") return getMultiSelect(property);
+  return splitTags(getText(property));
+}
+
+function sanitizeHistoryNote(raw: string): string {
+  if (!raw) return "";
+  const cleaned = raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/삼전\s*전용으로.*$/g, "").trim())
+    .filter(Boolean);
+  return cleaned.join("\n");
 }
 
 async function fetchAllPages(databaseId: string): Promise<NotionPage[]> {
@@ -109,10 +138,13 @@ async function fetchAllPages(databaseId: string): Promise<NotionPage[]> {
 
 function parse2026Coach(page: NotionPage): NotionCoach {
   const p = page.properties;
-  // 근무 유형(실습코치/운영조교) + 유형(삼전 DX/DS) 합치기 — 신규/기존 제외
-  const excludeTypes = new Set(["신규", "기존", "취소"]);
-  const subjects = [...new Set([...getMultiSelect(p["근무 유형"]), ...getMultiSelect(p["유형"])])]
-    .filter((s) => !excludeTypes.has(s));
+  // 근무 유형 + 유형을 합치고, 기존/신규/취소만 제외
+  const subjects = normalizeTypeTags([
+    ...parseTypeTags(p["근무 유형"]),
+    ...parseTypeTags(p["근무유형"]),
+    ...parseTypeTags(p["유형"]),
+  ]);
+  const historyRaw = getText(p[" 특이사항 / 히스토리"]) || getText(p["특이사항 / 히스토리"]);
   return {
     name: getText(p["이름"]),
     phone: getText(p["연락처"]),
@@ -125,7 +157,7 @@ function parse2026Coach(page: NotionPage): NotionCoach {
     available_fields: getMultiSelect(p["교육 및 가능 분야"]),
     availability_detail: getText(p["근무 가능 세부 내용"]),
     availability_period: getMultiSelect(p["근무 가능 기간"]).join(", "),
-    notes: getText(p[" 특이사항 / 히스토리"]),
+    notes: sanitizeHistoryNote(historyRaw),
     subjects,
     availability_status: null,
   };
@@ -173,17 +205,17 @@ function parse2025Coach(page: NotionPage): NotionCoach {
     availability_detail: getText(p["가능 여부 특이사항"]),
     availability_period: "",
     notes: "",
-    subjects: getMultiSelect(p["유형"]).filter((s) => s !== "취소"),
+    subjects: normalizeTypeTags(parseTypeTags(p["유형"])),
     availability_status,
   };
 }
 
 export async function fetchNotionCoaches(): Promise<NotionCoach[]> {
-  // Fetch both databases in parallel
-  const [pages2026, pages2025] = await Promise.all([
-    fetchAllPages(NOTION_DATABASE_ID),
-    fetchAllPages(NOTION_DATABASE_ID_2025),
-  ]);
+  // 기본은 2026 DB만 사용. 2025 DB는 명시적으로 켰을 때만 포함.
+  const pages2026 = await fetchAllPages(NOTION_DATABASE_ID);
+  const pages2025 = NOTION_INCLUDE_2025
+    ? await fetchAllPages(NOTION_DATABASE_ID_2025)
+    : [];
 
   // Build map from 2026ver (primary) — 2026 DB에 있으면 available
   const coachMap = new Map<string, NotionCoach>();
@@ -197,37 +229,39 @@ export async function fetchNotionCoaches(): Promise<NotionCoach[]> {
     }
   }
 
-  // Merge 2025ver
-  for (const page of pages2025) {
-    const coach2025 = parse2025Coach(page);
-    if (!coach2025.name) continue;
+  // Merge 2025ver (명시적으로 켠 경우만)
+  if (NOTION_INCLUDE_2025) {
+    for (const page of pages2025) {
+      const coach2025 = parse2025Coach(page);
+      if (!coach2025.name) continue;
 
-    const existing = coachMap.get(coach2025.name);
-    if (existing) {
-      // Fill missing fields from 2025ver
-      if (!existing.phone && coach2025.phone) existing.phone = coach2025.phone;
-      if (!existing.email && coach2025.email) existing.email = coach2025.email;
-      if (!existing.birth_date && coach2025.birth_date)
-        existing.birth_date = coach2025.birth_date;
-      if (!existing.organization && coach2025.organization)
-        existing.organization = coach2025.organization;
-      if (existing.skill_stack.length === 0 && coach2025.skill_stack.length > 0)
-        existing.skill_stack = coach2025.skill_stack;
-      if (!existing.portfolio_url && coach2025.portfolio_url)
-        existing.portfolio_url = coach2025.portfolio_url;
-      if (existing.available_fields.length === 0 && coach2025.available_fields.length > 0)
-        existing.available_fields = coach2025.available_fields;
-      if (!existing.availability_detail && coach2025.availability_detail)
-        existing.availability_detail = coach2025.availability_detail;
-      if (!existing.availability_period && coach2025.availability_period)
-        existing.availability_period = coach2025.availability_period;
-      // Merge subjects (union)
-      existing.subjects = [...new Set([...existing.subjects, ...coach2025.subjects])];
-      // 2026 DB에 있으면 무조건 available 유지 (2025 상태로 덮어쓰지 않음)
-    } else {
-      // Only in 2025ver — 2026에 없으므로 unavailable
-      coach2025.availability_status = "unavailable";
-      coachMap.set(coach2025.name, coach2025);
+      const existing = coachMap.get(coach2025.name);
+      if (existing) {
+        // Fill missing fields from 2025ver
+        if (!existing.phone && coach2025.phone) existing.phone = coach2025.phone;
+        if (!existing.email && coach2025.email) existing.email = coach2025.email;
+        if (!existing.birth_date && coach2025.birth_date)
+          existing.birth_date = coach2025.birth_date;
+        if (!existing.organization && coach2025.organization)
+          existing.organization = coach2025.organization;
+        if (existing.skill_stack.length === 0 && coach2025.skill_stack.length > 0)
+          existing.skill_stack = coach2025.skill_stack;
+        if (!existing.portfolio_url && coach2025.portfolio_url)
+          existing.portfolio_url = coach2025.portfolio_url;
+        if (existing.available_fields.length === 0 && coach2025.available_fields.length > 0)
+          existing.available_fields = coach2025.available_fields;
+        if (!existing.availability_detail && coach2025.availability_detail)
+          existing.availability_detail = coach2025.availability_detail;
+        if (!existing.availability_period && coach2025.availability_period)
+          existing.availability_period = coach2025.availability_period;
+        // Merge subjects (union)
+        existing.subjects = [...new Set([...existing.subjects, ...coach2025.subjects])];
+        // 2026 DB에 있으면 무조건 available 유지 (2025 상태로 덮어쓰지 않음)
+      } else {
+        // Only in 2025ver — 2026에 없으므로 unavailable
+        coach2025.availability_status = "unavailable";
+        coachMap.set(coach2025.name, coach2025);
+      }
     }
   }
 

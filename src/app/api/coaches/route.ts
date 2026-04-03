@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
 
   // Filter by status
   if (status) {
+    // pending 코치는 어떤 경우에도 전체 코치 목록에 노출하지 않음
+    if (status === 'pending') {
+      return NextResponse.json({ coaches: [], total: 0 })
+    }
     where.status = status as Prisma.CoachWhereInput['status']
   }
 

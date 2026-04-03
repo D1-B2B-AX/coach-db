@@ -6,6 +6,7 @@ import { google } from 'googleapis'
 import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
 import { generateAccessToken } from '@/lib/coach-auth'
+import { normalizeWorkTypeString } from '@/lib/work-type'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -348,7 +349,7 @@ export async function syncEngagements(): Promise<SyncResult> {
     const row = rows[i]
     const name = String(row[4] || '').trim() // E: 근무자 성명
     const workTypeRaw = String(row[5] || '').trim() // F: 담당직무 (실습코치/운영조교 등)
-    const workType = workTypeRaw ? workTypeRaw.split(',').map(p => p.replace(/\s*\(.*?\)/g, '').trim()).filter(Boolean).join(', ') || null : null
+    const workType = normalizeWorkTypeString(workTypeRaw)
     const courseName = String(row[7] || '').trim() // H: 과정명
     const rateRaw = row[8] // I: 시급
     const startDateRaw = row[9] // J: 고용시작일
@@ -379,12 +380,6 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
-    // 2025년 9월 이전 계약은 스킵
-    if (startDate < new Date('2025-09-01')) {
-      result.skipped++
-      continue
-    }
-
     // 이메일/연락처 추출
     const email = emailRaw.match(/[\w.+-]+@[\w.-]+\.\w+/)?.[0] || null
     // 전화번호: 하이픈/공백/점 등 구분자 모두 제거 후 숫자만 추출, 010 형식으로 정규화
@@ -408,14 +403,13 @@ export async function syncEngagements(): Promise<SyncResult> {
       coachId = created.id
       coachByName.set(name, coachId)
     } else {
-      // 기존 코치: 이메일/연락처/근무유형 비어있으면 보완, 사번은 항상 시트 기준으로 갱신
+      // 기존 코치: 이메일/연락처/사번만 보완 (근무유형은 노션 기준 유지)
       const resolvedEid = resolvedEmployeeId.get(name) || null
-      if (email || phone || workType || resolvedEid) {
+      if (email || phone || resolvedEid) {
         const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { email: true, phone: true, workType: true, employeeId: true } })
-        const updates: Record<string, string> = {}
+        const updates: Record<string, string | null> = {}
         if (!existing?.email && email) updates.email = email
         if (!existing?.phone && phone) updates.phone = phone
-        if (!existing?.workType && workType) updates.workType = workType
         if (resolvedEid && existing?.employeeId !== resolvedEid) updates.employeeId = resolvedEid
         if (Object.keys(updates).length > 0) {
           await prisma.coach.update({ where: { id: coachId }, data: updates })

@@ -14,7 +14,10 @@ export async function GET() {
   }
 
   const coaches = await prisma.coach.findMany({
-    where: { deletedAt: null },
+    where: {
+      deletedAt: null,
+      status: { not: 'pending' },
+    },
     select: {
       id: true,
       name: true,

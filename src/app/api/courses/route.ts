@@ -27,9 +27,13 @@ export async function GET(request: NextRequest) {
       return {
         id: c.id,
         name: c.name,
+        description: c.description,
         managerId: c.managerId,
         startDate: c.startDate,
         endDate: c.endDate,
+        workHours: c.workHours,
+        location: c.location,
+        hourlyRate: c.hourlyRate,
         createdAt: c.createdAt,
         scoutingCount: c._count.scoutings,
         statusCounts,
@@ -50,10 +54,14 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { name, startDate, endDate } = (await request.json()) as {
+    const { name, startDate, endDate, description, workHours, location, hourlyRate } = (await request.json()) as {
       name: string
       startDate?: string
       endDate?: string
+      description?: string | null
+      workHours?: string | null
+      location?: string | null
+      hourlyRate?: number | string | null
     }
 
     if (!name || !name.trim()) {
@@ -61,6 +69,16 @@ export async function POST(request: NextRequest) {
     }
     if (name.trim().length > 200) {
       return NextResponse.json({ error: '과정명은 200자 이내여야 합니다' }, { status: 400 })
+    }
+
+    const trimmedWorkHours = workHours?.trim() || null
+    const trimmedLocation = location?.trim() || null
+    const parsedHourlyRate = hourlyRate === undefined || hourlyRate === null || hourlyRate === ""
+      ? null
+      : Number(hourlyRate)
+
+    if (parsedHourlyRate !== null && (!Number.isFinite(parsedHourlyRate) || parsedHourlyRate < 0)) {
+      return NextResponse.json({ error: '시급은 0 이상의 숫자여야 합니다' }, { status: 400 })
     }
 
     if (endDate && !startDate) {
@@ -76,6 +94,10 @@ export async function POST(request: NextRequest) {
         managerId: auth.manager.id,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        description: description?.trim() || null,
+        workHours: trimmedWorkHours,
+        location: trimmedLocation,
+        hourlyRate: parsedHourlyRate,
       },
     })
 

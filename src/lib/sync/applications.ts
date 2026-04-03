@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
 import { generateAccessToken } from '@/lib/coach-auth'
 import { toDateOnly } from '@/lib/date-utils'
+import { normalizeWorkTypeString } from '@/lib/work-type'
 
 export interface ApplicationSyncResult {
   totalRows: number
@@ -62,16 +63,13 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
     const email = String(row[5] || '').trim() || null
     const affiliation = String(row[6] || '').trim() || null
     const workTypeRaw = String(row[7] || '').trim()
-    const workType = workTypeRaw ? workTypeRaw.split(',').map(p => p.replace(/\s*\(.*?\)/g, '').trim()).filter(Boolean).join(', ') || null : null
+    const workType = normalizeWorkTypeString(workTypeRaw)
     const availPeriod = String(row[8] || '').trim()
     const availDetail = String(row[9] || '').trim()
     const fieldRaw1 = String(row[10] || '').trim()
     const fieldRaw2 = String(row[11] || '').trim()
     const skillRaw = String(row[12] || '').trim()
-    const eduForm = String(row[13] || '').trim()
-    const career = String(row[14] || '').trim()
     const portfolioUrl = String(row[15] || '').trim() || null
-    const extraRequest = String(row[16] || '').trim()
 
     if (!name) { result.skipped++; continue }
 
@@ -83,7 +81,17 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
     const existingCoachId = existingMap.get(key)
     if (existingCoachId) {
       try {
-        await updateExistingCoach(existingCoachId, { email, affiliation, workType, availPeriod, availDetail, fieldRaw1, fieldRaw2, skillRaw, eduForm, career, portfolioUrl, extraRequest })
+        await updateExistingCoach(existingCoachId, {
+          email,
+          affiliation,
+          workType,
+          availPeriod,
+          availDetail,
+          fieldRaw1,
+          fieldRaw2,
+          skillRaw,
+          portfolioUrl,
+        })
         result.updated++
       } catch (err) {
         result.errors++
@@ -97,13 +105,6 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
 
     const birthDate = parseBirthDate(birthRaw)
     const availabilityDetail = [availPeriod, availDetail].filter(Boolean).join('\n') || null
-
-    // selfNote: 희망 교육 형태 + 교육 경력 + 기타 요청
-    const selfNoteParts: string[] = []
-    if (eduForm) selfNoteParts.push(`[희망 교육 형태] ${eduForm}`)
-    if (career) selfNoteParts.push(`[교육 경력] ${career}`)
-    if (extraRequest) selfNoteParts.push(`[기타 요청] ${extraRequest}`)
-    const selfNote = selfNoteParts.join('\n') || null
 
     // 7-1. 교육 분야 → CoachField (가능 분야)
     const fieldNames = splitMulti(fieldRaw1)
@@ -132,7 +133,6 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
           affiliation,
           workType,
           availabilityDetail,
-          selfNote,
           status: 'pending',
           accessToken: generateAccessToken(),
           ...(createdAt ? { createdAt } : {}),
@@ -209,20 +209,11 @@ interface UpdateData {
   fieldRaw1: string
   fieldRaw2: string
   skillRaw: string
-  eduForm: string
-  career: string
   portfolioUrl: string | null
-  extraRequest: string
 }
 
 async function updateExistingCoach(coachId: string, data: UpdateData) {
   const availabilityDetail = [data.availPeriod, data.availDetail].filter(Boolean).join('\n') || null
-
-  const selfNoteParts: string[] = []
-  if (data.eduForm) selfNoteParts.push(`[희망 교육 형태] ${data.eduForm}`)
-  if (data.career) selfNoteParts.push(`[교육 경력] ${data.career}`)
-  if (data.extraRequest) selfNoteParts.push(`[기타 요청] ${data.extraRequest}`)
-  const selfNote = selfNoteParts.join('\n') || null
 
   // 기본 정보 업데이트
   await prisma.coach.update({
@@ -230,9 +221,7 @@ async function updateExistingCoach(coachId: string, data: UpdateData) {
     data: {
       ...(data.email ? { email: data.email } : {}),
       ...(data.affiliation ? { affiliation: data.affiliation } : {}),
-      ...(data.workType ? { workType: data.workType } : {}),
       ...(availabilityDetail ? { availabilityDetail } : {}),
-      ...(selfNote ? { selfNote } : {}),
     },
   })
 

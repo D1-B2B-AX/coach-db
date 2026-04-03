@@ -11,12 +11,25 @@ import { google } from 'googleapis'
 import { prisma } from '@/lib/prisma'
 import { generateAccessToken } from '@/lib/coach-auth'
 import type { SyncResult } from './engagements'
+import { mergeWorkTypeStrings } from '@/lib/work-type'
 
 // ─── Constants ───
 
-const SHEET_ID = '1GWF3v9lLpS0SlM45QGAHmj2k2N1U2AX8zB8DOMlXHr0'
-const TAB_NAME = '26년 일정'
-const COURSE_NAME = '삼성전자 SW학부 교육과정'
+const SCHEDULE_SHEET_ID = '1GWF3v9lLpS0SlM45QGAHmj2k2N1U2AX8zB8DOMlXHr0'
+const SCHEDULE_TAB = '26년 일정'
+const CONTRACT_SHEET_ID = '1xFgbLPL1ZLGxQws0ofK0kU8eehrFqEeAiwNbtQ56lyw'
+const CONTRACT_TAB = '운영조교/실습코치 계약요청'
+const COURSE_NAME = '(B2B) 삼성전자 SW학부 교육과정_26년'
+const OLD_COURSE_NAME = '삼성전자 SW학부 교육과정'
+
+interface ContractInfo {
+  hourlyRate: number | null
+  workType: string | null
+  hiredBy: string | null
+  employeeId: string | null
+  email: string | null
+  phone: string | null
+}
 
 // ─── Parsing functions (exported for unit testing) ───
 
@@ -97,13 +110,56 @@ export async function syncSamsungSchedule(): Promise<SyncResult> {
 
   const sheets = google.sheets({ version: 'v4', auth })
 
-  // 1. Fetch via Sheets API
+  // 1a. Fetch schedule tab
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `'${TAB_NAME}'!A:J`,
+    spreadsheetId: SCHEDULE_SHEET_ID,
+    range: `'${SCHEDULE_TAB}'!A:J`,
   })
   const rows = res.data.values || []
   result.totalRows = Math.max(0, rows.length - 1)
+
+  // 1b. Fetch contract tab → build lookup by coach name
+  const contractByName = new Map<string, ContractInfo>()
+  try {
+    const contractRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: CONTRACT_SHEET_ID,
+      range: `'${CONTRACT_TAB}'!A:Q`,
+    })
+    const contractRows = contractRes.data.values || []
+    // 헤더 스킵, 예시행(행1) 스킵
+    for (let i = 2; i < contractRows.length; i++) {
+      const r = contractRows[i]
+      const name = String(r[5] || '').trim()       // F: 근무자 성명
+      if (!name) continue
+
+      const eid = String(r[4] || '').trim()         // E: 사번
+      const workType = String(r[6] || '').trim()    // G: 담당직무
+      const manager = String(r[7] || '').trim()     // H: 담당Manager
+      const rateRaw = String(r[9] || '')             // J: 시급
+      const emailRaw = String(r[14] || '').trim()   // O: E-mail
+      const phoneRaw = String(r[15] || '').trim()   // P: 연락처
+
+      let hourlyRate: number | null = null
+      const rate = Number(rateRaw.replace(/[₩,원\s]/g, ''))
+      if (!isNaN(rate) && rate > 0 && rate < 1000000) hourlyRate = rate
+
+      const email = emailRaw.match(/[\w.+-]+@[\w.-]+\.\w+/)?.[0] || null
+      const digits = phoneRaw.replace(/[^\d]/g, '')
+      const phone = digits.length >= 10 ? digits.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3') : null
+
+      // 최신 계약 기준으로 덮어쓰기 (같은 코치 복수 행)
+      contractByName.set(name, {
+        hourlyRate,
+        workType: workType || null,
+        hiredBy: manager || null,
+        employeeId: eid || null,
+        email,
+        phone,
+      })
+    }
+  } catch (e: any) {
+    result.errorDetail.push(`계약 시트 읽기 실패: ${e.message}`)
+  }
 
   // 2. Get all coaches from DB
   const coaches = await prisma.coach.findMany({
@@ -143,26 +199,40 @@ export async function syncSamsungSchedule(): Promise<SyncResult> {
     const names = coachRaw.split(/[/／]/).map((n: string) => n.trim()).filter(Boolean)
 
     for (const name of names) {
+      const contract = contractByName.get(name)
       let coachId = coachByName.get(name)
       if (!coachId) {
-        // DB에 없으면 자동 생성
+        // DB에 없으면 자동 생성 (계약 시트 정보 활용)
         const created = await prisma.coach.create({
           data: {
             name,
             status: 'active',
-            workType: '삼전 DS',
+            workType: mergeWorkTypeStrings('삼전 DS', contract?.workType),
             accessToken: generateAccessToken(),
+            employeeId: contract?.employeeId || null,
+            email: contract?.email || null,
+            phone: contract?.phone || null,
           },
         })
         coachId = created.id
         coachByName.set(name, coachId)
         coachesCreated++
       } else {
-        // 기존 코치: workType에 삼전 DS 없으면 추가
-        const existing = await prisma.coach.findUnique({ where: { id: coachId }, select: { workType: true } })
-        if (existing && (!existing.workType || !existing.workType.includes('삼전 DS'))) {
-          const newType = existing.workType ? `${existing.workType}, 삼전 DS` : '삼전 DS'
-          await prisma.coach.update({ where: { id: coachId }, data: { workType: newType } })
+        // 기존 코치: workType + 계약 시트 정보 보완
+        const existing = await prisma.coach.findUnique({
+          where: { id: coachId },
+          select: { workType: true, employeeId: true, email: true, phone: true },
+        })
+        if (existing) {
+          const updates: Record<string, string | null> = {}
+          const newType = mergeWorkTypeStrings(existing.workType, '삼전 DS', contract?.workType)
+          if (newType !== (existing.workType ?? null)) updates.workType = newType
+          if (contract?.employeeId && !existing.employeeId) updates.employeeId = contract.employeeId
+          if (contract?.email && !existing.email) updates.email = contract.email
+          if (contract?.phone && !existing.phone) updates.phone = contract.phone
+          if (Object.keys(updates).length > 0) {
+            await prisma.coach.update({ where: { id: coachId }, data: updates })
+          }
         }
       }
 
@@ -178,18 +248,21 @@ export async function syncSamsungSchedule(): Promise<SyncResult> {
 
   // 4. Re-sync: delete existing Samsung data before inserting
 
-  // Delete existing samsung engagement_schedules
+  // Delete existing samsung engagement_schedules (new + old course name)
+  const samsungCourseNames = [COURSE_NAME, OLD_COURSE_NAME]
   const deletedEngSchedules = await prisma.engagementSchedule.deleteMany({
-    where: { engagement: { courseName: COURSE_NAME } },
+    where: { engagement: { courseName: { in: samsungCourseNames } } },
   })
 
-  // Delete existing samsung engagements
+  // Delete existing samsung engagements (new + old course name)
   const deletedEngagements = await prisma.engagement.deleteMany({
-    where: { courseName: COURSE_NAME },
+    where: { courseName: { in: samsungCourseNames } },
   })
 
   // 5. Insert into DB
   for (const entry of entries) {
+    const contract = contractByName.get(entry.coachName)
+
     // Engagement (투입 이력)
     const now = new Date()
     let status: 'completed' | 'scheduled' | 'in_progress' = 'completed'
@@ -204,6 +277,9 @@ export async function syncSamsungSchedule(): Promise<SyncResult> {
         endDate: entry.endDate,
         startTime: '09:00',
         endTime: '18:00',
+        hourlyRate: contract?.hourlyRate || null,
+        workType: contract?.workType || '삼전 DS',
+        hiredBy: contract?.hiredBy || null,
         status,
       },
     })

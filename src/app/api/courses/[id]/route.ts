@@ -17,14 +17,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { name, startDate, endDate } = (await request.json()) as {
+    const { name, startDate, endDate, description, workHours, location, hourlyRate } = (await request.json()) as {
       name?: string
       startDate?: string | null
       endDate?: string | null
+      description?: string | null
+      workHours?: string | null
+      location?: string | null
+      hourlyRate?: number | string | null
     }
 
     if (name !== undefined && (!name || !name.trim())) {
       return NextResponse.json({ error: '과정명을 입력해주세요' }, { status: 400 })
+    }
+
+    const trimmedWorkHours = workHours !== undefined ? (workHours ? workHours.trim() : null) : undefined
+    const trimmedLocation = location !== undefined ? (location ? location.trim() : null) : undefined
+    const parsedHourlyRate = hourlyRate !== undefined
+      ? (hourlyRate === null || hourlyRate === "" ? null : Number(hourlyRate))
+      : undefined
+
+    if (parsedHourlyRate !== undefined && parsedHourlyRate !== null && (!Number.isFinite(parsedHourlyRate) || parsedHourlyRate < 0)) {
+      return NextResponse.json({ error: '시급은 0 이상의 숫자여야 합니다' }, { status: 400 })
     }
 
     const newStart = startDate !== undefined ? (startDate ? new Date(startDate) : null) : course.startDate
@@ -43,6 +57,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(name !== undefined && { name: name.trim() }),
         ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
         ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(workHours !== undefined && { workHours: trimmedWorkHours }),
+        ...(location !== undefined && { location: trimmedLocation }),
+        ...(hourlyRate !== undefined && { hourlyRate: parsedHourlyRate }),
       },
     })
 
