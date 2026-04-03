@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import CoachListTable from "@/components/coaches/CoachListTable"
 import type { CoachListItem } from "@/components/coaches/CoachListTable"
+import Button from "@/components/ui/Button"
+import {
+  CONTROL_BORDER_COLOR,
+  CONTROL_BORDER_RADIUS,
+  FILTER_PILL_BASE,
+  TABLE_DIVIDER_COLOR,
+} from "@/components/ui/styles"
 
 interface FieldOption {
   id: string
@@ -219,17 +226,14 @@ export default function CoachesPage() {
                 selected={workTypeFilter}
                 onChange={setWorkTypeFilter}
               />
-              <span className="text-gray-200">|</span>
+              <span className="select-none px-1 text-gray-200">|</span>
               <SortSelect value={sort1} onChange={setSort1} />
-              <span className="text-gray-300">&gt;</span>
+              <span className="select-none text-gray-200">|</span>
               <SortSelect value={sort2} onChange={setSort2} excludeValue={sort1} />
               <div className="flex-1" />
-              <Link
-                href="/coaches/new"
-                className="shrink-0 rounded-lg bg-[#1976D2] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#1565C0] transition-colors"
-              >
-                + 등록
-              </Link>
+              <Button asChild variant="primary" size="md" className="shrink-0 px-4 py-1.5 text-sm">
+                <Link href="/coaches/new">+ 등록</Link>
+              </Button>
             </>
           }
         />
@@ -263,14 +267,14 @@ function SortSelect({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="cursor-pointer rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        className={`cursor-pointer inline-flex h-9 items-center ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white px-3 text-sm font-medium leading-none text-gray-700 hover:bg-gray-50 transition-colors`}
       >
         {current?.label ?? "선택"} ▾
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-44 ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg`}>
             {options.map((opt) => (
               <button
                 key={opt.value}
@@ -315,10 +319,10 @@ function FieldMultiSelect({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+        className={`${FILTER_PILL_BASE} h-9 px-3 text-sm leading-none ${
           isFiltered
             ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+            : `${CONTROL_BORDER_COLOR} bg-white text-gray-700 hover:bg-gray-50`
         }`}
       >
         가능 분야{isFiltered ? ` (${count})` : ""} ▾
@@ -326,7 +330,7 @@ function FieldMultiSelect({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-xl border border-gray-200 bg-white py-1 shadow-lg max-h-64 overflow-y-auto">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-48 ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg max-h-64 overflow-y-auto`}>
             {types.map((t) => (
               <label
                 key={t}
@@ -344,7 +348,7 @@ function FieldMultiSelect({
             {count > 0 && (
               <button
                 onClick={() => { onChange(new Set()); setOpen(false) }}
-                className="w-full cursor-pointer border-t border-gray-100 px-3 py-2 text-left text-sm text-gray-400 hover:text-gray-600"
+                className={`w-full cursor-pointer border-t ${TABLE_DIVIDER_COLOR} px-3 py-2 text-left text-sm text-gray-400 hover:text-gray-600`}
               >
                 초기화
               </button>
@@ -383,10 +387,10 @@ function WorkTypeMultiSelect({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+        className={`${FILTER_PILL_BASE} h-9 px-3 text-sm leading-none ${
           isFiltered
             ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+            : `${CONTROL_BORDER_COLOR} bg-white text-gray-700 hover:bg-gray-50`
         }`}
       >
         근무유형{isFiltered ? ` (${count})` : ""} ▾
@@ -394,7 +398,7 @@ function WorkTypeMultiSelect({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-48 ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg`}>
             {types.map((t) => (
               <label
                 key={t}
@@ -412,7 +416,7 @@ function WorkTypeMultiSelect({
             {count > 0 && (
               <button
                 onClick={() => { onChange(new Set()); setOpen(false) }}
-                className="w-full cursor-pointer border-t border-gray-100 px-3 py-2 text-left text-sm text-gray-400 hover:text-gray-600"
+                className={`w-full cursor-pointer border-t ${TABLE_DIVIDER_COLOR} px-3 py-2 text-left text-sm text-gray-400 hover:text-gray-600`}
               >
                 초기화
               </button>

@@ -98,9 +98,10 @@ export default function CoachNotificationBell({ token }: { token: string }) {
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5">
-            {count > 99 ? "99+" : count}
-          </span>
+          <span
+            className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
+            title={`${count}개의 읽지 않은 알림`}
+          />
         )}
       </button>
       {open && (
@@ -117,13 +118,18 @@ export default function CoachNotificationBell({ token }: { token: string }) {
               <button
                 key={n.id}
                 onClick={() => handleClick(n)}
-                className={`w-full text-left px-3 py-2.5 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer ${
+                className={`group w-full text-left px-3 py-2.5 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer ${
                   !n.readAt ? "bg-blue-50/50" : ""
                 }`}
               >
-                <div className="text-[11px] font-semibold text-[#333]">{n.title}</div>
-                <div className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{n.enriched?.displayText || n.body}</div>
-                <div className="text-[10px] text-gray-400 mt-0.5">{timeAgo(n.createdAt)}</div>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-semibold text-[#333]">{n.title}</div>
+                    <div className="mt-0.5 text-[11px] text-gray-600 line-clamp-2">{n.enriched?.displayText || n.body}</div>
+                    <div className="mt-0.5 text-[10px] text-gray-400">{timeAgo(n.createdAt)}</div>
+                  </div>
+                  <span className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500">›</span>
+                </div>
               </button>
             ))
           )}

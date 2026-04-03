@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation"
 import { ReactNode } from "react"
 import { Skeleton } from "@/components/Skeleton"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import { Table, TableHeader, TableRow, TableEmpty } from "@/components/ui/Table"
+import { TABLE_DIVIDER_COLOR } from "@/components/ui/styles"
 
 interface CoachField {
   id: string
@@ -37,22 +41,22 @@ interface CoachListTableProps {
   filterSlot?: ReactNode
 }
 
-const WORK_TYPE_COLOR: Record<string, string> = {
-  "실습코치": "bg-[#F3E5F5] text-[#7B1FA2]",
-  "운영조교": "bg-[#E0F2F1] text-[#00695C]",
-  "삼전 DS": "bg-[#FFF3E0] text-[#E65100]",
-  "삼전 DX": "bg-[#E3F2FD] text-[#0D47A1]",
-  _default: "bg-[#E8EAF6] text-[#283593]",
+const WORK_TYPE_TONE: Record<string, "purple" | "teal" | "amber" | "blue" | "gray"> = {
+  "실습코치": "purple",
+  "운영조교": "teal",
+  "삼전 DS": "amber",
+  "삼전 DX": "blue",
+  _default: "gray",
 }
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; tone: "green" | "gray" }> = {
   active: {
     label: "활동중",
-    className: "bg-[#E3F2FD] text-[#1976D2]",
+    tone: "green",
   },
   inactive: {
     label: "비활동",
-    className: "bg-[#FBE9E7] text-[#D84315]",
+    tone: "gray",
   },
 }
 
@@ -84,12 +88,12 @@ export default function CoachListTable({
 
   if (loading) {
     return (
-      <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        <div className="hidden sm:grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
+      <Table>
+        <TableHeader className="hidden sm:grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
           <div className="w-4" /><div>이름</div><div>근무유형</div><div>연락처</div><div>이메일</div><div>분야</div><div>누적 근무일</div><div>평가</div>
-        </div>
+        </TableHeader>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 px-4 py-3 border-b border-gray-100">
+          <TableRow key={i} className="grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
             <Skeleton className="h-4 w-4" />
             <Skeleton className="h-4 w-12" />
             <Skeleton className="h-4 w-14" />
@@ -98,42 +102,46 @@ export default function CoachListTable({
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-4 w-10" />
             <Skeleton className="h-4 w-8" />
-          </div>
+          </TableRow>
         ))}
-      </div>
+      </Table>
     )
   }
 
   if (coaches.length === 0) {
     return (
-      <div className="rounded-2xl bg-white px-5 py-12 text-center text-base text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        검색 조건에 맞는 코치가 없습니다
-      </div>
+      <Table>
+        <TableEmpty className="text-base">검색 조건에 맞는 코치가 없습니다</TableEmpty>
+      </Table>
     )
   }
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+    <Table>
       {/* Top bar: filters + search + actions */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 px-5 py-2.5">
+      <div className={`flex flex-wrap items-center gap-1.5 border-b ${TABLE_DIVIDER_COLOR} px-5 py-2.5`}>
         {filterSlot}
         {selectedIds.size > 0 && onExport && (
           <>
             <span className="text-xs text-gray-500">{selectedIds.size}명 선택</span>
-            <button
+            <Button
               onClick={() => onExport("phone")}
               disabled={exporting}
-              className="cursor-pointer rounded-md bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              variant="secondary"
+              size="sm"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium"
             >
               전화번호
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onExport("email")}
               disabled={exporting}
-              className="cursor-pointer rounded-md bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              variant="secondary"
+              size="sm"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium"
             >
               이메일
-            </button>
+            </Button>
           </>
         )}
         {!filterSlot && <div className="flex-1" />}
@@ -145,13 +153,13 @@ export default function CoachListTable({
               value={search || ""}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="검색"
-              className="w-36 rounded-md border-0 bg-gray-50 py-1.5 pl-7 pr-2 text-xs text-gray-600 placeholder:text-gray-300 focus:bg-white focus:ring-1 focus:ring-[#1976D2] focus:outline-none transition-all"
+              className="w-36 rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-xs text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
             />
           </div>
         )}
       </div>
       {/* Table header */}
-      <div className="hidden sm:grid grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-400">
+      <TableHeader className="hidden sm:grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
         <div className="w-4 flex items-center justify-center">
           <input
             type="checkbox"
@@ -167,7 +175,7 @@ export default function CoachListTable({
         <div>분야</div>
         <div className="whitespace-nowrap">누적 근무일</div>
         <div>평가</div>
-      </div>
+      </TableHeader>
 
       {/* Coach rows */}
       <div>
@@ -176,12 +184,11 @@ export default function CoachListTable({
           const isSelected = selectedIds.has(coach.id)
 
           return (
-            <div
+            <TableRow
               key={coach.id}
               onClick={() => router.push(`/coaches/${coach.id}`)}
-              className={`grid grid-cols-[auto_1fr] sm:grid-cols-[auto_84px_120px_110px_180px_minmax(32px,1fr)_64px_48px] items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
-                isSelected ? "bg-[#E3F2FD]/50" : ""
-              }`}
+              className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px] cursor-pointer hover:bg-gray-50"
+              selected={isSelected}
             >
               {/* Checkbox */}
               <div className="w-4 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
@@ -194,15 +201,22 @@ export default function CoachListTable({
               </div>
 
               {/* Name + status dot */}
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
-                <span className={`shrink-0 inline-block h-2 w-2 rounded-full ${coach.status === "active" ? "bg-[#4CAF50]" : "bg-gray-300"}`} />
+                <Badge variant="status" tone={statusCfg.tone} className="shrink-0">
+                  {statusCfg.label}
+                </Badge>
               </div>
 
               {/* Work Type */}
-              <div className="hidden sm:flex flex-wrap gap-0.5">
+              <div
+                className="hidden sm:flex min-w-0 flex-wrap gap-0.5"
+                title={coach.workType || ""}
+              >
                 {coach.workType ? coach.workType.split(",").map(t => t.trim()).filter(Boolean).map(t => (
-                  <span key={t} className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${WORK_TYPE_COLOR[t] || WORK_TYPE_COLOR._default}`}>{t}</span>
+                  <Badge key={t} variant="category" tone={WORK_TYPE_TONE[t] || WORK_TYPE_TONE._default} className="shrink-0">
+                    {t}
+                  </Badge>
                 )) : <span className="text-xs text-gray-300">-</span>}
               </div>
 
@@ -223,7 +237,7 @@ export default function CoachListTable({
               </span>
 
               {/* Fields */}
-              <span className="hidden sm:block text-xs text-gray-500 truncate">
+              <span className="hidden sm:block overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-500" title={coach.fields.length > 0 ? coach.fields.map((f) => f.name).join(", ") : ""}>
                 {coach.fields.length > 0
                   ? coach.fields.map((f) => f.name).join(", ")
                   : "-"}
@@ -244,15 +258,15 @@ export default function CoachListTable({
               </span>
 
               {/* Mobile: fields */}
-              <span className="col-start-2 text-xs text-gray-500 sm:hidden">
+              <span className="col-start-2 overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-500 sm:hidden" title={coach.fields.length > 0 ? coach.fields.map((f) => f.name).join(", ") : ""}>
                 {coach.fields.length > 0
                   ? coach.fields.map((f) => f.name).join(", ")
                   : ""}
               </span>
-            </div>
+            </TableRow>
           )
         })}
       </div>
-    </div>
+    </Table>
   )
 }

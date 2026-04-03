@@ -3,10 +3,17 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
+
+const ROLE_BADGE: Record<string, { label: string; className: string }> = {
+  admin: { label: "관리자", className: "bg-[#E8F5E9] text-[#2E7D32]" },
+  samsung_admin: { label: "삼전관리자", className: "bg-[#FFF3E0] text-[#E65100]" },
+  user: { label: "일반", className: "bg-[#E3F2FD] text-[#1565C0]" },
+  blocked: { label: "차단", className: "bg-[#FBE9E7] text-[#D84315]" },
+}
 
 export default function Header() {
   const { data: session } = useSession()
@@ -39,8 +46,37 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  const isAdmin = managerRole === 'admin'
-  const hasSamsungAccess = managerRole === 'admin' || managerRole === 'samsung_admin'
+  const navItems = useMemo(() => {
+    const items: Array<{
+      href: string
+      label: string
+      active: boolean
+      roles?: readonly string[]
+    }> = [
+      { href: "/dashboard", label: "대시보드", active: pathname === "/dashboard" },
+      {
+        href: "/dashboard/samsung",
+        label: "삼전 대시보드",
+        active: pathname === "/dashboard/samsung",
+        roles: ["admin", "samsung_admin"] as const,
+      },
+      { href: "/coaches", label: "전체 코치", active: pathname.startsWith("/coaches") },
+      {
+        href: "/admin",
+        label: "관리자",
+        active: pathname.startsWith("/admin"),
+        roles: ["admin"] as const,
+      },
+    ]
+
+    return items.filter((item) => {
+      if (!item.roles) return true
+      if (!managerRole) return false
+      return item.roles.includes(managerRole)
+    })
+  }, [managerRole, pathname])
+
+  const roleBadge = managerRole ? ROLE_BADGE[managerRole] : null
 
   return (
     <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>
@@ -52,50 +88,23 @@ export default function Header() {
               <img src="/title.png" alt="코치 DB" className="h-5 sm:h-7" />
             </Link>
             <nav className="flex shrink-0 gap-1">
-              <Link
-                href="/dashboard"
-                className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
-                  pathname === '/dashboard'
-                    ? 'bg-[#EBF2FA] text-[#1565C0]'
-                    : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
-                }`}
-              >
-                대시보드
-              </Link>
-              {hasSamsungAccess && (
+              {navItems.map((item) => (
                 <Link
-                  href="/dashboard/samsung"
-                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
-                    pathname === '/dashboard/samsung'
-                      ? 'bg-[#FFF3E0] text-[#E65100]'
-                      : 'text-gray-500 hover:text-[#E65100] hover:bg-gray-50'
+                  key={item.href}
+                  href={item.href}
+                  className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                    item.active
+                      ? item.href === "/dashboard/samsung"
+                        ? "bg-[#FFF3E0] text-[#E65100]"
+                        : "bg-[#EBF2FA] text-[#1565C0]"
+                      : item.href === "/dashboard/samsung"
+                        ? "text-gray-500 hover:bg-gray-50 hover:text-[#E65100]"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-[#1565C0]"
                   }`}
                 >
-                  삼전 대시보드
+                  {item.label}
                 </Link>
-              )}
-              <Link
-                href="/coaches"
-                className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
-                  pathname.startsWith('/coaches')
-                    ? 'bg-[#EBF2FA] text-[#1565C0]'
-                    : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
-                }`}
-              >
-                전체 코치
-              </Link>
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm sm:text-sm font-medium transition-colors ${
-                    pathname.startsWith('/admin')
-                      ? 'bg-[#EBF2FA] text-[#1565C0]'
-                      : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
-                  }`}
-                >
-                  관리자
-                </Link>
-              )}
+              ))}
             </nav>
           </div>
           {/* Right: notifications + user */}
@@ -109,14 +118,19 @@ export default function Header() {
                   : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
               }`}
             >
-              요청 내역
+              마이페이지
             </Link>
             <div ref={userMenuRef} className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="cursor-pointer text-sm text-gray-500 hover:text-[#1565C0] transition-colors"
+                className="flex cursor-pointer items-center gap-2 text-sm text-gray-500 transition-colors hover:text-[#1565C0]"
               >
-                {session?.user?.name || session?.user?.email}
+                <span>{session?.user?.name || session?.user?.email}</span>
+                {roleBadge && (
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${roleBadge.className}`}>
+                    {roleBadge.label}
+                  </span>
+                )}
               </button>
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-32 rounded-lg bg-white shadow-lg border border-gray-200 z-50 py-1">

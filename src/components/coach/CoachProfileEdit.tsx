@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
+import RemovableChip from "@/components/ui/RemovableChip"
 
 interface MasterItem { id: string; name: string }
 
@@ -44,13 +45,14 @@ const CURRICULUM_SKILL_OPTIONS = [
 ]
 
 export default function CoachProfileEdit({ token, profile, onSaved, onClose, onDeactivated }: Props) {
-  const [open, setOpen] = useState(true)
   const [phone, setPhone] = useState(profile.phone ?? "")
   const [email, setEmail] = useState(profile.email ?? "")
   const [affiliation, setAffiliation] = useState(profile.affiliation ?? "")
   const [availDetail, setAvailDetail] = useState(profile.availabilityDetail ?? "")
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set(profile.fields.map(f => f.name)))
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set(profile.curriculums.map(c => c.name)))
+  const [customFieldInput, setCustomFieldInput] = useState("")
+  const [customSkillInput, setCustomSkillInput] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -97,8 +99,29 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose, onD
     setter(next)
   }
 
+  function appendCustomSkill(value: string, clear: () => void) {
+    const normalized = value.trim()
+    if (!normalized) return
+    setSelectedSkills((prev) => new Set([...prev, normalized]))
+    clear()
+  }
+
+  const hasChanges = useMemo(() => {
+    const currentFields = [...selectedFields].sort().join(",")
+    const currentSkills = [...selectedSkills].sort().join(",")
+    return (
+      (phone.trim() || null) !== (profile.phone ?? null) ||
+      (email.trim() || null) !== (profile.email ?? null) ||
+      (affiliation.trim() || null) !== (profile.affiliation ?? null) ||
+      (availDetail.trim() || null) !== (profile.availabilityDetail ?? null) ||
+      currentFields !== profile.fields.map(f => f.name).sort().join(",") ||
+      currentSkills !== profile.curriculums.map(c => c.name).sort().join(",")
+    )
+  }, [affiliation, availDetail, email, phone, profile, selectedFields, selectedSkills])
+
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-1">
         {/* 연락처 + 이메일 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -177,15 +200,24 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose, onD
           <label className="text-xs text-gray-400">교육 분야</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {FIELD_OPTIONS.map(f => (
-              <button
-                key={f}
-                onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
-                className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedFields.has(f) ? "bg-[#E3F2FD] text-[#1976D2]" : "bg-gray-50 text-gray-400"
-                }`}
-              >
-                {f}
-              </button>
+              selectedFields.has(f) ? (
+                <RemovableChip
+                  key={f}
+                  tone="blue"
+                  size="xs"
+                  onRemove={() => toggleItem(selectedFields, f, setSelectedFields)}
+                >
+                  {f}
+                </RemovableChip>
+              ) : (
+                <button
+                  key={f}
+                  onClick={() => toggleItem(selectedFields, f, setSelectedFields)}
+                  className="cursor-pointer rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                >
+                  {f}
+                </button>
+              )
             ))}
           </div>
         </div>
@@ -195,30 +227,48 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose, onD
           <label className="text-xs text-gray-400">가능 분야</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {CURRICULUM_AREA_OPTIONS.map(c => (
-              <button
-                key={c}
-                onClick={() => toggleItem(selectedSkills, c, setSelectedSkills)}
-                className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedSkills.has(c) ? "bg-[#F3E5F5] text-[#7B1FA2]" : "bg-gray-50 text-gray-400"
-                }`}
-              >
-                {c}
-              </button>
+              selectedSkills.has(c) ? (
+                <RemovableChip
+                  key={c}
+                  tone="purple"
+                  size="xs"
+                  onRemove={() => toggleItem(selectedSkills, c, setSelectedSkills)}
+                >
+                  {c}
+                </RemovableChip>
+              ) : (
+                <button
+                  key={c}
+                  onClick={() => toggleItem(selectedSkills, c, setSelectedSkills)}
+                  className="cursor-pointer rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                >
+                  {c}
+                </button>
+              )
             ))}
           </div>
-          <div className="mt-2 flex gap-2">
+          <div className="relative mt-2">
             <input
               type="text"
+              value={customFieldInput}
+              onChange={(e) => setCustomFieldInput(e.target.value)}
               placeholder="기타 직접 입력"
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-16 text-xs focus:border-[#1976D2] focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
-                  const val = (e.target as HTMLInputElement).value.trim()
-                  if (val) { setSelectedSkills(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
+                  appendCustomSkill(customFieldInput, () => setCustomFieldInput(""))
                 }
               }}
             />
+            <button
+              type="button"
+              onClick={() => appendCustomSkill(customFieldInput, () => setCustomFieldInput(""))}
+              disabled={!customFieldInput.trim()}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-[#1976D2] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              + 추가
+            </button>
           </div>
         </div>
 
@@ -227,57 +277,79 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose, onD
           <label className="text-xs text-gray-400">보유 스킬</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {CURRICULUM_SKILL_OPTIONS.map(s => (
-              <button
-                key={s}
-                onClick={() => toggleItem(selectedSkills, s, setSelectedSkills)}
-                className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedSkills.has(s) ? "bg-[#F3E5F5] text-[#7B1FA2]" : "bg-gray-50 text-gray-400"
-                }`}
-              >
-                {s}
-              </button>
+              selectedSkills.has(s) ? (
+                <RemovableChip
+                  key={s}
+                  tone="purple"
+                  size="xs"
+                  onRemove={() => toggleItem(selectedSkills, s, setSelectedSkills)}
+                >
+                  {s}
+                </RemovableChip>
+              ) : (
+                <button
+                  key={s}
+                  onClick={() => toggleItem(selectedSkills, s, setSelectedSkills)}
+                  className="cursor-pointer rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                >
+                  {s}
+                </button>
+              )
             ))}
           </div>
-          <div className="mt-2 flex gap-2">
+          <div className="relative mt-2">
             <input
               type="text"
+              value={customSkillInput}
+              onChange={(e) => setCustomSkillInput(e.target.value)}
               placeholder="기타 직접 입력"
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-[#1976D2]"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-16 text-xs focus:border-[#1976D2] focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
-                  const val = (e.target as HTMLInputElement).value.trim()
-                  if (val) { setSelectedSkills(prev => new Set([...prev, val])); (e.target as HTMLInputElement).value = "" }
+                  appendCustomSkill(customSkillInput, () => setCustomSkillInput(""))
                 }
               }}
             />
+            <button
+              type="button"
+              onClick={() => appendCustomSkill(customSkillInput, () => setCustomSkillInput(""))}
+              disabled={!customSkillInput.trim()}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-[#1976D2] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              + 추가
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* 저장 */}
-        {(() => {
-          const hasChanges =
-            (phone.trim() || null) !== (profile.phone ?? null) ||
-            (email.trim() || null) !== (profile.email ?? null) ||
-            (affiliation.trim() || null) !== (profile.affiliation ?? null) ||
-            (availDetail.trim() || null) !== (profile.availabilityDetail ?? null) ||
-            [...selectedFields].sort().join(",") !== profile.fields.map(f => f.name).sort().join(",") ||
-            [...selectedSkills].sort().join(",") !== profile.curriculums.map(c => c.name).sort().join(",")
-          return (
-            <button
-              onClick={hasChanges ? handleSave : () => onClose?.()}
-              disabled={saving}
-              className={`w-full cursor-pointer rounded-lg py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-                saved ? "bg-[#2E7D32] text-white"
-                : hasChanges ? "bg-[#1976D2] text-white hover:bg-[#1565C0]"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-            >
-              {saving ? "저장 중..." : saved ? "✓ 저장됨" : hasChanges ? "프로필 저장" : "닫기"}
-            </button>
-          )
-        })()}
-
+      <div className="shrink-0 border-t border-gray-100 bg-white pt-4">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onClose?.()}
+            className="flex-1 cursor-pointer rounded-lg border border-gray-200 bg-white py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            className={`flex-1 cursor-pointer rounded-lg py-2.5 text-sm font-semibold transition-all ${
+              saving
+                ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                : saved
+                  ? "bg-[#2E7D32] text-white hover:bg-[#256427]"
+                  : !hasChanges
+                    ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                    : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
+            }`}
+          >
+            {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장"}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

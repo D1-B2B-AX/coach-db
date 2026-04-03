@@ -3,7 +3,16 @@
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/Skeleton"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import type { CourseOption } from "@/components/CourseSelector"
+import { Table, TableHeader, TableRow, TableEmpty } from "@/components/ui/Table"
+import {
+  CONTROL_BORDER_COLOR,
+  CONTROL_BORDER_RADIUS,
+  FILTER_PILL_BASE,
+  TABLE_DIVIDER_COLOR,
+} from "@/components/ui/styles"
 
 interface CoachSchedule {
   startTime: string
@@ -224,9 +233,38 @@ export default function DashboardCoachList({
 
   if (!selectedDate) {
     return (
-      <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
-        날짜를 선택하면 가능한 코치 목록이 표시됩니다
-      </div>
+      <Table className="space-y-0">
+        {courses && onCourseChange && (
+          <div className={`border-b ${TABLE_DIVIDER_COLOR} px-5 py-2.5 flex items-center justify-between gap-2`}>
+            <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <select
+                value={selectedCourseId ?? ""}
+                onChange={(e) => onCourseChange(e.target.value || null)}
+                className={`min-w-[160px] ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white px-2 py-1 text-xs focus:border-blue-400 focus:outline-none`}
+              >
+                <option value="">과정 선택</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {onCourseCreate && (
+                <Button
+                  onClick={() => { setNewStartDate(""); setNewEndDate(""); setShowCourseModal(true) }}
+                  variant="primary"
+                  size="sm"
+                  className="shrink-0"
+                >
+                  + 추가
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="p-8 text-center text-sm text-gray-400">
+          날짜를 선택하면 가능한 코치 목록이 표시됩니다
+        </div>
+      </Table>
     )
   }
 
@@ -251,44 +289,44 @@ export default function DashboardCoachList({
     }
 
     return (
-      <span className="text-sm text-gray-400">
+      <span className="text-[11px] leading-relaxed text-gray-500">
         <span className="font-medium text-[#333]">{datePart}</span>
-        {timePart && <>{" "}<span className="font-medium text-[#1976D2]">{timePart}</span></>}
-        에 근무 가능한 코치는 <span className="font-medium text-[#1976D2]">{filteredCoaches.length}명</span>입니다.
+        {timePart && <>{" "}<span className="font-medium text-[#4A78A8]">{timePart}</span></>}
+        에 근무 가능한 코치는 <span className="font-semibold text-[#1565C0]">{filteredCoaches.length}명</span>입니다.
       </span>
     )
   })()
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100">
+    <Table className="min-w-0 overflow-hidden space-y-0">
       {/* Filter summary + course selector */}
-      {selectedDate && (
-        <div className="border-b border-gray-100 px-5 py-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {summaryNode}
-            {selectedIds.size > 0 && onBulkScout && (
-              <button
-                onClick={() => onBulkScout([...selectedIds])}
-                className="cursor-pointer shrink-0 rounded-full bg-[#F57C00] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#E65100] transition-colors"
-              >
-                컨택중 ({selectedIds.size})
-              </button>
-            )}
-            {onReset && (
-              <button
-                onClick={onReset}
-                className="cursor-pointer shrink-0 rounded-full border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-              >
-                초기화
-              </button>
-            )}
+      <div className={`border-b ${TABLE_DIVIDER_COLOR} px-4 py-3 sm:px-5`}>
+        <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {selectedDate ? (
+            <>
+              {summaryNode}
+              {selectedIds.size > 0 && onBulkScout && (
+                <Button
+                  onClick={() => onBulkScout([...selectedIds])}
+                  variant={selectedCourseId ? "primaryOutline" : "secondary"}
+                  size="sm"
+                  className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                >
+                  찜꽁 ({selectedIds.size})
+                </Button>
+              )}
+            </>
+          ) : (
+            <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
+          )}
           </div>
           {courses && onCourseChange && (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-nowrap items-center gap-1.5 shrink-0">
               <select
                 value={selectedCourseId ?? ""}
                 onChange={(e) => onCourseChange(e.target.value || null)}
-                className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                className={`w-[132px] shrink-0 ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white px-2.5 py-1.5 text-xs text-[#333] focus:border-blue-400 focus:outline-none`}
               >
                 <option value="">과정 선택</option>
                 {courses.map((c) => (
@@ -296,41 +334,43 @@ export default function DashboardCoachList({
                 ))}
               </select>
               {onCourseCreate && (
-                <button
-                  onClick={() => { setNewStartDate(selectedDate || ""); setNewEndDate(selectedEnd || ""); setShowCourseModal(true) }}
-                  className="cursor-pointer shrink-0 rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                <Button
+                  onClick={() => { setNewStartDate(selectedDate || ""); setNewEndDate(selectedEnd || selectedDate || ""); setShowCourseModal(true) }}
+                  variant="primary"
+                  size="sm"
+                  className="shrink-0 px-2.5 py-1.5 text-xs"
                 >
                   + 추가
-                </button>
+                </Button>
               )}
             </div>
           )}
         </div>
-      )}
+      </div>
       {/* Coach rows */}
       <div>
         {loading ? (
           <div>
-            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+            <TableHeader className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
               <div className="w-4" /><div>이름</div><div>가능 시간대</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
-            </div>
+            </TableHeader>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+              <TableRow key={i} className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
                 <Skeleton className="h-4 w-4" />
                 <Skeleton className="h-4 w-16" />
                 <Skeleton className="h-4 w-12" />
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-8 mx-auto" />
                 <Skeleton className="h-4 w-6 mx-auto" />
-              </div>
+              </TableRow>
             ))}
           </div>
         ) : filteredCoaches.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-gray-400">해당 조건에 맞는 코치가 없습니다</div>
+          <TableEmpty>해당 조건에 맞는 코치가 없습니다</TableEmpty>
         ) : (
           <>
             {/* Table header */}
-            <div className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-[11px] font-semibold text-gray-400">
+            <TableHeader className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
               <div className="w-4 flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -344,19 +384,18 @@ export default function DashboardCoachList({
               <div>최근 근무 과정명</div>
               <div className="whitespace-nowrap">누적 근무일</div>
               <div>평점</div>
-            </div>
+            </TableHeader>
             {filteredCoaches.map((coach) => {
               const latest = coach.recentEngagements?.[0] || coach.latestEngagement
               const courseName = latest
                 ? latest.courseName.replace(/\[부가세\s*별도\]\s*/g, "").replace(/\(B2B\)\s*/g, "").replace(/_/g, " ").trim()
                 : null
               return (
-                <div
+                <TableRow
                   key={coach.id}
                   onClick={() => router.push(`/coaches/${coach.id}`)}
-                  className={`grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] items-center gap-2 px-4 py-2.5 border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
-                    selectedIds.has(coach.id) ? "bg-[#E3F2FD]/50" : ""
-                  }`}
+                  selected={selectedIds.has(coach.id)}
+                  className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] cursor-pointer hover:bg-gray-50"
                 >
                   <div className="w-4 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -369,9 +408,9 @@ export default function DashboardCoachList({
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
                     {scoutedCoachIds?.has(coach.id) && (
-                      <span className="shrink-0 rounded-full bg-[#FFF3E0] px-1.5 py-0.5 text-[10px] font-semibold text-[#E65100] border border-[#FFB74D]">
-                        컨택중
-                      </span>
+                      <Badge variant="status" tone="orange" className="shrink-0">
+                        찜꽁중
+                      </Badge>
                     )}
                   </div>
                   <span className="text-xs text-gray-400 truncate">
@@ -386,7 +425,7 @@ export default function DashboardCoachList({
                   <span className="text-xs">
                     {coach.avgRating !== null ? <span className="text-[#F57F17]">{coach.avgRating.toFixed(1)}</span> : <span className="text-gray-300">-</span>}
                   </span>
-                </div>
+                </TableRow>
               )
             })}
           </>
@@ -407,18 +446,24 @@ export default function DashboardCoachList({
               value={newCourseName}
               onChange={(e) => setNewCourseName(e.target.value)}
               onKeyDown={(e) => e.key === "Escape" && setShowCourseModal(false)}
-              className={`mb-2 w-full rounded-lg border px-3 py-2 text-sm ${!newCourseName.trim() && courseError ? "border-red-400" : "border-gray-300"} focus:border-blue-400 focus:outline-none`}
+              className={`mb-2 w-full ${CONTROL_BORDER_RADIUS} border px-3 py-2 text-sm ${!newCourseName.trim() && courseError ? "border-red-400" : CONTROL_BORDER_COLOR} focus:border-blue-400 focus:outline-none`}
             />
             <div className="mb-3 flex gap-2">
               <input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+                className={`w-full ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none`} />
               <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+                className={`w-full ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none`} />
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowCourseModal(false); setCourseError("") }}
-                className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">취소</button>
-              <button
+              <Button
+                onClick={() => { setShowCourseModal(false); setCourseError("") }}
+                variant="secondary"
+                size="md"
+                className="rounded-lg px-3 py-2 text-sm"
+              >
+                취소
+              </Button>
+              <Button
                 disabled={courseSaving}
                 onClick={async () => {
                   setCourseError("")
@@ -441,17 +486,19 @@ export default function DashboardCoachList({
                     } else {
                       const data = await res.json().catch(() => ({}))
                       setCourseError(data.error || "과정 생성에 실패했습니다")
-                    }
+                  }
                   } catch { setCourseError("과정 생성에 실패했습니다") }
                   finally { setCourseSaving(false) }
                 }}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-              >{courseSaving ? "추가 중..." : "추가"}</button>
+                variant="primary"
+                size="md"
+                className="rounded-lg px-4 py-2 text-sm"
+              >{courseSaving ? "추가 중..." : "추가"}</Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Table>
   )
 }
 
@@ -483,10 +530,10 @@ function FieldDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+        className={`${FILTER_PILL_BASE} ${
           count > 0
             ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+            : `${CONTROL_BORDER_COLOR} bg-white text-gray-500 hover:bg-gray-50`
         }`}
       >
         분야{count > 0 ? ` (${count})` : ""} ▾
@@ -494,7 +541,7 @@ function FieldDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-44 ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg`}>
             {allFields.map((f) => (
               <label
                 key={f}
@@ -548,10 +595,10 @@ function RatingDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+        className={`${FILTER_PILL_BASE} ${
           count > 0
             ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+            : `${CONTROL_BORDER_COLOR} bg-white text-gray-500 hover:bg-gray-50`
         }`}
       >
         평가{count > 0 ? ` (${count})` : ""} ▾
@@ -559,7 +606,7 @@ function RatingDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-36 ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg`}>
             {options.map((o) => (
               <label key={o.key} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50">
                 <input
@@ -604,10 +651,10 @@ function EngagementDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`cursor-pointer rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+        className={`${FILTER_PILL_BASE} ${
           isActive
             ? "border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-            : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+            : `${CONTROL_BORDER_COLOR} bg-white text-gray-500 hover:bg-gray-50`
         }`}
       >
         {isActive ? current?.label : "이력"} ▾
@@ -615,7 +662,7 @@ function EngagementDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-32 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className={`absolute left-0 top-full z-20 mt-1 w-32 ${CONTROL_BORDER_RADIUS} ${CONTROL_BORDER_COLOR} bg-white py-1 shadow-lg`}>
             {ENGAGEMENT_OPTIONS.map((opt) => (
               <button
                 key={opt.value}

@@ -10,6 +10,25 @@ const TIME_RANGES = [
   { label: "전일", start: "08:00", end: "22:00" },
 ] as const
 
+const CALENDAR_LEGEND_ITEMS = [
+  {
+    label: "가능",
+    iconClass: "border border-[#4CAF50] bg-[#E8F5E9]",
+  },
+  {
+    label: "확정",
+    iconClass: "border border-[#1976D2] bg-[#1976D2]",
+  },
+  {
+    label: "컨택중",
+    iconClass: "border border-[#FFB74D] bg-white",
+  },
+  {
+    label: "선택 중",
+    iconClass: "border border-[#455A64] bg-white",
+  },
+] as const
+
 interface ScheduleCalendarProps {
   year: number
   month: number // 0-based (JS Date convention)
@@ -178,16 +197,16 @@ export default function ScheduleCalendar({
         })}
       </div>
 
-      {/* Calendar legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-[#6B7280]">
-        <div className="flex items-center gap-1">
-          <span className="h-3 w-3 rounded border border-[#FFB74D] bg-[#E8F5E9]" />
-          <span>녹색 배경 · 찜꽁+가용</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="h-3 w-3 rounded border border-[#FFB74D] bg-white" />
-          <span>주황 테두리 · 찜꽁만</span>
-        </div>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 text-[10px] text-[#5f6b7a]">
+        {CALENDAR_LEGEND_ITEMS.map(({ label, iconClass }) => (
+          <div key={label} className="flex items-center gap-0.5">
+            <span
+              className={`inline-flex h-3 w-3 shrink-0 rounded-full ${iconClass}`}
+              aria-hidden="true"
+            />
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Scouting notice for selected day */}
@@ -202,54 +221,56 @@ export default function ScheduleCalendar({
 
       {/* Time buttons — below calendar, fixed position */}
       {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && (
-        <div className="mt-4">
-          <div className="grid grid-cols-4 gap-1.5">
-            {TIME_RANGES.map(({ label, start, end }) => {
-              const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)
-              const allSelected = rangeSlots.every(
-                (s) => selectedSlots.has(s) || confirmedSlots.has(s)
-              )
-              const isFullDay = label === "전일"
-              const confirmed = isFullDay
-                ? rangeSlots.every((s) => confirmedSlots.has(s))
-                : rangeSlots.some((s) => confirmedSlots.has(s))
-              return (
-                <button
-                  key={label}
-                  disabled={confirmed}
-                  onClick={() => {
-                    if (allSelected) {
-                      for (const s of rangeSlots) {
-                        if (!confirmedSlots.has(s) && selectedSlots.has(s)) onToggleSlot(s)
+        <>
+          <div className="mt-4">
+            <div className="grid grid-cols-4 gap-1.5">
+              {TIME_RANGES.map(({ label, start, end }) => {
+                const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)
+                const allSelected = rangeSlots.every(
+                  (s) => selectedSlots.has(s) || confirmedSlots.has(s)
+                )
+                const isFullDay = label === "전일"
+                const confirmed = isFullDay
+                  ? rangeSlots.every((s) => confirmedSlots.has(s))
+                  : rangeSlots.some((s) => confirmedSlots.has(s))
+                return (
+                  <button
+                    key={label}
+                    disabled={confirmed}
+                    onClick={() => {
+                      if (allSelected) {
+                        for (const s of rangeSlots) {
+                          if (!confirmedSlots.has(s) && selectedSlots.has(s)) onToggleSlot(s)
+                        }
+                      } else {
+                        for (const s of rangeSlots) {
+                          if (!confirmedSlots.has(s) && !selectedSlots.has(s)) onToggleSlot(s)
+                        }
                       }
-                    } else {
-                      for (const s of rangeSlots) {
-                        if (!confirmedSlots.has(s) && !selectedSlots.has(s)) onToggleSlot(s)
-                      }
-                    }
-                  }}
-                  className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
-                    confirmed
-                      ? "cursor-not-allowed border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
-                      : allSelected
-                        ? "cursor-pointer border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
-                        : "cursor-pointer border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            })}
+                    }}
+                    className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
+                      confirmed
+                        ? "cursor-not-allowed border-[#1976D2] bg-[#E3F2FD] text-[#1976D2]"
+                        : allSelected
+                          ? "cursor-pointer border-[#4CAF50] bg-[#E8F5E9] text-[#2E7D32]"
+                          : "cursor-pointer border-[#e0e0e0] bg-white text-[#888] hover:bg-gray-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {(() => {
+              const allSlots = [...selectedSlots].filter(s => !confirmedSlots.has(s)).sort()
+              return allSlots.length > 0 ? (
+                <div className="mt-2 text-center text-xs text-[#2E7D32]">
+                  약 {formatRanges(allSlots)}
+                </div>
+              ) : null
+            })()}
           </div>
-          {(() => {
-            const allSlots = [...selectedSlots].filter(s => !confirmedSlots.has(s)).sort()
-            return allSlots.length > 0 ? (
-              <div className="mt-2 text-center text-xs text-[#2E7D32]">
-                약 {formatRanges(allSlots)}
-              </div>
-            ) : null
-          })()}
-        </div>
+        </>
       )}
 
       {/* Bulk toggle */}

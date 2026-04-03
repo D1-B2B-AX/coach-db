@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { isOff } from "@/lib/holidays"
+import Badge from "@/components/ui/Badge"
 
 function formatTimeLabel(start: string, end: string): string {
   const sh = parseInt(start.slice(0, 2), 10)
@@ -416,7 +417,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                       key={key}
                       className={cellClass}
                       onClick={() => setSelectedDay(isSelected ? null : key)}
-                      title={isScouted ? `컨택중 (${scoutingDates.get(key)})` : undefined}
+                      title={isScouted ? `찜꽁중 (${scoutingDates.get(key)})` : undefined}
                     >
                       {d}
                     </div>
@@ -427,19 +428,19 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
               {/* Legend */}
               {!isRestricted && <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded border border-[#A5D6A7] bg-[#E8F5E9]" />
+                  <div className="h-3 w-3 rounded-[10px] bg-[#E8F5E9]" />
                   가능
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded bg-[#1976D2]" />
+                  <div className="h-3 w-3 rounded-[10px] bg-[#1976D2]" />
                   확정
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded border-2 border-[#FFB74D] bg-[#E8F5E9]" />
-                  컨택중
+                  <div className="h-3 w-3 rounded-[10px] border-2 border-[#FFB74D] bg-[#E8F5E9]" />
+                  <Badge variant="status" tone="orange">찜꽁중</Badge>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded border-2 border-[#546E7A] bg-[#ECEFF1]" />
+                  <div className="h-3 w-3 rounded-[10px] border-2 border-[#546E7A] bg-[#ECEFF1]" />
                   선택 중
                 </div>
               </div>}
@@ -517,7 +518,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                         <span className="text-[#2E7D32]">{availLabel}</span>
                         {scoutManager !== undefined && (
                           <>
-                            <span className="font-medium text-[#F57C00]">컨택중</span>
+                            <Badge variant="status" tone="orange">찜꽁중</Badge>
                             {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
                           </>
                         )}
@@ -525,7 +526,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                     )}
                     {!availLabel && scoutManager !== undefined && (
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium text-[#F57C00]">컨택중</span>
+                        <Badge variant="status" tone="orange">찜꽁중</Badge>
                         {scoutManager && <span className="text-gray-400">— {scoutManager}</span>}
                       </div>
                     )}

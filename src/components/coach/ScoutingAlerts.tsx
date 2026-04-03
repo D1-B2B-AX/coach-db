@@ -13,7 +13,10 @@ interface ScoutingNotification {
   data: {
     scoutingId?: string
     managerName?: string
+    managerEmail?: string | null
     date?: string
+    hireStart?: string | null
+    hireEnd?: string | null
     courseName?: string
     clickUrl?: string
   } | null
@@ -25,8 +28,24 @@ interface ScoutingNotification {
 }
 
 function formatAlertDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  if (!dateStr) return "날짜 미정"
+  const d = new Date(`${dateStr}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return "날짜 미정"
+  const days = ["일", "월", "화", "수", "목", "금", "토"]
+  return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`
+}
+
+function formatAlertTime(start?: string | null, end?: string | null): string {
+  if (start && end) return `${start}~${end}`
+  if (start) return `${start}부터`
+  if (end) return `~${end}`
+  return "시간 미정"
+}
+
+function formatManagerLabel(name?: string | null, email?: string | null): string {
+  const base = name?.trim() ? `${name.trim()} 매니저` : "매니저 미정"
+  if (!email?.trim()) return base
+  return `${base} · ${email.trim()}`
 }
 
 export default function ScoutingAlerts({ token }: { token: string }) {
@@ -37,6 +56,15 @@ export default function ScoutingAlerts({ token }: { token: string }) {
   const [forcedVisible, setForcedVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [modalTarget, setModalTarget] = useState<{
+    date: string
+    hireStart?: string | null
+    hireEnd?: string | null
+    managerEmail?: string | null
+    courseName?: string | null
+    note?: string | null
+    managerName?: string | null
+  } | null>(null)
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
@@ -169,39 +197,60 @@ export default function ScoutingAlerts({ token }: { token: string }) {
               현재 확인할 요청이 없습니다.
             </div>
           )}
-          {visibleAlerts.map((a, i) => {
-            const prevDate = i > 0 ? visibleAlerts[i - 1].data?.date : null
-            const currentDate = a.data?.date
-            const showDateHeader = currentDate && currentDate !== prevDate
+          {visibleAlerts.map((a) => {
             return (
               <React.Fragment key={a.id}>
-                {showDateHeader && (
-                  <div className="px-1 pt-1 text-[10px] font-medium text-gray-400">
-                    {formatAlertDate(currentDate)}
-                  </div>
-                )}
-                <div className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3">
-                  <div className="mb-2 text-sm text-[#333]">{a.enriched?.displayText || a.body}</div>
-                  {a.enriched?.note && (
-                    <div className="mb-2 rounded-md bg-white px-2.5 py-2 text-xs text-[#616161]">
-                      {a.enriched.note}
+                <div
+                  className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"
+                  onClick={() => {
+                    setModalTarget({
+                      date: a.data?.date ?? "",
+                      hireStart: a.data?.hireStart ?? null,
+                      hireEnd: a.data?.hireEnd ?? null,
+                      managerEmail: a.data?.managerEmail ?? null,
+                      courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
+                      note: a.enriched?.note ?? null,
+                      managerName: a.data?.managerName ?? null,
+                    })
+                  }}
+                >
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-[#EAF2FD] px-2.5 py-1 text-[11px] font-semibold text-[#1976D2]">
+                          {formatAlertDate(a.data?.date ?? "")}
+                          {" "}
+                          {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
+                        </span>
+                        <span className="text-sm font-semibold text-[#1F2937]">
+                          {a.enriched?.courseName || a.data?.courseName || "과정명 없음"}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#6B7280]">
+                        {formatManagerLabel(a.data?.managerName ?? null, a.data?.managerEmail ?? null)}
+                      </p>
+                      {a.enriched?.note && (
+                        <p className="line-clamp-2 text-[12px] leading-relaxed text-[#374151]">
+                          {a.enriched.note}
+                        </p>
+                      )}
                     </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleAction(a, "accept")}
-                      disabled={acting === a.id}
-                      className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
-                    >
-                      {acting === a.id ? "..." : "수락"}
-                    </button>
-                    <button
-                      onClick={() => handleAction(a, "reject")}
-                      disabled={acting === a.id}
-                      className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      거절
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
+                        disabled={acting === a.id}
+                        className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
+                      >
+                        {acting === a.id ? "..." : "수락"}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
+                        disabled={acting === a.id}
+                        className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        거절
+                      </button>
+                    </div>
                   </div>
                 </div>
               </React.Fragment>
@@ -225,6 +274,70 @@ export default function ScoutingAlerts({ token }: { token: string }) {
           )}
         </div>
       </div>
+      {modalTarget && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8E9BA8]">
+                  날짜
+                </p>
+                <p className="text-lg font-semibold text-[#1F2937]">
+                  {formatAlertDate(modalTarget.date)}
+                  {" "}
+                  {formatAlertTime(modalTarget.hireStart ?? null, modalTarget.hireEnd ?? null)}
+                </p>
+                {(modalTarget.managerName || modalTarget.managerEmail) && (
+                  <p className="text-[12px] font-medium text-[#4B5563]">
+                    {formatManagerLabel(modalTarget.managerName, modalTarget.managerEmail)}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setModalTarget(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-4 space-y-5 text-[#1F2937]">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
+                  과정명
+                </p>
+                <p className="mt-1 text-xl font-semibold leading-tight text-[#1976D2]">
+                  {modalTarget.courseName || "과정명 없음"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
+                  제안한 매니저
+                </p>
+                <p className="mt-1 text-sm font-medium text-[#111]">
+                  {formatManagerLabel(modalTarget.managerName, modalTarget.managerEmail)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
+                  과정 설명
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-[#374151]">
+                  {modalTarget.note ?? "설명이 등록되어 있지 않습니다."}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setModalTarget(null)}
+                className="rounded-full border border-[#E5E7EB] bg-white px-4 py-1.5 text-sm font-semibold text-[#374151] hover:bg-gray-50 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

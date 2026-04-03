@@ -754,7 +754,7 @@ function CoachScheduleContent() {
     : []
 
   return (
-    <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 max-md:p-2.5">
+    <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 pb-[120px] max-md:p-2.5 max-md:pb-[160px]">
       <div className="flex w-full max-w-[480px] flex-col items-center gap-4">
         {/* Main container */}
         <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">

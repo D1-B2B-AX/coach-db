@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { BUTTON_BASE_CLASS, BUTTON_VARIANT_CLASS } from "@/components/ui/styles"
 
 interface DocItem {
   id: string
@@ -142,7 +143,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                 setTimeout(() => setEmpIdCopied(false), 2000)
               } catch { /* */ }
             }}
-            className="absolute top-4 right-4 cursor-pointer rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+            className="absolute top-4 right-4 cursor-pointer rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
             {empIdCopied ? "복사됨" : `사번 ${coach.employeeId}`}
           </button>
@@ -173,7 +174,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                     href={trimmed}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-0.5 text-sm text-gray-600 hover:bg-gray-100 transition-colors"
                   >
                     <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                     {label}
@@ -181,7 +182,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                 )
               })}
               {docs.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-sm">
+                <div key={doc.id} className="flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-0.5 text-sm">
                   <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                   <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-900 transition-colors">
                     {doc.fileName}
@@ -193,7 +194,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                 </div>
               ))}
               {docs.length < 5 && (
-              <label className="inline-flex cursor-pointer items-center rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-sm text-gray-400 hover:border-[#1976D2] hover:text-[#1976D2] transition-colors">
+              <label className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASS.primary} px-3 py-1.5 text-sm gap-1.5`}>
                 <span>{uploading ? "업로드 중..." : "+ 추가"}</span>
                 <input
                   type="file"

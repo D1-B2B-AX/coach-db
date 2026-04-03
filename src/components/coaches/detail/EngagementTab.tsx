@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useEscClose } from "@/lib/useEscClose"
 import { containsProfanity, FEEDBACK_MAX_LENGTH } from "@/lib/profanity"
+import Badge from "@/components/ui/Badge"
 
 interface Engagement {
   id: string
@@ -31,11 +32,11 @@ interface EngagementTabProps {
   onCreateOpened?: () => void
 }
 
-const STATUS_CONFIG: Record<string, { label: string; className: string; borderClass: string }> = {
-  scheduled: { label: "예정", className: "bg-[#E3F2FD] text-[#1976D2]", borderClass: "border-l-[#1976D2]" },
-  in_progress: { label: "진행", className: "bg-[#FFF8E1] text-[#F57F17]", borderClass: "border-l-[#F57F17]" },
-  completed: { label: "완료", className: "bg-gray-100 text-gray-500", borderClass: "border-l-gray-300" },
-  cancelled: { label: "취소", className: "bg-[#FBE9E7] text-[#D84315]", borderClass: "border-l-[#D84315]" },
+const STATUS_CONFIG: Record<string, { label: string; tone: "blue" | "amber" | "gray" | "red"; borderClass: string }> = {
+  scheduled: { label: "예정", tone: "blue", borderClass: "border-l-[#1976D2]" },
+  in_progress: { label: "진행", tone: "amber", borderClass: "border-l-[#F57F17]" },
+  completed: { label: "완료", tone: "gray", borderClass: "border-l-gray-300" },
+  cancelled: { label: "취소", tone: "red", borderClass: "border-l-[#D84315]" },
 }
 
 const STATUS_OPTIONS = [
@@ -292,9 +293,9 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                   className="flex items-center gap-2 px-3 py-2 cursor-pointer"
                   onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(group.key)) next.delete(group.key); else next.add(group.key); return next })}
                 >
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}>
+                  <Badge variant="status" tone={statusCfg.tone} className="shrink-0">
                     {statusCfg.label}
-                  </span>
+                  </Badge>
                   <span className="shrink-0 text-xs text-gray-400">
                     {group.merged
                       ? `${new Date(displayStart).getFullYear()}.${new Date(displayStart).getMonth() + 1}~${new Date(displayEnd).getFullYear()}.${new Date(displayEnd).getMonth() + 1}`

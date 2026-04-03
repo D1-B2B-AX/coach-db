@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import RemovableChip from "@/components/ui/RemovableChip"
 
 // --- Types ---
 
@@ -64,6 +65,7 @@ function MultiSelectCombobox({
   onChange,
   options,
   placeholder = "검색 또는 입력...",
+  chipColor,
 }: MultiSelectComboboxProps) {
   const [inputValue, setInputValue] = useState("")
   const [showDropdown, setShowDropdown] = useState(false)
@@ -134,21 +136,14 @@ function MultiSelectCombobox({
       {selected.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {selected.map((name) => (
-            <span
+            <RemovableChip
               key={name}
-              className="inline-flex items-center gap-1 rounded-full bg-[#E3F2FD] px-3 py-1 text-sm font-medium text-[#1976D2]"
+              tone={chipColor === "purple" ? "purple" : "blue"}
+              size="sm"
+              onRemove={() => removeItem(name)}
             >
               {name}
-              <button
-                type="button"
-                onClick={() => removeItem(name)}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-[#BBDEFB] transition-colors"
-              >
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
+            </RemovableChip>
           ))}
         </div>
       )}

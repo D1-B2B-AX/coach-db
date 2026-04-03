@@ -79,7 +79,7 @@ export default function NotificationDropdown({
             <button
               key={n.id}
               onClick={() => handleClick(n)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
+              className={`group w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${
                 !n.readAt ? "bg-blue-50/50" : ""
               }`}
             >
@@ -89,9 +89,10 @@ export default function NotificationDropdown({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-semibold text-[#333]">{n.title}</div>
-                  <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">{n.body}</div>
-                  <div className="text-[10px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</div>
+                  <div className="mt-0.5 text-xs text-gray-600 line-clamp-2">{n.body}</div>
+                  <div className="mt-1 text-[10px] text-gray-400">{timeAgo(n.createdAt)}</div>
                 </div>
+                <span className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500">›</span>
               </div>
             </button>
           ))}

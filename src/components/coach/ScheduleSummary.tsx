@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useEscClose } from "@/lib/useEscClose"
 
 interface Engagement {
@@ -37,7 +37,7 @@ function formatDateRange(startDate: string, endDate: string): string {
 
 function formatTimeRange(startTime: string | null, endTime: string | null): string {
   if (!startTime || !endTime) return ""
-  return ` (${startTime}~${endTime})`
+  return `${startTime}~${endTime}`
 }
 
 /** Remove internal tags like [부가세별도], (B2B) from course names shown to coaches */
@@ -50,19 +50,39 @@ export function cleanCourseName(name: string): string {
     .trim()
 }
 
-function statusBadge(status: string) {
-  if (status === "scheduled" || status === "in_progress") {
-    return (
-      <span className="ml-1 inline-block rounded-[4px] bg-[#E3F2FD] px-1.5 py-0.5 text-[10px] font-semibold text-[#1976D2]">
-        확정
-      </span>
-    )
+interface EngagementGroup {
+  key: string
+  courseName: string
+  items: Engagement[]
+}
+
+function groupEngagementsByCourse(items: Engagement[]): EngagementGroup[] {
+  const map = new Map<string, EngagementGroup>()
+
+  for (const engagement of items) {
+    const courseName = cleanCourseName(engagement.courseName) || engagement.courseName.trim()
+    const key = courseName || engagement.courseName
+    const existing = map.get(key)
+    if (existing) {
+      existing.items.push(engagement)
+    } else {
+      map.set(key, { key, courseName: key, items: [engagement] })
+    }
   }
-  return null
+
+  return [...map.values()]
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => {
+        const dateDiff = b.startDate.localeCompare(a.startDate)
+        if (dateDiff !== 0) return dateDiff
+        return b.endDate.localeCompare(a.endDate)
+      }),
+    }))
+    .sort((a, b) => b.items[0].startDate.localeCompare(a.items[0].startDate))
 }
 
 export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSummaryProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [popupEngagement, setPopupEngagement] = useState<Engagement | null>(null)
 
   useEscClose(popupEngagement !== null, () => setPopupEngagement(null))
@@ -70,6 +90,10 @@ export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSu
   // Split engagements: confirmed (scheduled/in_progress) vs completed
   const confirmedEngagements = engagements.filter(
     (e) => e.status === "scheduled" || e.status === "in_progress"
+  )
+  const confirmedEngagementGroups = useMemo(
+    () => groupEngagementsByCourse(confirmedEngagements),
+    [confirmedEngagements]
   )
 
   // Compute stats
@@ -101,19 +125,59 @@ export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSu
         <div className="mb-2.5 text-[13px] font-semibold text-[#333]">나의 스케줄</div>
 
         {/* Confirmed engagements */}
-        {confirmedEngagements.map((eng) => (
-          <div
-            key={eng.id}
-            className="cursor-pointer py-1 text-sm text-[#555] leading-relaxed hover:text-[#1976D2]"
-            onClick={() => setPopupEngagement(eng)}
-          >
-            <span className="text-[#bbb]">· </span>
-            {formatDateRange(eng.startDate, eng.endDate)} {cleanCourseName(eng.courseName)}
-            {statusBadge(eng.status)}
-          </div>
-        ))}
+        {confirmedEngagementGroups.length > 0 ? (
+          <div className="space-y-3">
+            {confirmedEngagementGroups.map((group) => (
+              <div
+                key={group.key}
+                className="rounded-xl border border-[#E7EDF3] bg-white px-3 py-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold leading-tight text-[#333]">
+                      {group.courseName}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-[#999]">
+                      {group.items.length}건
+                    </div>
+                  </div>
+                  {group.items.length > 1 && (
+                    <span className="shrink-0 rounded-full bg-[#EAF2FD] px-2 py-0.5 text-[10px] font-semibold text-[#1976D2]">
+                      {group.items.length}건 묶음
+                    </span>
+                  )}
+                </div>
 
-        {confirmedEngagements.length === 0 && (
+                <div className="mt-3 space-y-2">
+                  {group.items.map((eng) => (
+                    <button
+                      key={eng.id}
+                      onClick={() => setPopupEngagement(eng)}
+                      className="w-full cursor-pointer rounded-lg border border-[#EEF2F5] bg-[#FAFAFA] px-3 py-2.5 text-left transition-colors hover:border-[#D9E5F5] hover:bg-white"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-semibold text-[#222]">
+                            {formatDateRange(eng.startDate, eng.endDate)}
+                          </div>
+                          <div className="mt-0.5 truncate text-[12px] text-[#666]">
+                            {eng.location || "장소 미정"}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-[13px] font-semibold text-[#1976D2]">
+                            {formatTimeRange(eng.startTime, eng.endTime) || "-"}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-[#999]">상세보기</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <div className="py-1 pl-3 text-sm text-[#bbb]">확정된 일정이 없습니다</div>
         )}
 
@@ -153,24 +217,30 @@ export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSu
             onClick={() => setPopupEngagement(null)}
           />
           <div className="fixed top-1/2 left-1/2 z-20 w-80 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
-            <h3 className="mb-3 text-[15px] font-semibold text-[#333]">
+            <h3 className="mb-4 text-[16px] font-semibold leading-tight text-[#222]">
               {cleanCourseName(popupEngagement.courseName)}
             </h3>
-            <div className="text-sm text-[#555] leading-relaxed">
-              <div>
-                <span className="text-sm text-[#999]">일시:</span>{" "}
-                {formatDateRange(popupEngagement.startDate, popupEngagement.endDate)}
-                {formatTimeRange(popupEngagement.startTime, popupEngagement.endTime)}
+            <div className="space-y-3 text-sm text-[#555] leading-relaxed">
+              <div className="rounded-xl border border-[#E7EDF3] bg-[#F8FAFC] px-4 py-3">
+                <div className="text-[11px] font-medium text-[#8A97A6]">일시</div>
+                <div className="mt-1 text-[18px] font-semibold leading-tight text-[#222]">
+                  {formatDateRange(popupEngagement.startDate, popupEngagement.endDate)}
+                </div>
+                {formatTimeRange(popupEngagement.startTime, popupEngagement.endTime) && (
+                  <div className="mt-2 inline-flex rounded-full bg-[#E3F2FD] px-3 py-1.5 text-[15px] font-semibold text-[#1976D2]">
+                    {formatTimeRange(popupEngagement.startTime, popupEngagement.endTime)}
+                  </div>
+                )}
               </div>
               {popupEngagement.location && (
-                <div>
-                  <span className="text-sm text-[#999]">장소:</span>{" "}
-                  {popupEngagement.location}
+                <div className="rounded-xl border border-[#EEF2F5] bg-white px-4 py-3">
+                  <div className="text-[11px] font-medium text-[#8A97A6]">장소</div>
+                  <div className="mt-1 text-[14px] font-medium text-[#333]">
+                    {popupEngagement.location}
+                  </div>
                 </div>
               )}
-              <div className="mt-2 text-xs text-[#bbb]">
-                문의: 담당 매니저
-              </div>
+              <div className="text-xs text-[#bbb]">문의: 담당 매니저</div>
             </div>
             <button
               onClick={() => setPopupEngagement(null)}

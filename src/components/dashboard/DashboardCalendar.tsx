@@ -1,6 +1,8 @@
 "use client"
 
 import { isOff } from "@/lib/holidays"
+import Button from "@/components/ui/Button"
+import { SURFACE_CARD_CLASS } from "@/components/ui/styles"
 
 interface DashboardCalendarProps {
   year: number
@@ -16,6 +18,7 @@ interface DashboardCalendarProps {
   canGoNext?: boolean
   onToday: () => void
   onRefresh: () => void
+  onReset: () => void
   syncing?: boolean
   timeFilter: string
   onTimeFilterChange: (filter: string) => void
@@ -43,6 +46,7 @@ export default function DashboardCalendar({
   canGoPrev = true,
   canGoNext = true,
   onRefresh,
+  onReset,
   syncing = false,
   timeFilter,
   onTimeFilterChange,
@@ -62,73 +66,87 @@ export default function DashboardCalendar({
   const yearMonthLabel = `${year}년 ${month + 1}월`
 
   return (
-    <div className="min-w-0 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 sm:p-5">
+    <div className={`min-w-0 ${SURFACE_CARD_CLASS} p-4 sm:p-5`}>
       {/* Time filter — multi-select preset buttons */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        {TIME_PRESETS.map((f) => {
-          const activeKeys = timeFilter === "all" ? [] : timeFilter.split(",")
-          const isActive = activeKeys.includes(f.key)
-          return (
-            <button
-              key={f.key}
-              onClick={() => {
-                let next: string[]
-                if (isActive) {
-                  next = activeKeys.filter((k) => k !== f.key)
-                } else {
-                  next = [...activeKeys, f.key]
-                }
-                onTimeFilterChange(next.length === 0 ? "all" : next.join(","))
-              }}
-              className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                isActive
-                  ? "bg-[#1976D2] text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-            >
-              {f.label}
-            </button>
-          )
-        })}
-        {timeFilter !== "all" && (
-          <button
-            onClick={() => onTimeFilterChange("all")}
-            className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {TIME_PRESETS.map((f) => {
+            const activeKeys = timeFilter === "all" ? [] : timeFilter.split(",")
+            const isActive = activeKeys.includes(f.key)
+            return (
+              <button
+                key={f.key}
+                onClick={() => {
+                  let next: string[]
+                  if (isActive) {
+                    next = activeKeys.filter((k) => k !== f.key)
+                  } else {
+                    next = [...activeKeys, f.key]
+                  }
+                  onTimeFilterChange(next.length === 0 ? "all" : next.join(","))
+                }}
+                className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  isActive
+                    ? "border-[#D6E7FA] bg-[#EAF3FE] text-[#1565C0]"
+                    : "border-transparent bg-[#F6F8FB] text-gray-500 hover:bg-[#EDEFF3]"
+                }`}
+              >
+                {f.label}
+              </button>
+            )
+          })}
+          {timeFilter !== "all" && (() => {
+            const ranges = timeFilter.split(",").sort()
+            const minH = Math.min(...ranges.map(r => parseInt(r.split("-")[0])))
+            const maxH = Math.max(...ranges.map(r => parseInt(r.split("-")[1])))
+            return (
+              <span className="ml-1 text-[10px] text-gray-400">
+                약 {minH}-{maxH}시
+              </span>
+            )
+          })()}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            onClick={onReset}
+            variant="secondary"
+            size="sm"
+            className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
           >
             초기화
-          </button>
-        )}
-        <button
-          onClick={onRefresh}
-          disabled={syncing}
-          className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-            syncing ? 'bg-[#E3F2FD] text-[#1976D2]' : 'bg-[#F5F5F5] text-gray-400 hover:bg-gray-200'
-          }`}
-        >
-          {syncing ? "동기화 중..." : "새로고침"}
-        </button>
+          </Button>
+          <Button
+            onClick={onRefresh}
+            disabled={syncing}
+            variant={syncing ? "primaryOutline" : "secondary"}
+            size="sm"
+            className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
+          >
+            {syncing ? "동기화 중..." : "새로고침"}
+          </Button>
+        </div>
       </div>
 
       {/* Header row */}
-      <div className="relative mb-5 flex items-center justify-center">
-        <div className="flex items-center gap-3">
+      <div className="relative mb-4 flex items-center justify-center">
+        <div className="flex items-center gap-2.5">
           {canGoPrev ? (
             <button
               onClick={onPrevMonth}
-              className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              className="cursor-pointer rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
           ) : <div className="w-7" />}
-          <h2 className="w-28 text-center text-sm font-semibold tabular-nums text-[#333] sm:w-32 sm:text-sm">
+          <h2 className="w-28 text-center text-sm font-semibold tabular-nums text-[#2F3640] sm:w-32 sm:text-sm">
             {yearMonthLabel}
           </h2>
           {canGoNext ? (
             <button
               onClick={onNextMonth}
-              className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              className="cursor-pointer rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -143,7 +161,7 @@ export default function DashboardCalendar({
         {WEEKDAYS.map((w, i) => (
           <span
             key={w}
-            className={`py-2 text-xs font-medium ${
+            className={`py-1.5 text-[11px] font-medium ${
               i === 0
                 ? "text-red-500"
                 : i === 6
@@ -157,7 +175,7 @@ export default function DashboardCalendar({
       </div>
 
       {/* Day cells grid — always 42 cells (6 rows) for stable layout */}
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-[5px]">
         {Array.from({ length: 42 }).map((_, i) => {
           const dayNum = i - firstDayOfWeek + 1
           const isValidDay = dayNum >= 1 && dayNum <= lastDate
@@ -176,21 +194,19 @@ export default function DashboardCalendar({
           const off = isOff(key, dow)
 
           let cellClasses =
-            "flex flex-col items-center justify-center rounded-xl cursor-pointer transition-colors text-sm py-2.5 gap-0.5"
+            "relative flex flex-col items-center justify-center rounded-xl cursor-pointer transition-colors text-sm py-2 gap-0.5"
 
           if (isSelected) {
-            cellClasses += " bg-[#1976D2] text-white"
+            cellClasses += " bg-[#EAF3FE] ring-1 ring-[#B7D4F6] text-[#1565C0]"
           } else if (isInRange) {
-            cellClasses += " bg-[#E3F2FD] text-[#1976D2]"
+            cellClasses += " bg-[#F3F8FE] text-[#4A78A8]"
           } else if (isPast) {
             cellClasses += " opacity-35 hover:opacity-60"
-          } else if (isToday) {
-            cellClasses += " hover:bg-gray-50"
           } else {
             cellClasses += " hover:bg-gray-50"
           }
 
-          let dayColor = isSelected ? "text-white" : "text-gray-700"
+          let dayColor = isSelected ? "text-[#1565C0]" : "text-gray-700"
           if (!isSelected) {
             if (off) dayColor = "text-red-500"
           }
@@ -202,7 +218,7 @@ export default function DashboardCalendar({
               onClick={() => onSelectDate(key)}
             >
               <span
-                className={`text-sm font-medium ${dayColor}${isToday && !isSelected ? " text-base font-bold underline underline-offset-2" : ""}`}
+                className={`text-sm font-medium ${dayColor}${isToday && !isSelected ? " font-semibold" : ""}`}
               >
                 {dayNum}
               </span>
@@ -210,14 +226,15 @@ export default function DashboardCalendar({
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
                     isSelected
-                      ? "bg-white/30 text-white"
-                      : "bg-[#E3F2FD] text-[#1976D2]"
+                      ? "bg-white text-[#1565C0]"
+                      : "bg-[#EAF3FE] text-[#1565C0]"
                   }`}
                 >
                   {count}
                 </span>
-              ) : (
-                <span className={`text-[11px] ${isSelected ? "text-white/30" : "text-gray-200"}`}>-</span>
+              ) : null}
+              {isToday && !isSelected && (
+                <span className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-[#1565C0]" />
               )}
             </div>
           )
@@ -226,4 +243,3 @@ export default function DashboardCalendar({
     </div>
   )
 }
-

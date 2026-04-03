@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Button from "@/components/ui/Button"
 
 export interface CourseOption {
   id: string
@@ -102,8 +103,8 @@ export default function CourseSelector({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          className={`mb-2 w-full rounded border px-2.5 py-1.5 text-sm ${
-            error && !name.trim() ? "border-red-400" : "border-gray-300"
+          className={`mb-2 w-full rounded-lg border px-2.5 py-1.5 text-sm ${
+            error && !name.trim() ? "border-red-400" : "border-gray-200"
           } focus:border-blue-400 focus:outline-none`}
         />
         <div className="mb-2 flex gap-2">
@@ -111,33 +112,37 @@ export default function CourseSelector({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
             placeholder="시작일"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className={`w-full rounded border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none ${
-              error && endDate && (!startDate || endDate < startDate) ? "border-red-400" : "border-gray-300"
+            className={`w-full rounded-lg border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none ${
+              error && endDate && (!startDate || endDate < startDate) ? "border-red-400" : "border-gray-200"
             }`}
             placeholder="종료일"
           />
         </div>
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             onClick={() => { setShowForm(false); setError("") }}
-            className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            variant="secondary"
+            size="md"
+            className="rounded-lg px-3 py-1.5"
           >
             취소
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSubmit}
             disabled={saving}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+            variant="primary"
+            size="md"
+            className="rounded-lg px-3 py-1.5"
           >
             {saving ? "추가 중..." : "추가"}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -145,15 +150,15 @@ export default function CourseSelector({
 
   if (!hasCourses) {
     return (
-      <button
+      <Button
         onClick={() => { setStartDate(defaultStartDate || ""); setEndDate(defaultEndDate || ""); setShowForm(true) }}
-        className={`flex items-center gap-1 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 ${
-          compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm gap-1.5"
-        }`}
+        variant="primary"
+        size={compact ? "sm" : "md"}
+        className={`flex items-center gap-1 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm gap-1.5"}`}
       >
         <span className={compact ? "text-sm leading-none" : "text-lg leading-none"}>+</span>
         새 과정
-      </button>
+      </Button>
     )
   }
 
@@ -162,8 +167,8 @@ export default function CourseSelector({
       <select
         value={selectedCourseId || ""}
         onChange={(e) => onCourseChange(e.target.value || null)}
-        className={`rounded-lg border border-gray-300 bg-white focus:border-blue-400 focus:outline-none ${
-          compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"
+        className={`shrink-0 rounded-lg border border-gray-200 bg-white focus:border-blue-400 focus:outline-none ${
+          compact ? "w-[120px] px-2 py-1 text-xs" : "w-[132px] px-3 py-2 text-sm"
         }`}
       >
         <option value="">과정 선택</option>
@@ -173,16 +178,16 @@ export default function CourseSelector({
           </option>
         ))}
       </select>
-      <button
+      <Button
         onClick={() => { setStartDate(defaultStartDate || ""); setEndDate(defaultEndDate || ""); setShowForm(true) }}
-        className={`flex items-center gap-0.5 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 ${
-          compact ? "px-1.5 py-1 text-xs" : "px-2.5 py-2 text-sm gap-1"
-        }`}
+        variant="primary"
+        size={compact ? "sm" : "md"}
+        className={`flex items-center gap-0.5 ${compact ? "px-1.5 py-1 text-xs" : "px-2.5 py-2 text-sm gap-1"}`}
         title="새 과정 추가"
       >
         <span className={compact ? "text-sm leading-none" : "text-base leading-none"}>+</span>
         <span className="hidden sm:inline">{compact ? "추가" : "새 과정"}</span>
-      </button>
+      </Button>
     </div>
   )
 }
