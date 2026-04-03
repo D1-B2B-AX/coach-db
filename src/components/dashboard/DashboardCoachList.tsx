@@ -292,7 +292,6 @@ export default function DashboardCoachList({
       <span className="text-[11px] leading-relaxed text-gray-500">
         <span className="font-medium text-[#333]">{datePart}</span>
         {timePart && <>{" "}<span className="font-medium text-[#4A78A8]">{timePart}</span></>}
-        에 근무 가능한 코치는 <span className="font-semibold text-[#1565C0]">{filteredCoaches.length}명</span>입니다.
       </span>
     )
   })()
