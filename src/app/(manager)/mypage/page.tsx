@@ -974,17 +974,35 @@ export default function MyPage() {
                 </label>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <label className="block">
+                <div className="block">
                   <span className="mb-1 block text-xs font-medium text-gray-600">근무시간</span>
-                  <input
-                    type="text"
-                    value={editCourseWorkHours}
-                    onChange={(e) => setEditCourseWorkHours(e.target.value)}
-                    placeholder="예: 오전 09:00~13:00"
-                    disabled={editCourseSaving}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                  />
-                </label>
+                  <div className="flex gap-2">
+                    {["오전", "오후"].map((label) => {
+                      const parts = editCourseWorkHours.split(",").map(s => s.trim()).filter(Boolean)
+                      const isSelected = parts.includes(label)
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          disabled={editCourseSaving}
+                          onClick={() => {
+                            const next = isSelected
+                              ? parts.filter(p => p !== label)
+                              : [...parts, label]
+                            setEditCourseWorkHours(next.join(", "))
+                          }}
+                          className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                            isSelected
+                              ? "border-[#1976D2] bg-[#1976D2] text-white"
+                              : "border-gray-300 bg-white text-[#333] hover:border-gray-400"
+                          } ${editCourseSaving ? "opacity-50 cursor-not-allowed" : ""}`}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-gray-600">장소</span>
                   <input

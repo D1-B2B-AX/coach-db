@@ -254,7 +254,7 @@ function parseDate(raw: any): Date | null {
 
 async function main() {
   const drive = google.drive({ version: 'v3', auth })
-  const fileId = process.env.GOOGLE_SHEET_ID!
+  const fileId = process.argv[2] || process.env.GOOGLE_SHEET_ID!
 
   // 1. Download file
   console.log('구글시트 다운로드 중...')
@@ -310,6 +310,9 @@ async function main() {
     const manager = String(row[6] || '').trim() // G: 담당Manager
     const cancelCol = String(row[0] || '').trim() // A: 계약서 발송 여부
     const workHoursRaw = row[12] // M: 소정근로일별 근로시간
+    const emailRaw = String(row[13] || '').trim() // N: E-mail 주소
+    const phoneRaw = String(row[14] || '').trim() // O: 연락처
+    const rateRaw = row[8] // I: 기준시급/월급여
 
     // Skip empty rows
     if (!name || !courseName) {
@@ -329,7 +332,13 @@ async function main() {
 
     let coachId = coachByName.get(name)
     if (!coachId) {
-      // 2026년 계약자만 자동 생성
+      if (process.argv[2]) {
+        // 외부 시트: DB에 없는 코치는 무시
+        unmatched++
+        unmatchedNames.add(name)
+        continue
+      }
+      // 기본 시트: 2026년 계약자만 자동 생성
       const startDate = parseDate(startDateRaw)
       if (startDate && startDate.getFullYear() >= 2026) {
         const { generateAccessToken } = await import('../src/lib/coach-auth')
