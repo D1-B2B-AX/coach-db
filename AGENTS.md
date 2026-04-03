@@ -31,4 +31,4 @@ Next.js 16 (App Router) + Tailwind CSS v4 + Prisma + PostgreSQL (Railway) + Next
 | design doc | Clarify에서 스펙 변경 시 직접 수정 (git이 원본 보존) |
 | decisions.md | 매 Clarify 라운드에서 결정 변경 시 |
 | implementation plan | Build 중 Task 완료/변경 시 체크박스 갱신 |
-| CLAUDE.md (이 파일) | 상태 변경 시 |
+| AGENTS.md (이 파일) | 상태 변경 시 |

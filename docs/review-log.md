@@ -1,5 +1,310 @@
 # 구현 후 검수
 
+## 2026-04-01
+
+### 마이페이지 전면 리빌드 — 구인 이력 관리
+
+**브랜치:** `feat/dual-dashboard`
+
+#### 구현 완료
+
+**탭 구조 & 데이터 표시**
+- 전체 / 컨택중 / 확정 / 취소 4개 탭
+- 전체 탭: 모든 상태 (취소 포함) 표시
+- 취소 탭: 복구 버튼으로 컨택중 상태로 되돌리기
+- 그리드 컬럼: 체크박스 → 상태 → 날짜 → 코치명 → 액션
+
+**확정 패널 (과정 정보 입력)**
+- 과정명 텍스트 입력 (선택사항)
+- 시작일/종료일 date picker
+- 날짜 범위 내 모든 날짜 칩 표시 (주말/공휴일 포함, 기본 해제+빨간 스타일)
+- 전체 적용 시간 입력: `9~18`, `9.5~18`(→09:30~18:00), `09:00~18:00` 포맷 지원
+- 날짜별 개별 시간 오버라이드 가능
+- 휴게시간 자동 계산: ≥8시간 → 1H 휴게, ≥4시간 → 0.5H 휴게
+- 출력 포맷: `2026-04-07(월) 09:00 ~ 18:00 (휴게 1H, 총 8H)`
+- 확정 시 과정명/시작일/종료일/근로시간 모두 DB 저장
+
+**확정 후 수정/취소**
+- 확정 항목에 수정/취소 버튼
+- 수정 시 DB에 저장된 과정명을 패널에 로드
+- 수정 후 재확정 시 DB 업데이트
+
+**다중선택 + 내보내기**
+- 체크박스 다중선택 → 클립보드 복사 / 엑셀 다운로드
+- DB에 저장된 데이터 기반 (확정 패널 열지 않아도 복사 가능)
+- 엑셀 컬럼: 빈칸, 신규V, 빈칸, 사번, 성명, 담당직무, 매니저, 과정명, 15000, 시작일, 종료일, 빈칸, 근로시간, 이메일, 연락처, 빈칸, 빈칸
+- 클립보드 복사: 헤더 제외, 탭 구분
+- 엑셀: 헤더 포함
+
+**DB 스키마 변경**
+- Scouting 모델에 `courseName`, `hireStart`, `hireEnd`, `scheduleText` 필드 추가
+- 마이그레이션 2개: `20260401_scouting_course_name`, `20260401_scouting_hire_schedule`
+
+**API 변경**
+- GET `/api/scoutings`: try-catch 에러 핸들링 추가, 새 필드 select에 포함
+- PATCH `/api/scoutings/:id`: courseName/hireStart/hireEnd/scheduleText 저장 지원, 'scouting' 상태 복구 허용
+
+**대시보드 연동**
+- 대시보드 컨택중 토글 → 마이페이지에서 즉시 조회 가능
+- 대시보드 초기 로드 시 날짜 자동 선택 제거 (selectedStart: null)
+
+#### 주요 버그 수정
+- Prisma client 캐시 문제: 스키마 변경 후 `.next` 캐시가 stale → `prisma generate` + `.next` 삭제로 해결
+- `buildSheetRow`에서 `lines` 변수 중복 정의 → `outputLines` 참조로 수정
+- 내보내기가 페이지 상태에 의존하던 문제 → DB 저장 데이터 기반으로 아키텍처 변경
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `prisma/schema.prisma` | Scouting에 courseName/hireStart/hireEnd/scheduleText 추가 |
+| `prisma/migrations/20260401_scouting_course_name/` | course_name 컬럼 추가 |
+| `prisma/migrations/20260401_scouting_hire_schedule/` | hire_start/hire_end/schedule_text 컬럼 추가 |
+| `src/app/(manager)/mypage/page.tsx` | 전면 리빌드 — 탭/확정패널/내보내기 |
+| `src/app/api/scoutings/route.ts` | 에러 핸들링 + 새 필드 select |
+| `src/app/api/scoutings/[id]/route.ts` | 과정 정보 저장 + 복구 상태 허용 |
+| `src/app/(manager)/dashboard/_components/DashboardContent.tsx` | 초기 날짜 선택 제거 |
+
+#### 확인 필요
+- [ ] 대시보드 컨택중 토글 → 마이페이지 조회 정상
+- [ ] 확정 패널에서 과정 정보 입력 → DB 저장 확인
+- [ ] 다중선택 → 클립보드 복사 (DB 저장 데이터 기반)
+- [ ] 다중선택 → 엑셀 다운로드 포맷 확인
+- [ ] 취소 → 복구 정상 동작
+- [ ] 확정 후 수정 → 과정명 로드 + 재저장
+
+---
+
+### UI 소소한 개선
+- 코치 상세 스케줄: 선택중 색상을 오렌지→blue-gray로 변경 (섭외중과 구분)
+- 시간대 라벨: "오전+오후" → "오전, 오후" 쉼표 구분으로 변경
+- 전체 코치 목록: 등록 버튼 높이를 검색창/필터와 동일하게 맞춤
+- 코치뷰 저장 버튼: "✓ 저장됨" 2초 후 "저장하기"로 자동 복귀
+
+---
+
+### 마이페이지 섭외 기능 검증 (validated-plan)
+
+#### 버그 수정
+- **confirmed→confirmed 전환 불가 (수정 재확정 409 에러):** `scouting-state-machine.ts`에 `{ from: 'confirmed', to: 'confirmed', actor: 'manager' }` 전환 규칙 누락. 추가하여 해결.
+- **GET /api/scoutings 보안 갭:** `managerId`를 클라이언트 query parameter 그대로 사용 → 다른 매니저의 섭외 건 조회 가능. `auth.manager.id`로 서버 강제 수정.
+
+#### 검증 결과 (이상 없음)
+- TSV 17열 전수 대조: `buildSheetRow` ↔ `SHEET_HEADERS` 불일치 0개
+- `tsvCell` RFC 4180 준수: 줄바꿈→더블쿼트 감싸기, 내부 `"`→이중화
+- 다날짜 순차 확정 UX: 과정 정보 state 유지 / 낙관적 갱신 비제거(`prev.map`) / 필터 자동 전환 없음
+- '일련의 과정' placeholder 섹션 추가 (`mypage/page.tsx` 하단)
+- Validation v2 28/28 pass, 테스트 24/24 pass, tsc 에러 0개
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/lib/scouting-state-machine.ts` | confirmed→confirmed 전환 추가 |
+| `src/lib/__tests__/scouting-state-machine.test.ts` | 전환+알림 테스트 2건 추가 |
+| `src/app/api/scoutings/route.ts` | GET managerId 서버 강제 |
+| `src/app/(manager)/mypage/page.tsx` | 일련의 과정 빈 영역 추가 |
+
+---
+
+### 인앱 알림 시스템
+
+#### 구현 완료
+- 섭외 상태 머신 9행 전이 규칙 + 알림 트리거 T1~T5 매핑
+- Notification / PushSubscription DB 모델
+- 매니저용: 알림 API (목록/안읽은수/읽음처리) + NotificationBell + NotificationDropdown
+- 코치용: 알림 API + CoachNotificationBell + ScoutingAlerts (수락/거절 배너)
+- Web Push: VAPID 키 설정, Service Worker (`public/sw.js`), `usePushSubscription` 훅
+- 벨 첫 클릭 시 Push 구독 자동 요청, VAPID 키 없으면 Push만 스킵 (인앱 알림 정상 동작)
+
+#### 통합 지점
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/components/Header.tsx` | NotificationBell 추가 |
+| `src/components/coach/CoachHeader.tsx` | CoachNotificationBell 추가 |
+| `src/app/coach/page.tsx` | ScoutingAlerts 추가 |
+
+#### 동작 방식
+1. 벨 클릭 → 브라우저 "알림 허용?" → 허용 시 공개키로 Push 구독 등록 → DB 저장
+2. 섭외/수락/확정 이벤트 → 비공개키로 서명 → Push 발송
+3. VAPID 키 미설정 시 Push만 비발송, 인앱 알림(벨+드롭다운) 정상
+
+---
+
+### 대시보드 분리 (일반 + 삼전)
+
+**브랜치:** `feat/dual-dashboard` (코드 완료, 미머지)
+
+#### 구현 완료
+- 일반 대시보드(`/dashboard`): 삼전DX 4월부터, 삼전DS 5월부터 12월까지 숨김
+- 삼전 대시보드(`/dashboard/samsung`): 삼전 DS+DX 코치만 표시, admin/samsung_admin만 접근
+- 환경변수로 숨김 범위 설정 (`SAMSUNG_DS_HIDE_FROM`, `SAMSUNG_DX_HIDE_FROM`, `SAMSUNG_HIDE_UNTIL`)
+- API `coachFilter` 파라미터 추가 (월간 요약 + 일별 상세)
+- `DashboardContent` 공통 컴포넌트 추출 (variant prop)
+- `/api/auth/me` 엔드포인트 생성 (매니저 role 조회)
+- 헤더 네비게이션: 대시보드 | 삼전 대시보드 | 전체 코치
+- 삼전 대시보드 기본 시간 필터: 오전+오후 (08-18)
+- 새로고침 버튼 색상: 평소 연회색, 동기화 중 파란색
+
+#### 배포 시 할 일
+- [ ] `feat/dual-dashboard` → `main` 머지
+- [ ] Railway 환경변수 3개 추가 (SAMSUNG_DS_HIDE_FROM=2026-05, SAMSUNG_DX_HIDE_FROM=2026-04, SAMSUNG_HIDE_UNTIL=2026-12)
+- [ ] 일반 대시보드에서 삼전 코치 숨김 확인
+- [ ] 삼전 대시보드 권한 체크 확인
+- [ ] samsung_admin role 매니저 지정
+
+---
+
+### 코치 스케줄 입력 UI 전면 개편
+
+#### 구현 완료
+- 30개 시간슬롯 개별선택 → 4버튼(오전/오후/저녁/전일)으로 단순화
+- 날짜별 인라인 시간선택
+- 전체 일괄 토글(bulk toggle) 기능 추가
+- 캘린더 월 범위: 이번달~12월 제한
+- 미저장 변경사항 confirm 다이얼로그 추가
+- 불가 날짜 재토글 버그 수정
+
+#### 확인 필요
+- [ ] 4버튼 토글 정상 동작
+- [ ] bulk toggle로 전체 날짜 일괄 변경
+- [ ] 미저장 변경 시 페이지 이탈 경고
+
+---
+
+### 대시보드/코치상세 UI 통일
+
+#### 구현 완료
+- TIME_PRESETS 통일 (오전 08-13 / 오후 13-18 / 저녁 18-22)
+- 새로고침 텍스트 버튼
+- '가용 시간' → '가능 시간대' 라벨 변경
+
+---
+
+### 스케줄 데이터 보호
+
+#### 구현 완료
+- 코치 스케줄 저장 시 R2에 비동기 백업 (fire-and-forget)
+- CoachSchedule `onDelete: Restrict` 적용
+
+#### 확인 필요
+- [ ] 스케줄 저장 시 R2 백업 정상
+- [ ] 코치 삭제 시 스케줄 있으면 차단
+
+---
+
+### 삼전 코치 스케줄 열람 제한
+
+#### 구현 완료
+- ScheduleTab에서 삼전DS/DX 코치 스케줄 월별 제한
+  - DS: 다음달부터 숨김 (매월 마지막주 월요일 이후 1개월 추가 열람)
+  - DX: 이번달부터 숨김 (매월 마지막주 월요일 이후 1개월 추가 열람)
+- 제한 시: fetch 스킵, 접속상태/새로고침/범례/우측패널 숨김
+- 안내 배너 표시: "삼전 우선 배정 코치로, 다음 달 스케줄은 매월 마지막 주 월요일 이후 공개됩니다. 양해 부탁드립니다."
+- DX 로직 버그 수정 (지난달 마지막주 월요일 기준으로 변경)
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/components/coaches/detail/ScheduleTab.tsx` | 삼전 제한 로직 + 배너 UI |
+| `src/app/(manager)/coaches/[id]/page.tsx` | workType prop 전달 |
+
+---
+
+### 삼전 코치 self_note 정리
+
+- 26명 삼전 코치 `self_note`에서 컨택 제한 안내 문구 일괄 삭제
+- "삼전 전용으로 면접보신 분들이니 절대 컨택 X..." 3줄 블록 제거
+- 개인 메모(취업 완, 강사 희망 등)는 보존
+- PostgreSQL `regexp_replace`로 처리 (로컬 DB)
+
+---
+
+### 대시보드 시간대별 가용 판정 강화
+
+- 투입 일정이 시간대(오전/오후/저녁)에 1슬롯이라도 겹치면 해당 시간대 전체 불가능 처리
+- `clearOverlappingPeriods()` 함수 추가
+- 테스트 4개 추가
+
+---
+
+### 코치뷰 컨택 예정 표시
+
+#### 구현 완료
+- 컨택중 날짜 선택 시 캘린더 아래(시간 버튼 위)에 "컨택 예정 — OOO 매니저" 노란 배너
+- 캘린더 셀 tooltip에도 "컨택 예정 (OOO 매니저)" 표시
+- coach schedule API에 scouting 데이터 포함 응답
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/components/coach/ScheduleCalendar.tsx` | 컨택 예정 배너 + tooltip |
+| `src/app/coach/page.tsx` | scoutings 타입 추가 |
+
+---
+
+### 컨택중 표시 — 코치 상세
+
+#### 구현 완료
+- ScheduleTab에서 가능+컨택중 셀: 초록 배경+주황 테두리
+- 날짜 클릭 시 우측 패널에 가능시간 + "컨택중 — 매니저이름" 한 줄 표시
+- coach schedule API에 scouting 데이터 포함 응답
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/components/coaches/detail/ScheduleTab.tsx` | 컨택중 셀 스타일 + 패널 표시 |
+
+---
+
+### UI 개선
+
+- "종일" → "전일" 라벨 변경 (코치뷰)
+- 확정된 시간대 버튼 파란색+비활성 처리
+- 시간 요약에 "약" 접두어 추가
+- 벌크선택 라벨 "전체" → "모두 선택"
+- 오전+오후+저녁이면 "전일"로 축약 표시
+- 오늘 날짜: 테두리 → 글씨 크게+볼드+밑줄 (3개 캘린더 모두)
+- "섭외중" → "컨택중" 용어 변경 전체 사이트 반영
+- 마이페이지 UI 리디자인: 필터 칩+grid 테이블+rounded-2xl 카드, 제목 "내 섭외 현황"→"구인 이력"
+- 로고 블루(#4A65EA) 전체 적용 시도 → Material Blue(#1976D2)로 원복
+
+---
+
+### 대시보드 — 컨택중 버튼 버그 수정
+
+- 원인: Prisma client에 Scouting.status 필드 누락 (migration 적용 후 `prisma generate` 미실행)
+- Turbopack 캐시가 stale client 계속 제공 → dev server 종료 + `.next/dev`, `.next/cache` 삭제 후 재시작으로 해결
+- `handleScoutToggle`에 에러 핸들링 추가: 실패 시 toast 메시지 + console.error
+- POST `/api/scoutings`에 try-catch 추가: 에러 메시지 응답 반환
+
+---
+
+### 대시보드 — 가능 시간대 표시 병합
+
+- 개별 스케줄 블록(오전, 오후, 저녁)을 min start / max end로 합산하여 단일 라벨 표시
+- `formatScheduleLabel()` 함수 추가: 오전 / 오후 / 저녁 / 오전·오후 / 오후·저녁 / 전일
+- 기존 `coach.schedules.map(formatTimeRange).join(", ")` → `formatScheduleLabel(coach.schedules)`
+
+---
+
+### 마이페이지 — 확정 시 구글시트용 클립보드 복사
+
+- 확정 버튼 클릭 → 과정명 인라인 입력(Enter/Esc 키보드 지원) → PATCH API 호출
+- PATCH `/api/scoutings/:id`: status=confirmed 시 코치 정보(사번/이름/직무/이메일/연락처) + 매니저 이름 응답
+- 프론트에서 A~Q열 tab-separated 행 생성 후 `navigator.clipboard.writeText`로 복사
+- "복사됨!" 뱃지 3초간 표시
+- 처음엔 Sheets API v4 직접 쓰기로 구현 → 프로덕션 데이터 안전 위해 복붙 방식으로 전환
+
+#### 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/api/scoutings/[id]/route.ts` | 확정 시 sheetRow 데이터 응답 추가 |
+| `src/app/(manager)/mypage/page.tsx` | 과정명 입력 UI + 클립보드 복사 로직 |
+| `src/components/dashboard/DashboardCoachList.tsx` | `formatScheduleLabel()` 추가 |
+| `src/app/(manager)/dashboard/_components/DashboardContent.tsx` | 에러 핸들링 추가 |
+| `src/app/api/scoutings/route.ts` | try-catch 에러 응답 추가 |
+
+---
+
 ## 2026-03-25
 
 ### 로그인 페이지

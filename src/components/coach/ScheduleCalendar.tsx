@@ -158,7 +158,7 @@ export default function ScheduleCalendar({
           }
 
           if (isToday && !isSelected) {
-            cellClass += " text-base font-bold underline underline-offset-2"
+            cellClass += " ring-2 ring-[#1976D2] text-[#0D47A1] font-semibold"
           }
 
           const handleClick = () => {
@@ -171,17 +171,29 @@ export default function ScheduleCalendar({
           }
 
           return (
-            <div key={key} className={cellClass} onClick={handleClick} title={isScouted ? `컨택 예정 (${scoutingDates!.get(key)} 매니저)` : undefined}>
+          <div key={key} className={cellClass} onClick={handleClick} title={isScouted ? `찜꽁중 (${scoutingDates!.get(key)} 매니저)` : undefined}>
               {d}
             </div>
           )
         })}
       </div>
 
+      {/* Calendar legend */}
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-[#6B7280]">
+        <div className="flex items-center gap-1">
+          <span className="h-3 w-3 rounded border border-[#FFB74D] bg-[#E8F5E9]" />
+          <span>녹색 배경 · 찜꽁+가용</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="h-3 w-3 rounded border border-[#FFB74D] bg-white" />
+          <span>주황 테두리 · 찜꽁만</span>
+        </div>
+      </div>
+
       {/* Scouting notice for selected day */}
       {selectedDay && scoutingDates?.has(selectedDay) && (
         <div className="mt-3 rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2 text-sm">
-          <span className="font-semibold text-[#E65100]">컨택 예정</span>
+          <span className="font-semibold text-[#E65100]">찜꽁중</span>
           {scoutingDates.get(selectedDay) && (
             <span className="text-[#795548]"> — {scoutingDates.get(selectedDay)} 매니저</span>
           )}
