@@ -59,12 +59,12 @@ function parseWorkSchedules(raw: any, contextYear?: number): WorkSchedule[] {
     )
     if (spanMatch) {
       results.push({
-        date: new Date(defYear, +spanMatch[1] - 1, +spanMatch[2]),
+        date: new Date(Date.UTC(defYear, +spanMatch[1] - 1, +spanMatch[2])),
         startTime: spanMatch[3].padStart(5, '0'),
         endTime: '23:59',
       })
       results.push({
-        date: new Date(defYear, +spanMatch[4] - 1, +spanMatch[5]),
+        date: new Date(Date.UTC(defYear, +spanMatch[4] - 1, +spanMatch[5])),
         startTime: '00:00',
         endTime: spanMatch[6].padStart(5, '0'),
       })
@@ -115,8 +115,8 @@ function extractDates(line: string, defYear: number): Date[] {
       /(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\s*(?:\([^)]*\))?\s*~\s*(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/
     )
     if (m) {
-      const start = new Date(+m[1], +m[2] - 1, +m[3])
-      const end = new Date(+m[4], +m[5] - 1, +m[6])
+      const start = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+      const end = new Date(Date.UTC(+m[4], +m[5] - 1, +m[6]))
       return expandRange(start, end, extractWeekdays(line))
     }
   }
@@ -130,8 +130,8 @@ function extractDates(line: string, defYear: number): Date[] {
       // ~ 뒤가 4자리 연도가 아닌지 확인
       const afterTilde = cleaned.slice(cleaned.indexOf('~') + 1).trim()
       if (!/^\d{4}/.test(afterTilde)) {
-        const start = new Date(+m[1], +m[2] - 1, +m[3])
-        const end = new Date(+m[1], +m[2] - 1, +m[4])
+        const start = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+        const end = new Date(Date.UTC(+m[1], +m[2] - 1, +m[4]))
         return expandRange(start, end, extractWeekdays(line))
       }
     }
@@ -145,7 +145,7 @@ function extractDates(line: string, defYear: number): Date[] {
     while ((m = regex.exec(cleaned)) !== null) {
       const y = +m[1], mo = +m[2], d = +m[3]
       if (y >= 2020 && y <= 2030 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-        dates.push(new Date(y, mo - 1, d))
+        dates.push(new Date(Date.UTC(y, mo - 1, d)))
       }
     }
     if (dates.length > 0) return dates
@@ -157,7 +157,7 @@ function extractDates(line: string, defYear: number): Date[] {
     const regex = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/g
     let m
     while ((m = regex.exec(cleaned)) !== null) {
-      dates.push(new Date(defYear, +m[1] - 1, +m[2]))
+      dates.push(new Date(Date.UTC(defYear, +m[1] - 1, +m[2])))
     }
     if (dates.length > 0) return dates
   }
@@ -170,7 +170,7 @@ function extractDates(line: string, defYear: number): Date[] {
     while ((m = regex.exec(cleaned)) !== null) {
       const mo = +m[1], d = +m[2]
       if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-        dates.push(new Date(defYear, mo - 1, d))
+        dates.push(new Date(Date.UTC(defYear, mo - 1, d)))
       }
     }
     if (dates.length > 0) return dates
@@ -221,10 +221,10 @@ function expandRange(start: Date, end: Date, weekdays?: number[] | null): Date[]
   const cursor = new Date(start)
   let safety = 0
   while (cursor <= end && safety < 366) {
-    if (!weekdays || weekdays.includes(cursor.getDay())) {
+    if (!weekdays || weekdays.includes(cursor.getUTCDay())) {
       dates.push(new Date(cursor))
     }
-    cursor.setDate(cursor.getDate() + 1)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
     safety++
   }
   return dates
@@ -237,7 +237,7 @@ function parseDate(raw: any): Date | null {
   // "2022.11.14" or "2022-11-14"
   const match = str.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
   if (match) {
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
   }
 
   // Excel serial number

@@ -32,9 +32,9 @@ const auth = new google.auth.GoogleAuth({
 function parseDate(raw: string): Date | null {
   if (!raw) return null
   const m = raw.match(/(\d{4})-(\d{1,2})-(\d{1,2})/)
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3])
+  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
   const m2 = raw.match(/(\d{4})[.\s]+(\d{1,2})[.\s]+(\d{1,2})/)
-  if (m2) return new Date(+m2[1], +m2[2] - 1, +m2[3])
+  if (m2) return new Date(Date.UTC(+m2[1], +m2[2] - 1, +m2[3]))
   return null
 }
 
@@ -58,7 +58,7 @@ function parseWorkSchedules(raw: string, contextYear?: number): WorkSchedule[] {
     const m = line.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s*(?:\([^)]*\))?\s*(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/)
     if (m) {
       results.push({
-        date: new Date(+m[1], +m[2] - 1, +m[3]),
+        date: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])),
         startTime: m[4].padStart(5, '0'),
         endTime: m[5].padStart(5, '0'),
       })
@@ -69,7 +69,7 @@ function parseWorkSchedules(raw: string, contextYear?: number): WorkSchedule[] {
     const m2 = line.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(?:\([^)]*\))?\s*(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/)
     if (m2) {
       results.push({
-        date: new Date(+m2[1], +m2[2] - 1, +m2[3]),
+        date: new Date(Date.UTC(+m2[1], +m2[2] - 1, +m2[3])),
         startTime: m2[4].padStart(5, '0'),
         endTime: m2[5].padStart(5, '0'),
       })
