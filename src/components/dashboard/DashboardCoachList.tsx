@@ -282,16 +282,9 @@ export default function DashboardCoachList({
       datePart = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dayNames[d.getDay()]}요일`
     }
 
-    let timePart = ""
-    if (timeFilter !== "all") {
-      const presetLabels: Record<string, string> = { "08-13": "오전", "13-18": "오후", "18-22": "저녁" }
-      timePart = timeFilter.split(",").map((k) => presetLabels[k] || k).join("·")
-    }
-
     return (
       <span className="text-[11px] leading-relaxed text-gray-500">
         <span className="font-medium text-[#333]">{datePart}</span>
-        {timePart && <>{" "}<span className="font-medium text-[#4A78A8]">{timePart}</span></>}
       </span>
     )
   })()
