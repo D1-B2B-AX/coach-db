@@ -273,11 +273,10 @@ export default function DashboardCoachList({
     <Table className="min-w-0 overflow-hidden space-y-0">
       {/* Filter summary + course selector */}
       <div className={`border-b ${TABLE_DIVIDER_COLOR} px-4 py-3 sm:px-5`}>
-        <div className="flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-          {selectedDate ? (
-            <>
-              {selectedIds.size > 0 && onBulkScout && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {selectedDate
+              ? selectedIds.size > 0 && onBulkScout && (
                 <Button
                   onClick={() => onBulkScout([...selectedIds])}
                   variant={selectedCourseId ? "primaryOutline" : "secondary"}
@@ -286,14 +285,12 @@ export default function DashboardCoachList({
                 >
                   찜꽁 ({selectedIds.size})
                 </Button>
-              )}
-            </>
-          ) : (
-            <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
-          )}
+              )
+              : <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
+            }
           </div>
           {courses && onCourseChange && (
-            <div className="flex flex-nowrap items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
               <select
                 value={selectedCourseId ?? ""}
                 onChange={(e) => onCourseChange(e.target.value || null)}
