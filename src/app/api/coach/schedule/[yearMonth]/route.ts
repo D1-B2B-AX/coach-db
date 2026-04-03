@@ -86,9 +86,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: {
         coachId: coach.id,
         date: { gte: startDate, lte: endDate },
+        status: "scouting",
       },
       select: {
         date: true,
+        courseName: true,
+        hireStart: true,
+        hireEnd: true,
         manager: { select: { name: true } },
       },
     }),
@@ -138,6 +142,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     scoutings: scoutings.map((s) => ({
       date: s.date.toISOString().split('T')[0],
       managerName: s.manager.name,
+      courseName: s.courseName ?? null,
+      hireStart: s.hireStart ?? null,
+      hireEnd: s.hireEnd ?? null,
     })),
   })
 }

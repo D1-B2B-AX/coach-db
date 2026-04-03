@@ -45,6 +45,7 @@ interface ScheduleCalendarProps {
   bulkStatus?: boolean[]
   scoutingDates?: Map<string, string>
   dayEngagements?: { courseName: string; timeText: string }[]
+  dayScoutings?: { managerName: string; courseName: string | null; hireStart: string | null; hireEnd: string | null }[]
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -64,6 +65,7 @@ export default function ScheduleCalendar({
   onBulkToggle,
   bulkStatus,
   dayEngagements,
+  dayScoutings,
   scoutingDates,
   onPrevMonth,
   onNextMonth,
@@ -223,18 +225,30 @@ export default function ScheduleCalendar({
         </div>
       )}
 
-      {/* Scouting notice for selected day */}
-      {selectedDay && scoutingDates?.has(selectedDay) && (
-        <div className="mt-3 rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2 text-sm">
-          <span className="font-semibold text-[#E65100]">찜꽁중</span>
-          {scoutingDates.get(selectedDay) && (
-            <span className="text-[#795548]"> — {scoutingDates.get(selectedDay)} 매니저</span>
-          )}
+      {/* Scouting details for selected day */}
+      {selectedDay && dayScoutings && dayScoutings.length > 0 && (
+        <div
+          className="mt-3 cursor-pointer rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2.5 transition-colors hover:bg-[#FFF3CC]"
+          onClick={() => document.getElementById("scouting-alerts")?.scrollIntoView({ behavior: "smooth" })}
+        >
+          {dayScoutings.map((s, i) => (
+            <div key={i} className={i > 0 ? "mt-1.5 border-t border-[#FFE082]/50 pt-1.5" : ""}>
+              {s.courseName && (
+                <div className="text-[13px] font-semibold text-[#E65100]">{s.courseName}</div>
+              )}
+              <div className="text-[12px] text-[#795548]">
+                {s.managerName} 매니저
+                {s.hireStart && s.hireEnd && (
+                  <span className="ml-1.5 text-[#A1887F]">{s.hireStart}~{s.hireEnd}</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Time buttons — below calendar, fixed position (hidden when engagement details shown) */}
-      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && (
+      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && !(dayScoutings && dayScoutings.length > 0) && (
         <>
           <div className="mt-4">
             <div className="grid grid-cols-4 gap-1.5">

@@ -48,7 +48,7 @@ function formatManagerLabel(name?: string | null, email?: string | null): string
   return `${base} · ${email.trim()}`
 }
 
-export default function ScoutingAlerts({ token }: { token: string }) {
+export default function ScoutingAlerts({ token, onAction }: { token: string; onAction?: () => void }) {
   const [alerts, setAlerts] = useState<ScoutingNotification[]>([])
   const [acting, setActing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
@@ -142,6 +142,9 @@ export default function ScoutingAlerts({ token }: { token: string }) {
   async function handleAction(alert: ScoutingNotification, action: "accept" | "reject") {
     if (!alert.data?.scoutingId) return
 
+    if (action === "accept") {
+      if (!confirm("수락하시겠습니까?")) return
+    }
     if (action === "reject") {
       if (!confirm("정말 거절하시겠습니까?")) return
     }
@@ -162,6 +165,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
           method: "PATCH",
         })
         setAlerts((prev) => prev.filter((a) => a.id !== alert.id))
+        onAction?.()
       } else if (res.status === 409) {
         window.alert("이 섭외는 매니저에 의해 취소되었습니다.")
         fetchAlerts()
@@ -227,7 +231,7 @@ export default function ScoutingAlerts({ token }: { token: string }) {
                         </span>
                       </div>
                       <p className="text-[12px] text-[#6B7280]">
-                        {formatManagerLabel(a.data?.managerName ?? null, a.data?.managerEmail ?? null)}
+                        {a.data?.managerName?.trim() ? `${a.data.managerName.trim()} 매니저` : "매니저 미정"}
                       </p>
                       {a.enriched?.note && (
                         <p className="line-clamp-2 text-[12px] leading-relaxed text-[#374151]">
@@ -275,68 +279,42 @@ export default function ScoutingAlerts({ token }: { token: string }) {
         </div>
       </div>
       {modalTarget && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8E9BA8]">
-                  날짜
-                </p>
-                <p className="text-lg font-semibold text-[#1F2937]">
-                  {formatAlertDate(modalTarget.date)}
-                  {" "}
-                  {formatAlertTime(modalTarget.hireStart ?? null, modalTarget.hireEnd ?? null)}
-                </p>
-                {(modalTarget.managerName || modalTarget.managerEmail) && (
-                  <p className="text-[12px] font-medium text-[#4B5563]">
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setModalTarget(null)} />
+          <div className="fixed top-1/2 left-1/2 z-50 w-72 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white px-5 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.15)]">
+            <div className="text-[15px] font-semibold text-[#222]">
+              {modalTarget.courseName || "과정명 없음"}
+            </div>
+            <div className="mt-3 space-y-1.5 text-[13px] text-[#555]">
+              <div>
+                <span className="text-[#999]">일시</span>
+                <span className="ml-2 font-medium text-[#333]">
+                  {formatAlertDate(modalTarget.date)} {formatAlertTime(modalTarget.hireStart ?? null, modalTarget.hireEnd ?? null)}
+                </span>
+              </div>
+              {(modalTarget.managerName || modalTarget.managerEmail) && (
+                <div>
+                  <span className="text-[#999]">매니저</span>
+                  <span className="ml-2 font-medium text-[#333]">
                     {formatManagerLabel(modalTarget.managerName, modalTarget.managerEmail)}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setModalTarget(null)}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="닫기"
-              >
-                ✕
-              </button>
+                  </span>
+                </div>
+              )}
+              {modalTarget.note && (
+                <div>
+                  <span className="text-[#999]">메모</span>
+                  <span className="ml-2 text-[#333]">{modalTarget.note}</span>
+                </div>
+              )}
             </div>
-            <div className="mt-4 space-y-5 text-[#1F2937]">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
-                  과정명
-                </p>
-                <p className="mt-1 text-xl font-semibold leading-tight text-[#1976D2]">
-                  {modalTarget.courseName || "과정명 없음"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
-                  제안한 매니저
-                </p>
-                <p className="mt-1 text-sm font-medium text-[#111]">
-                  {formatManagerLabel(modalTarget.managerName, modalTarget.managerEmail)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8E9BA8]">
-                  과정 설명
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-[#374151]">
-                  {modalTarget.note ?? "설명이 등록되어 있지 않습니다."}
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setModalTarget(null)}
-                className="rounded-full border border-[#E5E7EB] bg-white px-4 py-1.5 text-sm font-semibold text-[#374151] hover:bg-gray-50 transition-colors"
-              >
-                닫기
-              </button>
-            </div>
+            <button
+              onClick={() => setModalTarget(null)}
+              className="mt-4 block w-full cursor-pointer rounded-lg bg-[#F5F5F5] py-2 text-center text-[13px] text-[#666] hover:bg-[#EBEBEB] transition-colors"
+            >
+              닫기
+            </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

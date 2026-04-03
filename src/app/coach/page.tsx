@@ -50,6 +50,14 @@ interface EngagementScheduleEntry {
   status: string
 }
 
+interface ScoutingEntry {
+  date: string
+  managerName: string
+  courseName: string | null
+  hireStart: string | null
+  hireEnd: string | null
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 const UNAVAILABLE_SENTINEL = "00:00" // startTime === endTime === "00:00" → 불가
@@ -243,7 +251,8 @@ function CoachScheduleContent() {
   const [engagements, setEngagements] = useState<Engagement[]>([])
   const [engSchedules, setEngSchedules] = useState<EngagementScheduleEntry[]>([])
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
-  const [scoutingDates, setScoutingDates] = useState<Map<string, string>>(new Map())
+  const [scoutingEntries, setScoutingEntries] = useState<ScoutingEntry[]>([])
+
 
   // Editing state — working copy that only modifies the "available" slots
   const [editingSlots, setEditingSlots] = useState<Map<string, Set<string>>>(new Map())
@@ -317,6 +326,15 @@ function CoachScheduleContent() {
     return set
   }, [editingSlots])
 
+  // Derived: scouting dates map (for calendar cell styling)
+  const scoutingDates = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of scoutingEntries) {
+      map.set(s.date, s.managerName)
+    }
+    return map
+  }, [scoutingEntries])
+
   // ─── API calls ──────────────────────────────────────────────────
 
   const headers = useMemo(
@@ -342,7 +360,7 @@ function CoachScheduleContent() {
         engagements: Engagement[]
         engagementSchedules: EngagementScheduleEntry[]
         lastSavedAt: string | null
-        scoutings?: { date: string; managerName: string }[]
+        scoutings?: ScoutingEntry[]
       }
     },
     [headers]
@@ -377,11 +395,7 @@ function CoachScheduleContent() {
         setEngagements(scheduleData.engagements)
         setEngSchedules(scheduleData.engagementSchedules || [])
         setLastSavedAt(scheduleData.lastSavedAt)
-        const scoutMap = new Map<string, string>()
-        for (const s of scheduleData.scoutings || []) {
-          scoutMap.set(s.date, s.managerName)
-        }
-        setScoutingDates(scoutMap)
+        setScoutingEntries(scheduleData.scoutings || [])
         setError(null)
       } catch (e: any) {
         setError(e.message || "데이터를 불러오는 중 오류가 발생했습니다")
@@ -446,11 +460,7 @@ function CoachScheduleContent() {
         setEngagements(data.engagements)
         setEngSchedules(data.engagementSchedules || [])
         setLastSavedAt(data.lastSavedAt)
-        const scoutMap = new Map<string, string>()
-        for (const s of data.scoutings || []) {
-          scoutMap.set(s.date, s.managerName)
-        }
-        setScoutingDates(scoutMap)
+        setScoutingEntries(data.scoutings || [])
       } catch {
         showToast("일정을 불러오지 못했습니다")
       }
@@ -769,6 +779,10 @@ function CoachScheduleContent() {
       })()
     : []
 
+  const selectedDayScoutings = selectedDay
+    ? scoutingEntries.filter(s => s.date === selectedDay)
+    : []
+
   // 비활성 코치 → 안내 화면
   if (coachInfo?.status === "inactive") {
     return (
@@ -818,6 +832,7 @@ function CoachScheduleContent() {
               onBulkToggle={handleBulkToggle}
               bulkStatus={bulkStatus}
               dayEngagements={selectedDayEngagements}
+              dayScoutings={selectedDayScoutings}
               scoutingDates={scoutingDates}
               selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
               confirmedSlots={currentDayConfirmed}
@@ -841,7 +856,11 @@ function CoachScheduleContent() {
         {/* 받은 요청 — 나의 스케줄 박스 아래 */}
         {token && (
           <div id="scouting-alerts" className="w-full scroll-mt-4">
-            <ScoutingAlerts token={token} />
+            <ScoutingAlerts token={token} onAction={async () => {
+              const ym = yearMonthStr(currentYear, currentMonth)
+              const data = await fetchSchedule(ym)
+              setScoutingEntries(data.scoutings || [])
+            }} />
           </div>
         )}
 
