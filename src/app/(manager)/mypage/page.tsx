@@ -655,34 +655,37 @@ export default function MyPage() {
             return (
               <div key={group.id ?? "__null"} className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden">
                 {/* 아코디언 헤더 */}
-                <button
-                  onClick={() => toggleAccordion(group.id)}
-                  className="w-full flex items-center gap-3 px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▶</span>
-                  <span className="font-semibold text-sm text-[#333]">{group.name}</span>
-                  <span className="text-[11px] text-gray-400">{formatPeriod(group.startDate, group.endDate)}</span>
+                <div className="flex w-full">
+                  <button
+                    onClick={() => toggleAccordion(group.id)}
+                    className="flex-1 flex items-center gap-3 px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▶</span>
+                    <span className="font-semibold text-sm text-[#333]">{group.name}</span>
+                    <span className="text-[11px] text-gray-400">{formatPeriod(group.startDate, group.endDate)}</span>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      {(["scouting", "accepted", "confirmed", "rejected"] as const).map(st => {
+                        const count = statusCounts[st] || 0
+                        if (count === 0) return null
+                        const cfg = STATUS_CONFIG[st]
+                        return (
+                          <span key={st} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.className}`}>
+                            {cfg.label}({count})
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </button>
                   {group.id && (
                     <button
                       onClick={(e) => { e.stopPropagation(); openEditCourse(group.id!) }}
-                      className="cursor-pointer rounded-full px-2 py-0.5 text-[10px] text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+                      className="flex-shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[10px] text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+                      type="button"
                     >
                       수정
                     </button>
                   )}
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    {(["scouting", "accepted", "confirmed", "rejected"] as const).map(st => {
-                      const count = statusCounts[st] || 0
-                      if (count === 0) return null
-                      const cfg = STATUS_CONFIG[st]
-                      return (
-                        <span key={st} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.className}`}>
-                          {cfg.label}({count})
-                        </span>
-                      )
-                    })}
-                  </div>
-                </button>
+                </div>
 
                 {/* 아코디언 내용 */}
                 {isOpen && (

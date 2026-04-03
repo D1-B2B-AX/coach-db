@@ -11,6 +11,8 @@ interface CoachHeaderProps {
   onProfile?: () => void
 }
 
+const BUTTON_BASE = "inline-flex h-10 items-center justify-center rounded-md bg-white/20 text-white backdrop-blur-sm transition-colors"
+
 export default function CoachHeader({
   coachName,
   token,
@@ -82,7 +84,7 @@ export default function CoachHeader({
           {token && (
             <button
               onClick={scrollToAlerts}
-              className="relative cursor-pointer rounded-md bg-white/20 px-3 py-1.5 text-[13px] font-medium text-white backdrop-blur-sm hover:bg-white/30 transition-colors"
+              className={`${BUTTON_BASE} relative px-3 text-[13px] font-medium hover:bg-white/30`}
             >
               받은 요청
               {unreadCount > 0 && (
@@ -95,8 +97,9 @@ export default function CoachHeader({
           {onProfile && (
             <button
               onClick={onProfile}
-              className="cursor-pointer rounded-md bg-white/10 px-2 py-1 text-white backdrop-blur-sm hover:bg-white/30 transition-colors"
+              className={`${BUTTON_BASE} w-10 px-0 hover:bg-white/30`}
               title="프로필 수정"
+              type="button"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             </button>
