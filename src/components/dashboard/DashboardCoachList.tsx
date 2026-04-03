@@ -136,7 +136,7 @@ export default function DashboardCoachList({
   onRatingFilterChange,
   engagementFilter,
   onEngagementFilterChange,
-  scoutedCoachIds,
+  scoutingManagers,
   onBulkScout,
   courses,
   selectedCourseId,

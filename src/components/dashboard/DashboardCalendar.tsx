@@ -97,10 +97,10 @@ export default function DashboardCalendar({
           })}
           {timeFilter !== "all" && (() => {
             const ranges = timeFilter.split(",").sort()
-            const minH = Math.min(...ranges.map(r => parseInt(r.split("-")[0])))
-            const maxH = Math.max(...ranges.map(r => parseInt(r.split("-")[1])))
+            const minH = Math.min(...ranges.map((r) => parseInt(r.split("-")[0])))
+            const maxH = Math.max(...ranges.map((r) => parseInt(r.split("-")[1])))
             return (
-              <span className="ml-1 text-[10px] text-gray-400">
+              <span className="ml-1 hidden text-[10px] text-gray-400 md:inline">
                 약 {minH}-{maxH}시
               </span>
             )
