@@ -44,6 +44,7 @@ interface ScheduleCalendarProps {
   onBulkToggle?: (start: string, end: string) => void
   bulkStatus?: boolean[]
   scoutingDates?: Map<string, string>
+  dayEngagements?: { courseName: string; timeText: string }[]
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -62,6 +63,7 @@ export default function ScheduleCalendar({
   onToggleSlot,
   onBulkToggle,
   bulkStatus,
+  dayEngagements,
   scoutingDates,
   onPrevMonth,
   onNextMonth,
@@ -209,6 +211,18 @@ export default function ScheduleCalendar({
         ))}
       </div>
 
+      {/* Confirmed engagement details for selected day */}
+      {selectedDay && dayEngagements && dayEngagements.length > 0 && (
+        <div className="mt-3 rounded-lg bg-[#E3F2FD] border border-[#BBDEFB] px-3 py-2.5">
+          {dayEngagements.map((eng, i) => (
+            <div key={i} className={i > 0 ? "mt-1.5 border-t border-[#BBDEFB]/50 pt-1.5" : ""}>
+              <div className="text-[13px] font-semibold text-[#1565C0]">{eng.courseName}</div>
+              <div className="text-[12px] text-[#5C6BC0]">{eng.timeText}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Scouting notice for selected day */}
       {selectedDay && scoutingDates?.has(selectedDay) && (
         <div className="mt-3 rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2 text-sm">
@@ -219,8 +233,8 @@ export default function ScheduleCalendar({
         </div>
       )}
 
-      {/* Time buttons — below calendar, fixed position */}
-      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && (
+      {/* Time buttons — below calendar, fixed position (hidden when engagement details shown) */}
+      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && (
         <>
           <div className="mt-4">
             <div className="grid grid-cols-4 gap-1.5">

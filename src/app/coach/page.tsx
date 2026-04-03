@@ -753,6 +753,22 @@ function CoachScheduleContent() {
     ? [...new Set(engSchedules.filter(es => es.date === selectedDay && (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")).map(es => cleanCourseName(es.courseName)))]
     : []
 
+  const selectedDayEngagements = selectedDay
+    ? (() => {
+        const entries = engSchedules.filter(
+          es => es.date === selectedDay &&
+          (es.status === "scheduled" || es.status === "in_progress" || es.status === "completed")
+        )
+        const grouped = new Map<string, Set<string>>()
+        for (const es of entries) {
+          const name = cleanCourseName(es.courseName)
+          if (!grouped.has(name)) grouped.set(name, new Set())
+          grouped.get(name)!.add(`${es.startTime}~${es.endTime}`)
+        }
+        return [...grouped.entries()].map(([courseName, times]) => ({ courseName, timeText: [...times].join(", ") }))
+      })()
+    : []
+
   // 비활성 코치 → 안내 화면
   if (coachInfo?.status === "inactive") {
     return (
@@ -801,6 +817,7 @@ function CoachScheduleContent() {
               onToggleSlot={handleToggleSlot}
               onBulkToggle={handleBulkToggle}
               bulkStatus={bulkStatus}
+              dayEngagements={selectedDayEngagements}
               scoutingDates={scoutingDates}
               selectedSlots={selectedDay ? (editingSlots.get(selectedDay) ?? new Set()) : new Set()}
               confirmedSlots={currentDayConfirmed}
