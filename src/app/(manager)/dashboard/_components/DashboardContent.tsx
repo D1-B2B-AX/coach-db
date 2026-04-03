@@ -43,17 +43,29 @@ function formatDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
 
+function buildDateSet(start: string, end: string) {
+  const dates = new Set<string>()
+  const cursor = new Date(`${start}T12:00:00Z`)
+  const limit = new Date(`${end}T12:00:00Z`)
+  while (cursor <= limit) {
+    dates.add(cursor.toISOString().slice(0, 10))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return dates
+}
+
 export default function DashboardContent({ variant }: DashboardContentProps) {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [selectedStart, setSelectedStart] = useState<string | null>(null)
   const [selectedEnd, setSelectedEnd] = useState<string | null>(null)
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [scoutedCoachIds, setScoutedCoachIds] = useState<Set<string>>(new Set())
   const [statusData, setStatusData] = useState<StatusData | null>(null)
-  const [timeFilter, setTimeFilter] = useState<string>(variant === "samsung" ? "08-13,13-18" : "all")
+  const [timeFilter, setTimeFilter] = useState<string>("08-13,13-18")
 
   // For API calls: compute broadest time range from multi-select
   function getApiTimeFilter(): string {
@@ -392,6 +404,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           month={currentMonth}
           selectedStart={selectedStart}
           selectedEnd={selectedEnd}
+          selectedDates={selectedCourseId ? selectedDates : undefined}
           monthData={monthData}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
@@ -400,6 +413,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           canGoNext={canGoNext}
           onToday={handleToday}
           onRefresh={handleSyncAndRefresh}
+          onReset={handleReset}
           syncing={syncing}
           timeFilter={timeFilter}
           onTimeFilterChange={handleTimeFilterChange}
@@ -423,7 +437,25 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onBulkScout={openBulkScoutModal}
           courses={courses}
           selectedCourseId={selectedCourseId}
-          onCourseChange={setSelectedCourseId}
+          onCourseChange={(id) => {
+            setSelectedCourseId(id)
+            if (id) {
+              const course = courses.find((c) => c.id === id)
+              if (course?.startDate) {
+                const sd = course.startDate.slice(0, 10)
+                const ed = course.endDate?.slice(0, 10) || sd
+                const start = new Date(sd + "T12:00:00Z")
+                setCurrentYear(start.getUTCFullYear())
+                setCurrentMonth(start.getUTCMonth())
+                setSelectedStart(sd)
+                setSelectedEnd(ed)
+                // 과정 범위 내 모든 날짜를 selectedDates에 채움
+                setSelectedDates(buildDateSet(sd, ed))
+              }
+            } else {
+              setSelectedDates(new Set())
+            }
+          }}
           onCourseCreate={(course) => setCourses((prev) => [course, ...prev])}
           onReset={handleReset}
         />
