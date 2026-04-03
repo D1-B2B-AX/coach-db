@@ -327,6 +327,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
 
   // 선택된 날짜 범위의 모든 날짜 생성
   function getSelectedDateRange(): string[] {
+    if (selectedCourseId && selectedDates.size > 0) {
+      return [...selectedDates].sort()
+    }
     if (!selectedStart) return []
     if (!selectedEnd) return [selectedStart]
     const dates: string[] = []
@@ -341,9 +344,11 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
 
   function openBulkScoutModal(coachIds: string[]) {
     if (coachIds.length === 0 || !selectedStart) return
-    const selectedCourse = selectedCourseId
-      ? courses.find((c) => c.id === selectedCourseId)
-      : null
+    if (!selectedCourseId) {
+      alert("과정을 먼저 선택해주세요.")
+      return
+    }
+    const selectedCourse = courses.find((c) => c.id === selectedCourseId)
     setBulkCoachIds(coachIds)
     setBulkCourseName(selectedCourse?.name ?? "")
     setBulkCourseDescription("")
