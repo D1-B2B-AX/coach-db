@@ -92,13 +92,13 @@ export default function Header() {
             <NotificationBell />
             <Link
               href="/mypage"
-              className={`whitespace-nowrap text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 pathname === '/mypage'
-                  ? 'text-[#1565C0]'
-                  : 'text-gray-500 hover:text-[#1565C0]'
+                  ? 'bg-[#EBF2FA] text-[#1565C0]'
+                  : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
               }`}
             >
-              {session?.user?.name || session?.user?.email}
+              과정 내역
             </Link>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}

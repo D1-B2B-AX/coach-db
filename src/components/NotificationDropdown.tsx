@@ -65,7 +65,7 @@ export default function NotificationDropdown({
   }
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 max-h-[400px] overflow-y-auto rounded-xl bg-white shadow-lg border border-gray-200 z-50">
+    <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-h-[70vh] overflow-y-auto rounded-xl bg-white shadow-lg border border-gray-200 z-50">
       <div className="px-4 py-3 border-b border-gray-100">
         <span className="text-sm font-semibold text-[#333]">알림</span>
       </div>
