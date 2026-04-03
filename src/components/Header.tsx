@@ -98,11 +98,12 @@ export default function Header() {
                   : 'text-gray-500 hover:text-[#1565C0] hover:bg-gray-50'
               }`}
             >
-              과정 내역
+              요청 내역
             </Link>
+            <span className="text-sm text-gray-400">{session?.user?.name || session?.user?.email}</span>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="text-sm sm:text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
               로그아웃
             </button>
