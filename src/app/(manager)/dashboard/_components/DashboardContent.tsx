@@ -253,6 +253,19 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleSelectDate(dateStr: string) {
+    if (selectedCourseId && selectedStart && selectedEnd) {
+      if (dateStr >= selectedStart && dateStr <= selectedEnd) {
+        setSelectedDates((prev) => {
+          const next = new Set(prev)
+          if (next.has(dateStr)) next.delete(dateStr)
+          else next.add(dateStr)
+          return next
+        })
+        return
+      }
+      setSelectedCourseId(null)
+      setSelectedDates(new Set())
+    }
     // 이미 선택된 날짜를 다시 누르면 선택 해제
     if (dateStr === selectedStart && !selectedEnd) {
       setSelectedStart(null)
