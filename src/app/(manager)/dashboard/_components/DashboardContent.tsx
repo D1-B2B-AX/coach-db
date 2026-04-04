@@ -206,6 +206,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
   const [showScoutModal, setShowScoutModal] = useState(false)
   const [bulkCoachIds, setBulkCoachIds] = useState<string[]>([])
+  const [bulkDates, setBulkDates] = useState<string[]>([])
   const [bulkCourseName, setBulkCourseName] = useState("")
   const [bulkCourseDescription, setBulkCourseDescription] = useState("")
   const [bulkExtra, setBulkExtra] = useState("")
@@ -507,6 +508,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     }
     const selectedCourse = courses.find((c) => c.id === selectedCourseId)
     setBulkCoachIds(coachIds)
+    setBulkDates(getSelectedDateRange())
     setBulkCourseName(selectedCourse?.name ?? "")
     setBulkCourseDescription(selectedCourse?.description ?? "")
     setBulkExtra("")
@@ -532,7 +534,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       }
     }
 
-    const dates = getSelectedDateRange()
+    const dates = bulkDates
     setBulkSending(true)
     setBulkError("")
     try {
@@ -673,8 +675,10 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
                 setCurrentMonth(start.getUTCMonth())
                 setSelectedStart(rangeStart)
                 setSelectedEnd(rangeEnd)
-                // 과정 범위 내 모든 날짜를 selectedDates에 채움
-                setSelectedDates(buildDateSet(rangeStart, rangeEnd))
+                // 기존 선택 날짜 유지 > workHours 날짜 > 전체 고용기간
+                if (selectedDates.size === 0) {
+                  setSelectedDates(courseDates.length > 0 ? new Set(courseDates) : buildDateSet(rangeStart, rangeEnd))
+                }
               } else {
                 setSelectedStart(null)
                 setSelectedEnd(null)
@@ -703,7 +707,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           >
             <h3 className="text-base font-semibold text-[#333]">컨택 내용 확인</h3>
             <p className="mt-1 text-xs text-gray-500">
-              선택된 코치 {bulkCoachIds.length}명 / {getSelectedDateRange().length}일
+              선택된 코치 {bulkCoachIds.length}명 / {bulkDates.length}일
             </p>
             <div className="mt-4 space-y-3">
               {/* 과정 정보 — 과정에서 가져오되 편집 가능 */}
