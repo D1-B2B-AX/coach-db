@@ -153,7 +153,7 @@ export default function GuidePage() {
         <div className="relative mx-auto max-w-4xl px-8 pt-20 pb-16">
           <p className="text-[13px] font-medium text-white/40 tracking-[0.2em] uppercase mb-4">Getting Started</p>
           <h1 className="text-[36px] sm:text-[44px] font-bold text-white tracking-tight leading-[1.15]">
-            Coach DB<br />사용 가이드
+            코치 DB<br />사용 가이드
           </h1>
           <p className="mt-5 text-[17px] text-white/60 leading-relaxed max-w-md">
             과정 등록부터 계약 작성까지,<br />

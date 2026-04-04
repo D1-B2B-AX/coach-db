@@ -15,7 +15,7 @@ function LoginContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-64 space-y-8 text-center">
-        <img src="/title.png" alt="Coach DB" className="mx-auto h-12" />
+        <img src="/title.png" alt="코치 DB" className="mx-auto h-12" />
 
         {error === "AccessDenied" && (
           <p className="text-red-500 text-sm">
