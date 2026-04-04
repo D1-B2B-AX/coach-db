@@ -35,18 +35,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const timeFilter = searchParams.get('timeFilter')
   const endDateParam = searchParams.get('endDate')
 
-  // Parse time filter
-  let filterStart: string | null = null
-  let filterEnd: string | null = null
+  // Parse time filter — supports comma-separated multiple ranges (e.g. "08-13,18-22")
+  let filterRanges: { startTime: string; endTime: string }[] = []
   if (timeFilter && timeFilter !== 'all') {
     if (timeFilter === 'custom') {
-      filterStart = searchParams.get('customStart')
-      filterEnd = searchParams.get('customEnd')
+      const cs = searchParams.get('customStart')
+      const ce = searchParams.get('customEnd')
+      if (cs && ce) filterRanges = [{ startTime: cs, endTime: ce }]
     } else {
-      const match = timeFilter.match(/^(\d{2})-(\d{2})$/)
-      if (match) {
-        filterStart = `${match[1]}:00`
-        filterEnd = `${match[2]}:00`
+      for (const part of timeFilter.split(',')) {
+        const match = part.trim().match(/^(\d{2})-(\d{2})$/)
+        if (match) {
+          filterRanges.push({ startTime: `${match[1]}:00`, endTime: `${match[2]}:00` })
+        }
       }
     }
   }
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Group avail schedules by coach and date
   const coachDateMap = new Map<string, {
     info: {
-      id: string; name: string; phone: string | null; email: string | null
+      id: string; name: string; phone: string | null; email: string | null; workType: string | null
       fields: string[]
       recentEngagements: { courseName: string; endDate: Date }[]
       engagementCount: number
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!coachDateMap.has(c.id)) {
       coachDateMap.set(c.id, {
         info: {
-          id: c.id, name: c.name, phone: c.phone, email: c.email,
+          id: c.id, name: c.name, phone: c.phone, email: c.email, workType: c.workType,
           fields: c.fields.map((cf) => cf.field.name),
           recentEngagements: c.engagements.map(e => ({ courseName: e.courseName, endDate: e.endDate })),
           engagementCount: (c as any)._count?.engagements ?? 0,
@@ -165,7 +166,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   // Compute net availability per coach (AND across all dates for range queries)
   const resultCoaches: {
-    id: string; name: string; phone: string | null; email: string | null
+    id: string; name: string; phone: string | null; email: string | null; workType: string | null
     schedules: { startTime: string; endTime: string }[]
     fields: string[]
     recentEngagements: { courseName: string; endDate: Date }[]
@@ -194,10 +195,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const busyBm = toBitmap(busyIntervals)
       let remainBm = clearOverlappingPeriods(subtractBitmap(availBm, busyBm), busyBm)
 
-      // Apply time filter
-      if (filterStart && filterEnd) {
-        const filterBm = toBitmap([{ startTime: filterStart, endTime: filterEnd }])
-        remainBm = remainBm.map((v, i) => v && filterBm[i])
+      // Apply time filter: coach must have availability in EVERY selected range (AND logic)
+      if (filterRanges.length > 0) {
+        const passesAll = filterRanges.every(range => {
+          const rangeBm = toBitmap([range])
+          return remainBm.some((v, i) => v && rangeBm[i])
+        })
+        if (!passesAll) continue
       }
 
       if (combinedBm === null) {
@@ -211,7 +215,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     resultCoaches.push({
       id: entry.info.id, name: entry.info.name,
-      phone: entry.info.phone, email: entry.info.email,
+      phone: entry.info.phone, email: entry.info.email, workType: entry.info.workType,
       schedules: toIntervals(combinedBm),
       fields: entry.info.fields,
       recentEngagements: entry.info.recentEngagements,

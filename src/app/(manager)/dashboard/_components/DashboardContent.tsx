@@ -67,17 +67,10 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [statusData, setStatusData] = useState<StatusData | null>(null)
   const [timeFilter, setTimeFilter] = useState<string>("08-13,13-18")
 
-  // For API calls: compute broadest time range from multi-select
+  // For API calls: pass individual time ranges as-is (e.g. "08-13,18-22")
   function getApiTimeFilter(): string {
     if (timeFilter === "all") return "all"
-    const ranges = timeFilter.split(",")
-    let minS = 24, maxE = 0
-    for (const r of ranges) {
-      const [s, e] = r.split("-").map(Number)
-      if (s < minS) minS = s
-      if (e > maxE) maxE = e
-    }
-    return `${String(minS).padStart(2, "0")}-${String(maxE).padStart(2, "0")}`
+    return timeFilter
   }
   const [fieldFilter, setFieldFilter] = useState<string>("all")
   const [ratingFilter, setRatingFilter] = useState<string>("all")
@@ -506,7 +499,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
               setSelectedDates(new Set())
             }
           }}
-          onCourseCreate={(course) => setCourses((prev) => [course, ...prev])}
           onReset={handleReset}
         />
       </div>

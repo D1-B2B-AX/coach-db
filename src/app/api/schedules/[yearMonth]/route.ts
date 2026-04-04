@@ -21,18 +21,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const customStartParam = searchParams.get('customStart')
   const customEndParam = searchParams.get('customEnd')
 
-  // Parse time filter
-  let filterStart: string | null = null
-  let filterEnd: string | null = null
+  // Parse time filter — supports comma-separated multiple ranges (e.g. "08-13,18-22")
+  let filterRanges: { startTime: string; endTime: string }[] = []
   if (timeFilter && timeFilter !== 'all') {
     if (timeFilter === 'custom' && customStartParam && customEndParam) {
-      filterStart = customStartParam
-      filterEnd = customEndParam
+      filterRanges = [{ startTime: customStartParam, endTime: customEndParam }]
     } else {
-      const match = timeFilter.match(/^(\d{2})-(\d{2})$/)
-      if (match) {
-        filterStart = `${match[1]}:00`
-        filterEnd = `${match[2]}:00`
+      for (const part of timeFilter.split(',')) {
+        const match = part.trim().match(/^(\d{2})-(\d{2})$/)
+        if (match) {
+          filterRanges.push({ startTime: `${match[1]}:00`, endTime: `${match[2]}:00` })
+        }
       }
     }
   }
@@ -122,10 +121,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const busyBm = toBitmap(busyIntervals)
       let remain = clearOverlappingPeriods(subtractBitmap(availBm, busyBm), busyBm)
 
-      // Apply time filter intersection
-      if (filterStart && filterEnd) {
-        const filterBm = toBitmap([{ startTime: filterStart, endTime: filterEnd }])
-        remain = remain.map((v, i) => v && filterBm[i])
+      // Apply time filter: coach must have availability in EVERY selected range (AND logic)
+      if (filterRanges.length > 0) {
+        const passesAll = filterRanges.every(range => {
+          const rangeBm = toBitmap([range])
+          return remain.some((v, i) => v && rangeBm[i])
+        })
+        if (!passesAll) continue
       }
 
       if (hasAvailability(remain)) count++

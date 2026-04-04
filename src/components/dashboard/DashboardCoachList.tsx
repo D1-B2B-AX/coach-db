@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/Skeleton"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import type { CourseOption } from "@/components/CourseSelector"
-import { Table, TableHeader, TableRow, TableEmpty } from "@/components/ui/Table"
+import { Table, TableEmpty } from "@/components/ui/Table"
 import {
   CONTROL_BORDER_COLOR,
   CONTROL_BORDER_RADIUS,
@@ -24,6 +24,7 @@ interface CoachEntry {
   name: string
   phone?: string | null
   email?: string | null
+  workType?: string | null
   schedules: CoachSchedule[]
   fields: string[]
   avgRating: number | null
@@ -53,7 +54,6 @@ interface DashboardCoachListProps {
   courses?: CourseOption[]
   selectedCourseId?: string | null
   onCourseChange?: (courseId: string | null) => void
-  onCourseCreate?: (course: CourseOption) => void
   onReset?: () => void
 }
 
@@ -141,17 +141,10 @@ export default function DashboardCoachList({
   courses,
   selectedCourseId,
   onCourseChange,
-  onCourseCreate,
   onReset,
 }: DashboardCoachListProps) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [showCourseModal, setShowCourseModal] = useState(false)
-  const [newCourseName, setNewCourseName] = useState("")
-  const [newStartDate, setNewStartDate] = useState("")
-  const [newEndDate, setNewEndDate] = useState("")
-  const [courseError, setCourseError] = useState("")
-  const [courseSaving, setCourseSaving] = useState(false)
 
   const allFields = useMemo(() => {
     const set = new Set<string>()
@@ -248,16 +241,6 @@ export default function DashboardCoachList({
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              {onCourseCreate && (
-                <Button
-                  onClick={() => { setNewStartDate(""); setNewEndDate(""); setShowCourseModal(true) }}
-                  variant="primary"
-                  size="sm"
-                  className="shrink-0"
-                >
-                  + 추가
-                </Button>
-              )}
             </div>
           </div>
         )}
@@ -301,16 +284,6 @@ export default function DashboardCoachList({
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              {onCourseCreate && (
-                <Button
-                  onClick={() => { setNewStartDate(selectedDate || ""); setNewEndDate(selectedEnd || selectedDate || ""); setShowCourseModal(true) }}
-                  variant="primary"
-                  size="sm"
-                  className="shrink-0 px-2.5 py-1.5 text-xs"
-                >
-                  + 추가
-                </Button>
-              )}
             </div>
           )}
         </div>
@@ -319,18 +292,20 @@ export default function DashboardCoachList({
       <div>
         {loading ? (
           <div>
-            <TableHeader className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
-              <div className="w-4" /><div>이름</div><div>가능 시간대</div><div>최근 근무 과정명</div><div className="whitespace-nowrap">누적 근무일</div><div>평점</div>
-            </TableHeader>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <TableRow key={i} className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
-                <Skeleton className="h-4 w-4" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-8 mx-auto" />
-                <Skeleton className="h-4 w-6 mx-auto" />
-              </TableRow>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 border-b border-gray-50 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-6 ml-auto" />
+                </div>
+                <div className="flex items-center gap-3 ml-6">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-16 ml-auto" />
+                </div>
+              </div>
             ))}
           </div>
         ) : filteredCoaches.length === 0 ? (
@@ -338,7 +313,7 @@ export default function DashboardCoachList({
         ) : (
           <>
             {/* Table header */}
-            <TableHeader className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px]">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
               <div className="w-4 flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -347,126 +322,69 @@ export default function DashboardCoachList({
                   className="h-4 w-4 rounded border-gray-300 accent-[#1976D2]"
                 />
               </div>
-              <div>이름</div>
-              <div>가능 시간대</div>
-              <div>최근 근무 과정명</div>
-              <div className="whitespace-nowrap">누적 근무일</div>
-              <div>평점</div>
-            </TableHeader>
+              <span className="text-[11px] font-medium text-gray-400">{filteredCoaches.length}명</span>
+            </div>
             {filteredCoaches.map((coach) => {
-              const latest = coach.recentEngagements?.[0] || coach.latestEngagement
+              const today = new Date().toISOString().slice(0, 10)
+              const allEngs = coach.recentEngagements || (coach.latestEngagement ? [coach.latestEngagement] : [])
+              const pastEng = allEngs.find(e => e.endDate < today)
+              const futureEng = allEngs.find(e => e.endDate >= today)
+              const latest = pastEng || futureEng || null
               const courseName = latest
                 ? latest.courseName.replace(/\[부가세\s*별도\]\s*/g, "").replace(/\(B2B\)\s*/g, "").replace(/_/g, " ").trim()
                 : null
+              const courseLabel = latest ? (latest.endDate >= today ? "참여예정과정" : "참여과정") : "참여과정"
               const managerLabel = scoutingManagers?.[coach.id]
               return (
-                <TableRow
+                <div
                   key={coach.id}
                   onClick={() => router.push(`/coaches/${coach.id}`)}
-                  selected={selectedIds.has(coach.id)}
-                  className="grid grid-cols-[auto_minmax(0,120px)_80px_minmax(0,1fr)_64px_36px] cursor-pointer hover:bg-gray-50"
+                  className={`px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedIds.has(coach.id) ? "bg-blue-50/40" : ""}`}
                 >
-                  <div className="w-4 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(coach.id)}
-                      onChange={() => toggleId(coach.id)}
-                      className="h-4 w-4 rounded border-gray-300 accent-[#1976D2]"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm font-medium text-[#333] truncate">{coach.name}</span>
+                  {/* 1줄: 체크박스 + 이름 + 분야 태그 + 평점 */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(coach.id)}
+                        onChange={() => toggleId(coach.id)}
+                        className="h-4 w-4 rounded border-gray-300 accent-[#1976D2]"
+                      />
+                    </div>
+                    <span className="text-[13px] font-semibold text-[#222]">{coach.name}</span>
                     {managerLabel && (
                       <Badge variant="status" tone="orange" className="shrink-0">
-                        {`찜꽁중 · ${managerLabel}`}
+                        {`찜꽁 · ${managerLabel}`}
                       </Badge>
                     )}
+                    {coach.fields.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        {coach.fields.map(f => (
+                          <span key={f} className="rounded-full bg-[#F0F4F8] px-2 py-0.5 text-[10px] font-medium text-[#455A64]">{f}</span>
+                        ))}
+                      </div>
+                    )}
+                    <span className="ml-auto text-[13px] shrink-0">
+                      {coach.avgRating !== null ? <span className="text-[#F57F17] font-semibold">{coach.avgRating.toFixed(1)}</span> : <span className="text-gray-300">-</span>}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400 truncate">
-                    {formatScheduleLabel(coach.schedules)}
-                  </span>
-                  <span className="text-xs text-gray-400 truncate">
-                    {courseName || "-"}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {(coach.workDays ?? 0) > 0 ? `${coach.workDays}일` : "-"}
-                  </span>
-                  <span className="text-xs">
-                    {coach.avgRating !== null ? <span className="text-[#F57F17]">{coach.avgRating.toFixed(1)}</span> : <span className="text-gray-300">-</span>}
-                  </span>
-                </TableRow>
+                  {/* 2줄: 근무유형 + 가능시간 + 최근과정 */}
+                  <div className="flex items-center gap-2 mt-1.5 ml-6 text-[11px]">
+                    {coach.workType && (
+                      <span className="text-gray-400">{coach.workType}</span>
+                    )}
+                    {coach.workType && <span className="text-gray-200">|</span>}
+                    <span><span className="text-gray-400">가능시간: </span><span className="text-[#1976D2] font-medium">{formatScheduleLabel(coach.schedules)}</span></span>
+                    <span className="text-gray-200">|</span>
+                    <span className="truncate"><span className="text-gray-400">{courseLabel}: </span><span className="text-gray-500">{courseName || "-"}</span></span>
+                  </div>
+                </div>
               )
             })}
           </>
         )}
       </div>
 
-      {/* 과정 추가 팝업 */}
-      {showCourseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowCourseModal(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-[#333] mb-3">새 과정 추가</h3>
-            {courseError && <div className="mb-2 text-xs text-red-600">{courseError}</div>}
-            <input
-              type="text"
-              placeholder="과정명을 입력하세요"
-              maxLength={200}
-              autoFocus
-              value={newCourseName}
-              onChange={(e) => setNewCourseName(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && setShowCourseModal(false)}
-              className={`mb-2 w-full ${CONTROL_BORDER_RADIUS} border px-3 py-2 text-sm ${!newCourseName.trim() && courseError ? "border-red-400" : CONTROL_BORDER_COLOR} focus:border-blue-400 focus:outline-none`}
-            />
-            <div className="mb-3 flex gap-2">
-              <input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)}
-                className={`w-full ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none`} />
-              <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)}
-                className={`w-full ${CONTROL_BORDER_RADIUS} border ${CONTROL_BORDER_COLOR} px-2.5 py-2 text-sm focus:border-blue-400 focus:outline-none`} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                onClick={() => { setShowCourseModal(false); setCourseError("") }}
-                variant="secondary"
-                size="md"
-                className="rounded-lg px-3 py-2 text-sm"
-              >
-                취소
-              </Button>
-              <Button
-                disabled={courseSaving}
-                onClick={async () => {
-                  setCourseError("")
-                  if (!newCourseName.trim()) { setCourseError("과정명을 입력해주세요"); return }
-                  if (newEndDate && !newStartDate) { setCourseError("시작일 없이 종료일만 입력할 수 없습니다"); return }
-                  if (newStartDate && newEndDate && newEndDate < newStartDate) { setCourseError("종료일은 시작일 이후여야 합니다"); return }
-                  setCourseSaving(true)
-                  try {
-                    const res = await fetch("/api/courses", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: newCourseName.trim(), startDate: newStartDate || undefined, endDate: newEndDate || undefined }),
-                    })
-                    if (res.ok) {
-                      const course = await res.json()
-                      onCourseCreate?.({ id: course.id, name: course.name, startDate: course.startDate, endDate: course.endDate })
-                      onCourseChange?.(course.id)
-                      setShowCourseModal(false)
-                      setNewCourseName(""); setNewStartDate(""); setNewEndDate("")
-                    } else {
-                      const data = await res.json().catch(() => ({}))
-                      setCourseError(data.error || "과정 생성에 실패했습니다")
-                  }
-                  } catch { setCourseError("과정 생성에 실패했습니다") }
-                  finally { setCourseSaving(false) }
-                }}
-                variant="primary"
-                size="md"
-                className="rounded-lg px-4 py-2 text-sm"
-              >{courseSaving ? "추가 중..." : "추가"}</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </Table>
   )
 }
