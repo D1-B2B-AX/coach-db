@@ -8,6 +8,8 @@ export interface CourseOption {
   name: string
   startDate: string | null
   endDate: string | null
+  description?: string | null
+  workHours?: string | null
 }
 
 interface CourseSelectorProps {

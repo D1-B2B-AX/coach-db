@@ -119,7 +119,7 @@ model Course {
   managerId   String    @map("manager_id")
   startDate   DateTime? @map("start_date") @db.Date
   endDate     DateTime? @map("end_date") @db.Date
-  workHours   String?   @map("work_hours") @db.VarChar(100)
+  workHours   String?   @map("work_hours") @db.Text
   location    String?   @db.VarChar(200)
   hourlyRate  Int?      @map("hourly_rate")
   createdAt   DateTime  @default(now()) @map("created_at")

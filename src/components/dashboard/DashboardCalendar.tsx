@@ -17,7 +17,7 @@ interface DashboardCalendarProps {
   canGoPrev?: boolean
   canGoNext?: boolean
   onToday: () => void
-  onRefresh: () => void
+  onRefresh?: () => void
   onReset: () => void
   syncing?: boolean
   timeFilter: string
@@ -114,15 +114,6 @@ export default function DashboardCalendar({
             className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
           >
             초기화
-          </Button>
-          <Button
-            onClick={onRefresh}
-            disabled={syncing}
-            variant={syncing ? "primaryOutline" : "secondary"}
-            size="sm"
-            className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
-          >
-            {syncing ? "동기화 중..." : "새로고침"}
           </Button>
         </div>
       </div>

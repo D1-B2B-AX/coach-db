@@ -89,8 +89,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [bulkCoachIds, setBulkCoachIds] = useState<string[]>([])
   const [bulkCourseName, setBulkCourseName] = useState("")
   const [bulkCourseDescription, setBulkCourseDescription] = useState("")
-  const [bulkHireStart, setBulkHireStart] = useState("")
-  const [bulkHireEnd, setBulkHireEnd] = useState("")
+  const [bulkExtra, setBulkExtra] = useState("")
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkError, setBulkError] = useState("")
 
@@ -202,8 +201,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       const res = await fetch("/api/courses")
       if (res.ok) {
         const data = await res.json()
-        setCourses((data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null }) => ({
-          id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate,
+        setCourses((data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null; description: string | null; workHours: string | null }) => ({
+          id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, description: c.description, workHours: c.workHours,
         })))
       }
     } catch { /* silently fail */ }
@@ -323,7 +322,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   function handleReset() {
     setSelectedStart(null)
     setSelectedEnd(null)
-    setTimeFilter("all")
+    setSelectedDates(new Set())
+    setCoaches([])
+    setTimeFilter("08-13,13-18")
   }
 
   function handleStatusRefresh() {
@@ -357,9 +358,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     const selectedCourse = courses.find((c) => c.id === selectedCourseId)
     setBulkCoachIds(coachIds)
     setBulkCourseName(selectedCourse?.name ?? "")
-    setBulkCourseDescription("")
-    setBulkHireStart("")
-    setBulkHireEnd("")
+    setBulkCourseDescription(selectedCourse?.description ?? "")
+    setBulkExtra("")
     setBulkError("")
     setShowScoutModal(true)
   }
@@ -372,16 +372,16 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       setBulkError("과정명을 입력해주세요.")
       return
     }
-    const hireStart = bulkHireStart.trim()
-    const hireEnd = bulkHireEnd.trim()
-    if ((hireStart && !hireEnd) || (!hireStart && hireEnd)) {
-      setBulkError("시간은 시작과 종료를 함께 입력해주세요.")
-      return
+    // Parse workHours to extract per-date times
+    const selectedCourse = courses.find(c => c.id === selectedCourseId)
+    const workHoursMap = new Map<string, { start: string; end: string }>()
+    if (selectedCourse?.workHours) {
+      for (const line of selectedCourse.workHours.split("\n")) {
+        const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
+        if (m) workHoursMap.set(m[1], { start: m[2], end: m[3] })
+      }
     }
-    if (hireStart && hireEnd && hireStart >= hireEnd) {
-      setBulkError("종료 시간은 시작 시간보다 늦어야 합니다.")
-      return
-    }
+
     const dates = getSelectedDateRange()
     setBulkSending(true)
     setBulkError("")
@@ -391,6 +391,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       let firstErrorMessage = ""
       for (const coachId of bulkCoachIds) {
         for (const date of dates) {
+          const dateTime = workHoursMap.get(date)
           const res = await fetch('/api/scoutings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -399,9 +400,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
                 date,
                 mode: 'upsert',
                 courseName,
-                note: bulkCourseDescription.trim() || undefined,
-                hireStart: hireStart || undefined,
-                hireEnd: hireEnd || undefined,
+                note: [bulkCourseDescription.trim(), bulkExtra.trim()].filter(Boolean).join("\n\n") || undefined,
+                hireStart: dateTime?.start || undefined,
+                hireEnd: dateTime?.end || undefined,
                 ...(selectedCourseId && { courseId: selectedCourseId }),
               }),
             })
@@ -541,77 +542,41 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
               선택된 코치 {bulkCoachIds.length}명 / {getSelectedDateRange().length}일
             </p>
             <div className="mt-4 space-y-3">
-              <label className="block">
+              {/* 과정 정보 — 과정에서 가져오되 편집 가능 */}
+              <div>
                 <span className="mb-1 block text-xs font-medium text-gray-600">과정명</span>
                 <input
                   type="text"
                   value={bulkCourseName}
                   onChange={(e) => setBulkCourseName(e.target.value)}
-                  placeholder="과정명을 입력하세요"
                   maxLength={200}
                   disabled={bulkSending}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
                 />
-              </label>
-              <label className="block">
+              </div>
+              <div>
                 <span className="mb-1 block text-xs font-medium text-gray-600">과정설명</span>
                 <textarea
                   value={bulkCourseDescription}
                   onChange={(e) => setBulkCourseDescription(e.target.value)}
-                  placeholder="실습코치에게 전달할 설명을 입력하세요"
-                  rows={4}
+                  placeholder="코치에게 전달할 설명을 입력하세요"
+                  rows={3}
                   disabled={bulkSending}
                   className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
                 />
-              </label>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="block text-xs font-medium text-gray-600">시간</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBulkHireStart("08:00")
-                        setBulkHireEnd("13:00")
-                      }}
-                      disabled={bulkSending}
-                      className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${bulkHireStart === "08:00" && bulkHireEnd === "13:00" ? "bg-[#1976D2] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"} disabled:opacity-50`}
-                    >
-                      오전
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBulkHireStart("13:00")
-                        setBulkHireEnd("18:00")
-                      }}
-                      disabled={bulkSending}
-                      className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${bulkHireStart === "13:00" && bulkHireEnd === "18:00" ? "bg-[#1976D2] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"} disabled:opacity-50`}
-                    >
-                      오후
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="time"
-                    value={bulkHireStart}
-                    onChange={(e) => setBulkHireStart(e.target.value)}
-                    disabled={bulkSending}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                  />
-                  <input
-                    type="time"
-                    value={bulkHireEnd}
-                    onChange={(e) => setBulkHireEnd(e.target.value)}
-                    disabled={bulkSending}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                  />
-                </div>
-                <p className="text-[11px] leading-relaxed text-gray-500">
-                  코치 화면에 날짜와 함께 표시됩니다. 오전/오후 중 하나를 바로 넣을 수 있습니다.
-                </p>
               </div>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-gray-600">기타</span>
+                <textarea
+                  value={bulkExtra}
+                  onChange={(e) => setBulkExtra(e.target.value)}
+                  placeholder="추가로 전달할 내용 (예: 경험 여부 문의, 전화 예정 안내 등)"
+                  rows={2}
+                  disabled={bulkSending}
+                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+                />
+              </div>
+
               {bulkError && <p className="text-xs text-red-600">{bulkError}</p>}
             </div>
             <div className="mt-4 flex justify-end gap-2">
