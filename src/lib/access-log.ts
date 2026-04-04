@@ -25,5 +25,5 @@ export function logAccess(request: NextRequest, actor: Actor, statusCode?: numbe
       ip,
       statusCode,
     },
-  }).catch(() => {})
+  }).catch((e) => console.error('[access-log] write failed:', e.message))
 }

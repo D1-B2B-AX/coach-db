@@ -518,7 +518,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function closeBulkModal() {
-    closeBulkModal()
+    setShowScoutModal(false)
     setBulkCoachIds([])
     setBulkDates([])
     setBulkCourseName("")

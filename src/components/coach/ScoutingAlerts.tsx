@@ -179,6 +179,8 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
     const label = action === "accept" ? "수락" : "거절"
     if (!confirm(`${items.length}건을 전부 ${label}하시겠습니까?`)) return
     setBulkActing(true)
+    let success = 0
+    let fail = 0
     for (const a of items) {
       if (!a.data?.scoutingId) continue
       try {
@@ -189,10 +191,14 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
         })
         if (res.ok) {
           await fetch(`/api/coach/notifications/${a.id}/read?token=${token}`, { method: "PATCH" })
+          success++
+        } else {
+          fail++
         }
-      } catch { /* ignore */ }
+      } catch { fail++ }
     }
     setBulkActing(false)
+    if (fail > 0) alert(`${success + fail}건 중 ${fail}건 처리 실패`)
     fetchAlerts()
     onAction?.()
   }

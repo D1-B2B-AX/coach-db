@@ -92,7 +92,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // 기존 engagement 찾기 (같은 코치 + 과정명)
     let engagement = await prisma.engagement.findFirst({
-      where: { coachId: scouting.coachId, courseName: engCourseName },
+      where: {
+        coachId: scouting.coachId,
+        courseName: engCourseName,
+        startDate: courseStartDate,
+        endDate: courseEndDate,
+      },
     })
 
     if (!engagement) {

@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params
     const course = await prisma.course.findUnique({ where: { id } })
-    if (!course) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!course || course.deletedAt) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (course.managerId !== auth.manager.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -81,7 +81,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params
     const course = await prisma.course.findUnique({ where: { id } })
-    if (!course) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!course || course.deletedAt) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (course.managerId !== auth.manager.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

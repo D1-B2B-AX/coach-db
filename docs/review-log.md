@@ -1,5 +1,194 @@
 # 구현 후 검수
 
+## 2026-04-04
+
+### API 접속 로깅
+
+**구현 완료**
+- `api_access_logs` 테이블 생성 (path, method, actorType, actorId, actorName, userAgent, ip, statusCode)
+- 코치 API 5개 라우트에 `logAccess` 호출 추가 (schedule GET/PUT, me GET/PUT, engagements, notifications, scoutings)
+- `viewer=manager` 파라미터로 코치 본인 vs 매니저 접속 구분
+- 관리자 페이지 + 코치 등록 페이지에 "들어가기" 버튼 추가
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `prisma/schema.prisma` | ApiAccessLog 모델 추가 |
+| `prisma/migrations/20260404_add_api_access_logs/` | 마이그레이션 |
+| `src/lib/access-log.ts` | logAccess 유틸 (fire-and-forget) |
+| `src/app/api/coach/schedule/[yearMonth]/route.ts` | 로깅 추가 |
+| `src/app/api/coach/me/route.ts` | 로깅 추가 |
+| `src/app/api/coach/engagements/route.ts` | 로깅 추가 |
+| `src/app/api/coach/notifications/route.ts` | 로깅 추가 |
+| `src/app/api/coach/scoutings/[id]/route.ts` | 로깅 추가 |
+| `src/app/(manager)/admin/page.tsx` | 들어가기 버튼 |
+| `src/app/(manager)/coaches/new/page.tsx` | 들어가기 버튼 |
+
+**확인 필요**
+- [ ] 코치 토큰 URL 접속 시 api_access_logs에 기록 확인
+- [ ] viewer=manager 파라미터로 actor_type 구분 확인
+- [ ] userAgent에서 기기 정보(Mac/Windows) 확인 가능한지
+
+---
+
+### 대시보드 시간필터 UX 개선
+
+**구현 완료**
+- 과정 선택 시 helper에 과정명 + 시간 범위 표시 (예: "테스트1 (09:00~18:00) — 주간 과정")
+- 자동적용 칩 초록색, 수동필터/직접수정 칩 주황색으로 분리
+- 초기화 버튼을 프리셋(전체/오전/오후/저녁) 옆으로 이동, 스타일 구분
+- helper 텍스트를 프리셋 위에 배치, truncate + tooltip
+
+**확인 필요**
+- [ ] 과정 선택 시 helper에 과정명 표시 확인
+- [ ] 시간 프리셋 수동 변경 시 주황색 칩 표시
+
+---
+
+### 대시보드 찜꽁 날짜 선택 버그 수정
+
+**구현 완료**
+- 모달 열 때 `getSelectedDateRange()`를 `bulkDates`에 캡처 → stale closure 방지
+- 과정 선택 시 날짜 우선순위: 기존 선택 > workHours 날짜 > 전체 고용기간
+- 찜꽁 모달 닫을 때 전체 값 초기화 (`closeBulkModal`)
+
+**확인 필요**
+- [ ] 과정 선택 후 날짜 해제 → 찜꽁 모달에서 해제된 날짜 제외 확인
+- [ ] workHours에 날짜가 있는 과정 선택 시 해당 날짜만 선택 확인
+- [ ] 모달 닫고 다시 열 때 이전 description/extra 잔류 없음 확인
+
+---
+
+### 찜꽁스테이지 개선
+
+**구현 완료**
+- 날짜 행에 `hireStart~hireEnd` 시간 표시 (같은 날짜에 다른 시간이면 모두 표시)
+- 과정 삭제 시 연결된 찜꽁(scouting/accepted) `cancelled`로 변경 + 알림 만료
+- 과정 soft delete (`deletedAt` 컬럼 추가)
+- ConfirmModal 제거 → `confirm("확정하시겠습니까?")` 다이얼로그로 대체
+- 과정 그룹 내 모두 확정 / 모두 취소 버튼 추가
+- 과정 수정 일괄입력창 기본값/placeholder 비우기
+- 매니저 찜꽁 취소 시 `expireScoutingRequestNotifications` 호출
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/(manager)/mypage/ScoutingTab.tsx` | 시간 표시, 모두 확정/취소, ConfirmModal 제거 |
+| `src/app/(manager)/mypage/EditCourseModal.tsx` | 일괄입력 기본값 비우기 |
+| `src/app/api/courses/[id]/route.ts` | soft delete + 찜꽁 취소 + 알림 만료 |
+| `src/app/api/scoutings/[id]/route.ts` | 취소 시 알림 만료 추가 |
+| `prisma/schema.prisma` | Course에 deletedAt 추가 |
+
+**확인 필요**
+- [ ] 과정 삭제 시 연결된 찜꽁 cancelled 확인
+- [ ] 모두 확정 후 상태 갱신 확인
+- [ ] 날짜 행 시간 표시 확인
+
+---
+
+### 코치뷰 알림 개선
+
+**구현 완료**
+- 과정명 기준 그룹핑 (폰트 14px), 그룹 내 날짜순 정렬
+- 그룹별 "전부 수락" / "전부 거절" 버튼
+- 전체 `pendingAlerts` 기준 정확한 건수 표시 (더보기 전에도 정확)
+- 매니저 취소 시 코치 알림 즉시 만료 (사라짐)
+
+**확인 필요**
+- [ ] 여러 과정 알림이 과정별로 그룹핑 표시
+- [ ] 전부 수락 → 모든 항목 처리 + 리스트 갱신
+- [ ] 매니저 취소 후 코치뷰에서 해당 알림 사라짐
+
+---
+
+### 계약 작성 기능
+
+**구현 완료**
+- 확정 시 자동으로 계약 작성 미리보기 모달 표시 (개별/모두 확정 모두)
+- 미리보기 테이블: 시트 컬럼 순서 (불필요 컬럼 숨김)
+- 고용시작/종료에 course startDate/endDate 사용
+- 근로시간에 날짜별 포맷 스케줄 (`2026-04-15(수) 9:00 ~ 18:00 (휴게 1H, 총 8H)`)
+- 같은 코치는 1행으로 합침
+- "엑셀 다운로드" / "복사하기" 선택 (복사 시 TSV, A열 붙여넣기 안내)
+- "계약하러 가기" 버튼 (구글시트 링크)
+- 모달 너비 내용에 맞게 조정
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/(manager)/mypage/utils.ts` | buildContractRows, downloadContractExcel, copyContractToClipboard |
+| `src/app/(manager)/mypage/ScoutingTab.tsx` | 계약 작성 버튼 + 미리보기 모달 |
+| `src/app/(manager)/mypage/page.tsx` | 엑셀 다운로드 import 정리 |
+
+**확인 필요**
+- [ ] 확정 후 미리보기 모달 자동 표시
+- [ ] 엑셀 다운로드 파일 내용 확인 (17컬럼)
+- [ ] 복사 후 구글시트 A열 붙여넣기 정상
+- [ ] 같은 코치 여러 날짜 → 1행 합침 확인
+
+---
+
+### 확정 시 engagement 자동 생성
+
+**구현 완료**
+- `PATCH /api/scoutings/:id`에서 confirmed 시 engagement + engagementSchedule 자동 생성
+- 같은 코치+과정 engagement 중복 체크 → 기존 건에 schedule 추가
+- engagementSchedule 날짜별 중복 체크
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/api/scoutings/[id]/route.ts` | 확정 시 engagement/schedule 생성 로직 |
+
+**확인 필요**
+- [ ] 개별 확정 시 engagement 생성 확인
+- [ ] 모두 확정 시 같은 과정 engagement 1건 + schedule N건 확인
+- [ ] 코치 달력에 확정 일정 즉시 반영
+- [ ] 구글시트 동기화 돌려도 중복 미생성
+
+---
+
+### 매일 구글시트 동기화
+
+**구현 완료**
+- engagement sync API에 Bearer 토큰 인증 추가 (cron 지원)
+- GitHub Actions 매일 07:00 KST 자동 동기화
+- 실패 시 GitHub 이메일 알림
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/api/sync/engagements/route.ts` | Bearer 토큰 인증 추가 |
+| `.github/workflows/sync-engagements.yml` | 매일 cron 워크플로우 |
+
+**확인 필요**
+- [ ] GitHub Actions secrets에 APP_URL, SYNC_API_SECRET 설정 확인
+- [ ] 수동 workflow_dispatch 실행 테스트
+
+---
+
+## 2026-04-02 ~ 2026-04-03
+
+### 과정 중심 섭외 관리
+
+**구현 완료**
+- Course 테이블 + CRUD API
+- 마이페이지 과정별 그룹핑 뷰 (아코디언)
+- 대시보드 날짜 범위 선택 + 코치 다중선택 컨택
+- 과정 선택 시 날짜 자동 채움 + 날짜별 토글
+- 대시보드 시간 필터 과정 workHours 기반 자동 적용
+- 컨택 모달에 과정설명/기타 입력
+- 코치뷰 알림 UX 개선 (회사명 익명화, 벨→받은요청 버튼)
+- 헤더 네비게이션: 대시보드 | 코치풀 | 찜꽁스테이지 | 과정관리
+- 과정 수정 모달 — 날짜별 스케줄 빌더
+- workHours VarChar→Text 변경
+
+**확인 필요**
+- [ ] 과정 CRUD 정상 동작
+- [ ] 대시보드 과정 선택 → 날짜 자동 채움 → 컨택 정상
+
+---
+
 ## 2026-04-01
 
 ### 마이페이지 전면 리빌드 — 구인 이력 관리
