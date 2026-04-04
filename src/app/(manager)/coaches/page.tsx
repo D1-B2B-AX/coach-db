@@ -231,7 +231,7 @@ export default function CoachesPage() {
               <span className="select-none text-gray-200">|</span>
               <SortSelect value={sort2} onChange={setSort2} excludeValue={sort1} />
               <div className="flex-1" />
-              <Button asChild variant="primary" size="md" className="shrink-0 px-4 py-1.5 text-sm">
+              <Button asChild variant="primary" size="sm" className="shrink-0">
                 <Link href="/coaches/new">+ 등록</Link>
               </Button>
             </>

@@ -50,9 +50,9 @@ export default function Header() {
       roles?: readonly string[]
     }> = [
       { href: "/dashboard", label: "대시보드", active: pathname === "/dashboard" },
+      { href: "/coaches", label: "코치풀", active: pathname.startsWith("/coaches") },
       { href: "/mypage?tab=scoutings", label: "찜꽁스테이지", active: pathname === "/mypage" && (!searchParams || searchParams === "scoutings") },
       { href: "/mypage?tab=courses", label: "과정관리", active: pathname === "/mypage" && searchParams === "courses" },
-      { href: "/coaches", label: "코치풀", active: pathname.startsWith("/coaches") },
       {
         href: "/dashboard/samsung",
         label: "삼전",
