@@ -12,7 +12,8 @@ import {
   formatPeriod,
   getStatusCounts,
   buildContractRows,
-  appendToContract,
+  downloadContractExcel,
+  copyContractToClipboard,
 } from "./utils"
 
 interface ScoutingTabProps {
@@ -148,7 +149,6 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
   const [updating, setUpdating] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [contractPreview, setContractPreview] = useState<{ scoutings: Scouting[]; rows: string[][] } | null>(null)
-  const [contractSending, setContractSending] = useState(false)
 
   const counts = useMemo(() => ({
     all: scoutings.length,
@@ -406,7 +406,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
 
       {/* 계약 작성 미리보기 모달 */}
       {contractPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => !contractSending && setContractPreview(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setContractPreview(null)}>
           <div className="max-w-[95vw] max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-[#333]">계약 시트에 추가할 내용</h3>
             <p className="mt-1 text-xs text-gray-500">{contractPreview.rows.length}명 (코치별 1행)</p>
@@ -438,27 +438,27 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setContractPreview(null)}
-                disabled={contractSending}
-                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                취소
+                닫기
               </button>
               <button
                 onClick={async () => {
-                  setContractSending(true)
-                  const result = await appendToContract(contractPreview.scoutings)
-                  setContractSending(false)
-                  if (result.success) {
-                    alert(`계약 시트에 ${result.updatedRows}행 추가됨 (${result.startRow}행부터)`)
-                    setContractPreview(null)
-                  } else {
-                    alert(`실패: ${result.error}`)
-                  }
+                  const ok = await copyContractToClipboard(contractPreview.scoutings)
+                  if (ok) alert("클립보드에 복사됨 — 시트에 붙여넣기 하세요")
+                  else alert("복사 실패")
                 }}
-                disabled={contractSending}
-                className="cursor-pointer rounded-lg bg-[#0F9D58] px-3 py-2 text-sm font-medium text-white hover:bg-[#0B8043] disabled:opacity-50"
+                className="cursor-pointer rounded-lg border border-[#1976D2] px-3 py-2 text-sm font-medium text-[#1976D2] hover:bg-[#E3F2FD]"
               >
-                {contractSending ? "추가 중..." : "시트에 추가"}
+                복사하기
+              </button>
+              <button
+                onClick={() => {
+                  downloadContractExcel(contractPreview.scoutings)
+                }}
+                className="cursor-pointer rounded-lg bg-[#0F9D58] px-3 py-2 text-sm font-medium text-white hover:bg-[#0B8043]"
+              >
+                엑셀 다운로드
               </button>
             </div>
           </div>

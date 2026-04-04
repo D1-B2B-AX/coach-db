@@ -207,23 +207,22 @@ export function buildContractRows(scoutings: Scouting[]): string[][] {
   })
 }
 
-export async function appendToContract(scoutings: Scouting[]): Promise<{ success: boolean; updatedRows: number; startRow?: number | null; error?: string }> {
+export function downloadContractExcel(scoutings: Scouting[]) {
+  import("xlsx").then((XLSX) => {
+    const rows = buildContractRows(scoutings)
+    const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "계약요청")
+    const courseName = scoutings[0]?.courseName?.replace(/[/\\?*[\]]/g, "") || "계약"
+    const dateStr = new Date().toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `${courseName}_${dateStr}.xlsx`)
+  })
+}
+
+export function copyContractToClipboard(scoutings: Scouting[]): Promise<boolean> {
   const rows = buildContractRows(scoutings)
-  try {
-    const res = await fetch("/api/admin/contract-append", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      return { success: true, updatedRows: data.updatedRows, startRow: data.startRow }
-    }
-    const err = await res.json().catch(() => ({}))
-    return { success: false, updatedRows: 0, error: err.error || "시트 추가 실패" }
-  } catch {
-    return { success: false, updatedRows: 0, error: "네트워크 오류" }
-  }
+  const tsv = rows.map(row => row.map(tsvCell).join("\t")).join("\n")
+  return navigator.clipboard.writeText(tsv).then(() => true).catch(() => false)
 }
 
 export function formatPeriod(start: string | null, end: string | null): string {
