@@ -142,6 +142,78 @@ export function buildSheetRow(s: Scouting): string[] {
   ]
 }
 
+const EXCEL_HEADERS = [
+  "계약서 발송 여부",
+  "신규\n조교",
+  "No.",
+  "사번",
+  "근무자 성명",
+  "담당직무",
+  "담당Manager",
+  "과정명",
+  "기준시급/월급여",
+  "고용시작일",
+  "고용종료일",
+  "퇴사일",
+  "소정근로일별 근로시간(휴게시간)\n일 최대 8H, 4시간 근로시 휴게 0.5H 필수",
+  "E-mail 주소",
+  "연락처",
+  "연락처 뒷자리 4자리",
+  "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
+]
+
+export function downloadScoutingExcel(scoutings: Scouting[]) {
+  import("xlsx").then((XLSX) => {
+    // 같은 코치는 1줄로 합침
+    const grouped = new Map<string, Scouting[]>()
+    for (const s of scoutings) {
+      const key = s.coachId
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)!.push(s)
+    }
+
+    const rows = [...grouped.values()].map((items) => {
+      const first = items[0]
+      const c = first.coach
+      const isNew = !c.employeeId
+      const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
+      const scheduleLines = items
+        .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+        .map((s) => s.scheduleText || "")
+        .filter(Boolean)
+        .join("\n")
+      const phone = c.phone || ""
+      const last4 = phone.replace(/[^0-9]/g, "").slice(-4)
+      return [
+        "",
+        isNew ? "V" : "",
+        "",
+        c.employeeId || "",
+        c.name,
+        workType,
+        first.manager.name,
+        first.courseName || "",
+        "15000",
+        first.hireStart || "",
+        first.hireEnd || "",
+        "",
+        scheduleLines,
+        c.email || "",
+        phone,
+        last4,
+        "",
+      ]
+    })
+
+    const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "확정내역")
+    const courseName = scoutings[0]?.courseName?.replace(/[/\\?*[\]]/g, "") || "확정"
+    const dateStr = new Date().toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `${courseName}_${dateStr}.xlsx`)
+  })
+}
+
 export function formatPeriod(start: string | null, end: string | null): string {
   if (!start && !end) return "기간 미정"
   const fmt = (d: string) => { const dt = new Date(d); return `${dt.getMonth() + 1}/${dt.getDate()}` }

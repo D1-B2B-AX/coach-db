@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Course, Scouting, buildSheetRow, tsvCell } from "./utils"
+import { Course, Scouting, buildSheetRow, tsvCell, downloadScoutingExcel } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
 
@@ -163,17 +163,14 @@ function MyPageContent() {
             ))
           }
 
-          // Copy to clipboard
-          const row = buildSheetRow({
+          // Excel download
+          downloadScoutingExcel([{
             ...found,
             courseName: extra?.courseName ?? found.courseName,
             hireStart: extra?.hireStart ?? found.hireStart,
             hireEnd: extra?.hireEnd ?? found.hireEnd,
             scheduleText: extra?.scheduleText ?? found.scheduleText,
-          })
-          try {
-            await navigator.clipboard.writeText(row.map(tsvCell).join("\t"))
-          } catch { /* clipboard may fail in some contexts */ }
+          }])
         }
       }
     }

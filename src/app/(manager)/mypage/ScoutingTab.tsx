@@ -11,6 +11,7 @@ import {
   formatFullDate,
   formatPeriod,
   getStatusCounts,
+  downloadScoutingExcel,
 } from "./utils"
 
 interface ScoutingTabProps {
@@ -236,6 +237,9 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     if (!confirm(`${items.length}건을 모두 ${label}하시겠습니까?`)) return
     for (const s of items) {
       await handleAction(s.id, targetStatus)
+    }
+    if (targetStatus === "confirmed") {
+      downloadScoutingExcel(items)
     }
     onRefresh()
   }
