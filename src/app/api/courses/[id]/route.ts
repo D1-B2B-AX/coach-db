@@ -85,7 +85,12 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Detach scoutings before deleting
+    // Cancel related scoutings before deleting
+    await prisma.scouting.updateMany({
+      where: { courseId: id, status: { in: ['scouting', 'accepted'] } },
+      data: { status: 'cancelled', courseId: null },
+    })
+    // Detach remaining (confirmed, etc.)
     await prisma.scouting.updateMany({
       where: { courseId: id },
       data: { courseId: null },

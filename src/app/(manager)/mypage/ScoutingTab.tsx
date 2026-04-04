@@ -141,13 +141,14 @@ function CoachPopover({
               {isUpdating ? "..." : "복구"}
             </button>
           )}
+
         </div>
       )}
     </div>
   )
 }
 
-export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefresh }: ScoutingTabProps) {
+export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefresh, managerId }: ScoutingTabProps) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [openAccordions, setOpenAccordions] = useState<Set<string | null>>(new Set())
   const [updating, setUpdating] = useState<string | null>(null)
@@ -334,9 +335,24 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                         return (
                           <div key={dateKey} className="border-t border-gray-100">
                             <div className="px-5 py-2.5 flex items-start gap-3">
-                              <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap shrink-0 pt-0.5 min-w-[72px]">
-                                {formatFullDate(dateKey)}
-                              </span>
+                              <div className="shrink-0 pt-0.5 min-w-[72px]">
+                                <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap">
+                                  {formatFullDate(dateKey)}
+                                </span>
+                                {(() => {
+                                  const times = [...new Set(
+                                    scoutingsForDate
+                                      .filter(s => s.hireStart)
+                                      .map(s => `${s.hireStart}~${s.hireEnd || ""}`)
+                                  )]
+                                  if (times.length === 0) return null
+                                  return (
+                                    <div className="text-[10px] text-gray-300 whitespace-nowrap">
+                                      {times.join(", ")}
+                                    </div>
+                                  )
+                                })()}
+                              </div>
                               <div className="flex flex-col gap-2 w-full">
                                 <div className="flex flex-wrap gap-1.5">
                                   {scoutingsForDate.map(s => (

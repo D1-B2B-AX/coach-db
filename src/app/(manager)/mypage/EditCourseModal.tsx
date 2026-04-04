@@ -65,7 +65,7 @@ function parseExistingWorkHours(workHours: string | null | undefined): { selecte
   return {
     selectedDates,
     dateTimes,
-    defaultTime: Object.values(dateTimes)[0] || "09:00~18:00",
+    defaultTime: Object.values(dateTimes)[0] || "",
   }
 }
 
@@ -247,7 +247,7 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
                     type="text"
                     value={defaultTime}
                     onChange={(e) => applyTimeToAll(e.target.value)}
-                    placeholder="09:00~18:00"
+                    placeholder=""
                     disabled={saving}
                     className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-[#333] focus:border-[#1976D2] focus:outline-none"
                   />
