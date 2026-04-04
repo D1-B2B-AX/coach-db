@@ -43,6 +43,7 @@ function sanitizeHistoryNote(raw: string): string {
     .split(/\r?\n/)
     .map((line) => line.replace(/삼전\s*전용으로.*$/g, '').trim())
     .filter(Boolean)
+    .filter((line) => !/컨택\s*가능/.test(line) && !/일정에\s*한해/.test(line) && !/일정을\s*받고/.test(line))
     .join('\n')
 }
 

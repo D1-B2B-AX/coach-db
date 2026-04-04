@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import type { NotificationTrigger } from './scouting-state-machine'
+import { sendMail, buildEmail } from './mailer'
 
 interface CreateNotificationParams {
   trigger: NotificationTrigger
@@ -75,7 +76,7 @@ export async function createNotification(
     },
   })
 
-  // Push 발송 (best-effort) — Step 7에서 구현
+  // Push 발송 (best-effort)
   try {
     const { sendPushToRecipient } = await import('./web-push')
     await sendPushToRecipient({
@@ -85,6 +86,33 @@ export async function createNotification(
     })
   } catch {
     // Push 미설정 또는 실패 — 무시 (DB 알림은 이미 저장됨)
+  }
+
+  // Email 발송 (best-effort)
+  try {
+    const email = buildEmail(trigger.type, {
+      managerName: data.managerName,
+      managerEmail: data.managerEmail,
+      coachName: data.coachName,
+      date: data.date,
+      courseName: data.courseName,
+      clickUrl: data.clickUrl,
+    })
+    if (email) {
+      let recipientEmail: string | null = null
+      if (recipientCoachId) {
+        const coach = await prisma.coach.findUnique({ where: { id: recipientCoachId }, select: { email: true } })
+        recipientEmail = coach?.email ?? null
+      } else if (recipientManagerId) {
+        const manager = await prisma.manager.findUnique({ where: { id: recipientManagerId }, select: { email: true } })
+        recipientEmail = manager?.email ?? null
+      }
+      if (recipientEmail) {
+        await sendMail({ to: recipientEmail, subject: email.subject, body: email.body, replyTo: email.replyTo })
+      }
+    }
+  } catch (emailError) {
+    console.error('[notification] Email send failed:', emailError)
   }
 
   return notification

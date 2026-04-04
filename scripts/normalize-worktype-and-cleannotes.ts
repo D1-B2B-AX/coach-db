@@ -17,6 +17,8 @@ function cleanSelfNote(raw: string | null): string | null {
     .filter(Boolean)
     .filter((line) => !/^\[(희망 교육 형태|교육 경력|기타 요청)\]/.test(line))
     .filter((line) => !/^시급 이력:/.test(line))
+    .filter((line) => !/컨택\s*가능/.test(line) && !/일정에\s*한해/.test(line) && !/일정을\s*받고/.test(line))
+    .filter((line) => !/삼전\s*전용으로/.test(line) && !/절대\s*컨택/.test(line))
     .join('\n')
     .trim()
   return cleaned || null

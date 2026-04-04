@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const courses = await prisma.course.findMany({
-      where: { managerId: auth.manager.id },
+      where: { managerId: auth.manager.id, deletedAt: null },
       include: {
         _count: { select: { scoutings: true } },
         scoutings: {
