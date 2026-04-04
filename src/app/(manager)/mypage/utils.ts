@@ -162,56 +162,66 @@ const EXCEL_HEADERS = [
   "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
 ]
 
-export function downloadScoutingExcel(scoutings: Scouting[]) {
-  import("xlsx").then((XLSX) => {
-    // 같은 코치는 1줄로 합침
-    const grouped = new Map<string, Scouting[]>()
-    for (const s of scoutings) {
-      const key = s.coachId
-      if (!grouped.has(key)) grouped.set(key, [])
-      grouped.get(key)!.push(s)
-    }
+export function buildContractRows(scoutings: Scouting[]): string[][] {
+  // 같은 코치는 1줄로 합침
+  const grouped = new Map<string, Scouting[]>()
+  for (const s of scoutings) {
+    const key = s.coachId
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key)!.push(s)
+  }
 
-    const rows = [...grouped.values()].map((items) => {
-      const first = items[0]
-      const c = first.coach
-      const isNew = !c.employeeId
-      const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
-      const scheduleLines = items
-        .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-        .map((s) => s.scheduleText || "")
-        .filter(Boolean)
-        .join("\n")
-      const phone = c.phone || ""
-      const last4 = phone.replace(/[^0-9]/g, "").slice(-4)
-      return [
-        "",
-        isNew ? "V" : "",
-        "",
-        c.employeeId || "",
-        c.name,
-        workType,
-        first.manager.name,
-        first.courseName || "",
-        "15000",
-        first.hireStart || "",
-        first.hireEnd || "",
-        "",
-        scheduleLines,
-        c.email || "",
-        phone,
-        last4,
-        "",
-      ]
-    })
-
-    const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...rows])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "확정내역")
-    const courseName = scoutings[0]?.courseName?.replace(/[/\\?*[\]]/g, "") || "확정"
-    const dateStr = new Date().toISOString().slice(0, 10)
-    XLSX.writeFile(wb, `${courseName}_${dateStr}.xlsx`)
+  return [...grouped.values()].map((items) => {
+    const first = items[0]
+    const c = first.coach
+    const isNew = !c.employeeId
+    const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
+    const scheduleLines = items
+      .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+      .map((s) => s.scheduleText || "")
+      .filter(Boolean)
+      .join("\n")
+    const phone = c.phone || ""
+    const last4 = phone.replace(/[^0-9]/g, "").slice(-4)
+    return [
+      "",
+      isNew ? "V" : "",
+      "",
+      c.employeeId || "",
+      c.name,
+      workType,
+      first.manager.name,
+      first.courseName || "",
+      "15000",
+      first.hireStart || "",
+      first.hireEnd || "",
+      "",
+      scheduleLines,
+      c.email || "",
+      phone,
+      last4,
+      "",
+    ]
   })
+}
+
+export async function appendToContract(scoutings: Scouting[]): Promise<{ success: boolean; updatedRows: number; error?: string }> {
+  const rows = buildContractRows(scoutings)
+  try {
+    const res = await fetch("/api/admin/contract-append", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return { success: true, updatedRows: data.updatedRows }
+    }
+    const err = await res.json().catch(() => ({}))
+    return { success: false, updatedRows: 0, error: err.error || "시트 추가 실패" }
+  } catch {
+    return { success: false, updatedRows: 0, error: "네트워크 오류" }
+  }
 }
 
 export function formatPeriod(start: string | null, end: string | null): string {

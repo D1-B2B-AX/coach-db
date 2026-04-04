@@ -76,6 +76,30 @@ export async function fetchSheetData(): Promise<SheetRow[]> {
     }));
 }
 
+const CONTRACT_SHEET_ID = "1hl6VxXYN1kJoQlRCpbpyWV2PFsu3LhFQ"
+const CONTRACT_SHEET_NAME = "조교실습코치_일반계약요청"
+
+export async function appendToContractSheet(rows: string[][]) {
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  })
+
+  const sheets = google.sheets({ version: "v4", auth })
+  const res = await sheets.spreadsheets.values.append({
+    spreadsheetId: CONTRACT_SHEET_ID,
+    range: `${CONTRACT_SHEET_NAME}!A:Q`,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: rows },
+  })
+
+  return { updatedRows: res.data.updates?.updatedRows ?? 0 }
+}
+
 export interface GroupedCoach {
   employee_id: string;
   employee_ids: string[];

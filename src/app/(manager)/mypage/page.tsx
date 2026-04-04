@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Course, Scouting, buildSheetRow, tsvCell, downloadScoutingExcel } from "./utils"
+import { Course, Scouting } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
 
@@ -163,14 +163,6 @@ function MyPageContent() {
             ))
           }
 
-          // Excel download
-          downloadScoutingExcel([{
-            ...found,
-            courseName: extra?.courseName ?? found.courseName,
-            hireStart: extra?.hireStart ?? found.hireStart,
-            hireEnd: extra?.hireEnd ?? found.hireEnd,
-            scheduleText: extra?.scheduleText ?? found.scheduleText,
-          }])
         }
       }
     }

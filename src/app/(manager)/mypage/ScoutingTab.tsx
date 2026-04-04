@@ -11,7 +11,7 @@ import {
   formatFullDate,
   formatPeriod,
   getStatusCounts,
-  downloadScoutingExcel,
+  appendToContract,
 } from "./utils"
 
 interface ScoutingTabProps {
@@ -238,9 +238,6 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     for (const s of items) {
       await handleAction(s.id, targetStatus)
     }
-    if (targetStatus === "confirmed") {
-      downloadScoutingExcel(items)
-    }
     onRefresh()
   }
 
@@ -326,6 +323,33 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                           >
                             모두 취소 ({group.allScoutings.filter(s => s.status === "scouting" || s.status === "accepted").length})
                           </button>
+                        )}
+                        {group.allScoutings.some(s => s.status === "confirmed") && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                const confirmed = group.allScoutings.filter(s => s.status === "confirmed")
+                                if (!confirm(`${confirmed.length}건을 계약 시트에 추가하시겠습니까?`)) return
+                                const result = await appendToContract(confirmed)
+                                if (result.success) {
+                                  alert(`계약 시트에 ${result.updatedRows}행 추가됨`)
+                                } else {
+                                  alert(`실패: ${result.error}`)
+                                }
+                              }}
+                              className="cursor-pointer rounded-full bg-[#0F9D58] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#0B8043]"
+                            >
+                              계약 작성 ({group.allScoutings.filter(s => s.status === "confirmed").length})
+                            </button>
+                            <a
+                              href="https://docs.google.com/spreadsheets/d/1hl6VxXYN1kJoQlRCpbpyWV2PFsu3LhFQ/edit?gid=1512869353#gid=1512869353&range=A9999"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-full border border-[#0F9D58] px-2.5 py-1 text-[10px] font-medium text-[#0F9D58] hover:bg-[#E8F5E9]"
+                            >
+                              확인하러 가기
+                            </a>
+                          </>
                         )}
                       </div>
                     )}
