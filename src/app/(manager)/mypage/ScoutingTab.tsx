@@ -241,7 +241,8 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
 
   async function handleBulkAction(items: Scouting[], targetStatus: string) {
     const label = targetStatus === "confirmed" ? "확정" : "취소"
-    if (!confirm(`${items.length}건을 모두 ${label}하시겠습니까?`)) return
+    const names = [...new Set(items.map(s => s.coach.name))].join(", ")
+    if (!confirm(`${names} (${items.length}건)을 모두 ${label}하시겠습니까?`)) return
     for (const s of items) {
       await handleAction(s.id, targetStatus)
     }
