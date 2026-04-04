@@ -20,7 +20,7 @@ interface ScoutingNotification {
     courseName?: string
     clickUrl?: string
   } | null
-  enriched?: { displayText?: string | null; courseName?: string | null; note?: string | null; courseDescription?: string | null; extraNote?: string | null; location?: string | null; hourlyRate?: number | null; remarks?: string | null; managerName?: string | null } | null
+  enriched?: { displayText?: string | null; courseName?: string | null; note?: string | null; courseDescription?: string | null; message?: string | null; location?: string | null; hourlyRate?: number | null; remarks?: string | null; managerName?: string | null } | null
   readAt: string | null
   expired: boolean
   expiredAt: string | null
@@ -66,7 +66,8 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
     managerEmail?: string | null
     courseName?: string | null
     courseDescription?: string | null
-    extraNote?: string | null
+    message?: string | null
+    remarks?: string | null
     managerName?: string | null
   } | null>(null)
 
@@ -251,7 +252,7 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
               // 그룹 대표 정보 (같은 과정이면 동일)
               const rep = items.find((a) => a.enriched)?.enriched
               const courseDesc = rep?.courseDescription ?? null
-              const extraNote = rep?.extraNote ?? null
+              const message = rep?.message ?? null
               const location = rep?.location ?? null
               const hourlyRate = rep?.hourlyRate ?? null
               const courseRemarks = rep?.remarks ?? null
@@ -283,10 +284,10 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                     {managerName && <span>{managerName.trim()} 매니저</span>}
                     {location && <span>{location}</span>}
                     {hourlyRate && <span>시급 {hourlyRate.toLocaleString()}원</span>}
-                    {courseRemarks && <span>{courseRemarks}</span>}
+                    {courseRemarks && <span>비고: {courseRemarks}</span>}
                   </div>
                 )}
-                {(courseDesc || extraNote) && (
+                {(courseDesc || message) && (
                   <div className="rounded-xl border border-[#E7EDF3] bg-[#F8FAFC] px-4 py-2.5 space-y-1">
                     {courseDesc && (
                       <p className="text-[12px] leading-relaxed text-[#374151]">
@@ -294,10 +295,10 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                         <span className="ml-1.5">{courseDesc}</span>
                       </p>
                     )}
-                    {extraNote && (
+                    {message && (
                       <p className="text-[12px] leading-relaxed text-[#374151]">
-                        <span className="text-[#999]">기타</span>
-                        <span className="ml-1.5">{extraNote}</span>
+                        <span className="text-[#999]">전하는 말</span>
+                        <span className="ml-1.5">{message}</span>
                       </p>
                     )}
                   </div>
@@ -314,7 +315,8 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                         managerEmail: a.data?.managerEmail ?? null,
                         courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
                         courseDescription: a.enriched?.courseDescription ?? null,
-                        extraNote: a.enriched?.extraNote ?? null,
+                        message: a.enriched?.message ?? null,
+                        remarks: a.enriched?.remarks ?? null,
                         managerName: a.enriched?.managerName ?? a.data?.managerName ?? null,
                       })
                     }}
@@ -396,10 +398,16 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                   <span className="ml-2 text-[#333]">{modalTarget.courseDescription}</span>
                 </div>
               )}
-              {modalTarget.extraNote && (
+              {modalTarget.remarks && (
                 <div>
-                  <span className="text-[#999]">기타</span>
-                  <span className="ml-2 text-[#333]">{modalTarget.extraNote}</span>
+                  <span className="text-[#999]">비고</span>
+                  <span className="ml-2 text-[#333]">{modalTarget.remarks}</span>
+                </div>
+              )}
+              {modalTarget.message && (
+                <div>
+                  <span className="text-[#999]">전하는 말</span>
+                  <span className="ml-2 text-[#333]">{modalTarget.message}</span>
                 </div>
               )}
             </div>

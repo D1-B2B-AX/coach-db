@@ -65,12 +65,12 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note, courseDescription, extraNote, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
+    const { coachId, date, note, courseDescription, message, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
       coachId: string
       date: string
       note?: string
       courseDescription?: string
-      extraNote?: string
+      message?: string
       courseId?: string
       courseName?: string
       hireStart?: string
@@ -83,15 +83,15 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedCourseName = courseName?.trim() || null
-    // courseDescription / extraNote가 별도로 오면 마커 포맷으로 합침
-    const composedNote = (courseDescription?.trim() || extraNote?.trim())
+    // courseDescription / message가 별도로 오면 마커 포맷으로 합침
+    const composedNote = (courseDescription?.trim() || message?.trim())
       ? [
           courseDescription?.trim() ? `[과정설명] ${courseDescription.trim()}` : '',
-          extraNote?.trim() ? `[기타] ${extraNote.trim()}` : '',
+          message?.trim() ? `[전하는 말] ${message.trim()}` : '',
         ].filter(Boolean).join('\n')
       : null
     const trimmedNote = composedNote || note?.trim() || null
-    const hasNoteInput = note !== undefined || courseDescription !== undefined || extraNote !== undefined
+    const hasNoteInput = note !== undefined || courseDescription !== undefined || message !== undefined
     const trimmedHireStart = hireStart?.trim() || null
     const trimmedHireEnd = hireEnd?.trim() || null
 

@@ -104,15 +104,15 @@ export async function GET(request: NextRequest) {
       },
       enriched: (() => {
         const raw = scouting.note ?? ''
-        const cdMatch = raw.match(/\[과정설명\]\s*([\s\S]*?)(?=\n\[기타\]|$)/)
-        const exMatch = raw.match(/\[기타\]\s*([\s\S]*?)$/)
-        const hasMark = cdMatch || exMatch
+        const cdMatch = raw.match(/\[과정설명\]\s*([\s\S]*?)(?=\n\[전하는 말\]|\n\[기타\]|$)/)
+        const msgMatch = raw.match(/\[전하는 말\]\s*([\s\S]*?)$/) || raw.match(/\[기타\]\s*([\s\S]*?)$/)
+        const hasMark = cdMatch || msgMatch
         return {
           displayText,
           courseName,
           note: scouting.note,
           courseDescription: hasMark ? (cdMatch?.[1]?.trim() || null) : (raw.trim() || null),
-          extraNote: hasMark ? (exMatch?.[1]?.trim() || null) : null,
+          message: hasMark ? (msgMatch?.[1]?.trim() || null) : null,
           location: scouting.course?.location ?? null,
           hourlyRate: scouting.course?.hourlyRate ?? null,
           remarks: scouting.course?.remarks ?? null,
