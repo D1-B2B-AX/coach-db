@@ -60,19 +60,18 @@ function HeaderContent() {
       { href: "/coaches", label: "코치 목록", active: pathname.startsWith("/coaches") },
       { href: "/mypage?tab=scoutings", label: "찜꽁스테이지", active: pathname === "/mypage" && (!searchParams || searchParams === "scoutings") },
       { href: "/mypage?tab=courses", label: "나의 과정", active: pathname === "/mypage" && searchParams === "courses" },
-      // TEMP: 스크린샷용 숨김
-      // {
-      //   href: "/dashboard/samsung",
-      //   label: "삼전 전용",
-      //   active: pathname === "/dashboard/samsung",
-      //   roles: ["admin", "samsung_admin"] as const,
-      // },
-      // {
-      //   href: "/admin",
-      //   label: "관리자페이지",
-      //   active: pathname.startsWith("/admin"),
-      //   roles: ["admin"] as const,
-      // },
+      {
+        href: "/dashboard/samsung",
+        label: "삼전 전용",
+        active: pathname === "/dashboard/samsung",
+        roles: ["admin", "samsung_admin"] as const,
+      },
+      {
+        href: "/admin",
+        label: "관리자페이지",
+        active: pathname.startsWith("/admin"),
+        roles: ["admin"] as const,
+      },
     ]
 
     return items.filter((item) => {
