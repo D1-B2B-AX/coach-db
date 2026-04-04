@@ -207,7 +207,7 @@ export function buildContractRows(scoutings: Scouting[]): string[][] {
   })
 }
 
-export async function appendToContract(scoutings: Scouting[]): Promise<{ success: boolean; updatedRows: number; error?: string }> {
+export async function appendToContract(scoutings: Scouting[]): Promise<{ success: boolean; updatedRows: number; startRow?: number | null; error?: string }> {
   const rows = buildContractRows(scoutings)
   try {
     const res = await fetch("/api/admin/contract-append", {
@@ -217,7 +217,7 @@ export async function appendToContract(scoutings: Scouting[]): Promise<{ success
     })
     if (res.ok) {
       const data = await res.json()
-      return { success: true, updatedRows: data.updatedRows }
+      return { success: true, updatedRows: data.updatedRows, startRow: data.startRow }
     }
     const err = await res.json().catch(() => ({}))
     return { success: false, updatedRows: 0, error: err.error || "시트 추가 실패" }

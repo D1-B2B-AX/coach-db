@@ -407,38 +407,31 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
       {/* 계약 작성 미리보기 모달 */}
       {contractPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => !contractSending && setContractPreview(null)}>
-          <div className="w-full max-w-4xl max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-w-[95vw] max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-[#333]">계약 시트에 추가할 내용</h3>
             <p className="mt-1 text-xs text-gray-500">{contractPreview.rows.length}명 (코치별 1행)</p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-[11px] border-collapse">
+              <table className="text-[11px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">성명</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">사번</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">직무</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">과정명</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">고용시작</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">고용종료</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">근로시간</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">이메일</th>
-                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">연락처</th>
+                    {["사번", "성명", "직무", "매니저", "과정명", "시급", "고용시작일", "고용종료일", "퇴사일", "근로시간", "이메일", "연락처"].map((h, i) => (
+                      <th key={i} className="px-2 py-1.5 text-left font-medium text-gray-500 border-b whitespace-pre-line">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {contractPreview.rows.map((row, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-2 py-1.5 font-medium text-[#333]">{row[4]}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[3] || "-"}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[5]}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[7]}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[9] || "-"}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[10] || "-"}</td>
-                      <td className="px-2 py-1.5 text-gray-500 whitespace-pre-line">{row[12] || "-"}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[13] || "-"}</td>
-                      <td className="px-2 py-1.5 text-gray-500">{row[14] || "-"}</td>
-                    </tr>
-                  ))}
+                  {contractPreview.rows.map((row, i) => {
+                    const visible = [3,4,5,6,7,8,9,10,11,12,13,14]
+                    return (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        {visible.map((j) => (
+                          <td key={j} className={`px-2 py-1.5 whitespace-pre-line ${j === 4 ? "font-medium text-[#333]" : "text-gray-500"}`}>
+                            {row[j] || "-"}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -456,7 +449,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                   const result = await appendToContract(contractPreview.scoutings)
                   setContractSending(false)
                   if (result.success) {
-                    alert(`계약 시트에 ${result.updatedRows}행 추가됨`)
+                    alert(`계약 시트에 ${result.updatedRows}행 추가됨 (${result.startRow}행부터)`)
                     setContractPreview(null)
                   } else {
                     alert(`실패: ${result.error}`)

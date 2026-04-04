@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await appendToContractSheet(rows)
-    return NextResponse.json({ success: true, updatedRows: result.updatedRows })
+    return NextResponse.json({ success: true, updatedRows: result.updatedRows, startRow: result.startRow })
   } catch (e) {
     console.error('[contract-append] Error:', e)
     return NextResponse.json({ error: 'Failed to append to sheet' }, { status: 500 })

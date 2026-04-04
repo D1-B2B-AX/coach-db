@@ -97,7 +97,10 @@ export async function appendToContractSheet(rows: string[][]) {
     requestBody: { values: rows },
   })
 
-  return { updatedRows: res.data.updates?.updatedRows ?? 0 }
+  const updatedRange = res.data.updates?.updatedRange ?? ""
+  const rangeMatch = updatedRange.match(/!A(\d+):/)
+  const startRow = rangeMatch ? parseInt(rangeMatch[1], 10) : null
+  return { updatedRows: res.data.updates?.updatedRows ?? 0, startRow }
 }
 
 export interface GroupedCoach {
