@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 
 import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
 import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
@@ -54,6 +54,120 @@ function buildDateSet(start: string, end: string) {
   return dates
 }
 
+const TIME_PRESETS = [
+  { key: "08-13", label: "오전", startMinutes: 8 * 60, endMinutes: 13 * 60 },
+  { key: "13-18", label: "오후", startMinutes: 13 * 60, endMinutes: 18 * 60 },
+  { key: "18-22", label: "저녁", startMinutes: 18 * 60, endMinutes: 22 * 60 },
+] as const
+
+type TimeFilterSource = "default" | "course-auto" | "manual"
+
+function timeToMinutes(time: string): number {
+  const [hour = "0", minute = "0"] = time.split(":")
+  return parseInt(hour, 10) * 60 + parseInt(minute, 10)
+}
+
+function normalizeTimeFilter(filter: string): string {
+  if (filter === "all") return "all"
+  const selected = filter.split(",").filter(Boolean)
+  const ordered = TIME_PRESETS.map((preset) => preset.key).filter((key) => selected.includes(key))
+  return ordered.length > 0 ? ordered.join(",") : "all"
+}
+
+function parseCourseTimeRanges(workHours?: string | null): Array<{ date: string; startTime: string; endTime: string }> {
+  if (!workHours) return []
+
+  return workHours
+    .split("\n")
+    .map((line) => line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .map((match) => ({
+      date: match[1],
+      startTime: match[2],
+      endTime: match[3],
+    }))
+}
+
+function getPresetKeysForCourseTime(startTime: string, endTime: string): string[] {
+  const startMinutes = timeToMinutes(startTime)
+  const endMinutes = timeToMinutes(endTime)
+
+  return TIME_PRESETS
+    .filter((preset) => startMinutes < preset.endMinutes && endMinutes > preset.startMinutes)
+    .map((preset) => preset.key)
+}
+
+function getTimeFilterLabels(filter: string): string[] {
+  if (filter === "all") return ["전체"]
+  return normalizeTimeFilter(filter)
+    .split(",")
+    .filter(Boolean)
+    .map((key) => TIME_PRESETS.find((preset) => preset.key === key)?.label || key)
+}
+
+function getTimeAvailabilityPhrase(filter: string): string {
+  if (filter === "all") return "전체 코치를 표시합니다."
+  const labels = getTimeFilterLabels(filter)
+  return labels.length === 1
+    ? `${labels[0]} 가능 코치만 표시합니다.`
+    : `${labels.join("·")} 모두 가능한 코치만 표시합니다.`
+}
+
+function getCourseTimeDescriptor(filter: string): string {
+  const normalized = normalizeTimeFilter(filter)
+  if (normalized === "08-13,13-18") return "주간"
+  if (normalized === "08-13,13-18,18-22") return "전일"
+  return getTimeFilterLabels(normalized).join("·")
+}
+
+function inferCourseTimeFilter(course: CourseOption | null): { filter: string; helper: string } {
+  if (!course) {
+    return { filter: "all", helper: "과정을 선택하면 과정 시간 기준으로 자동 적용됩니다." }
+  }
+
+  const timeRanges = parseCourseTimeRanges(course.workHours)
+  if (timeRanges.length === 0) {
+    return {
+      filter: "all",
+      helper: "이 과정은 시간 정보가 없어 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+    }
+  }
+
+  const distinctFilters = new Set(
+    timeRanges.map((timeRange) => normalizeTimeFilter(getPresetKeysForCourseTime(timeRange.startTime, timeRange.endTime).join(",")))
+  )
+
+  if (distinctFilters.size !== 1) {
+    return {
+      filter: "all",
+      helper: "이 과정은 날짜별 시간이 달라 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+    }
+  }
+
+  const [filter] = [...distinctFilters]
+  if (filter === "all") {
+    return {
+      filter: "all",
+      helper: "이 과정은 시간대를 자동으로 해석하기 어려워 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+    }
+  }
+  const descriptor = getCourseTimeDescriptor(filter)
+
+  return {
+    filter,
+    helper: `이 과정은 ${descriptor} 과정이라 ${getTimeAvailabilityPhrase(filter)}`,
+  }
+}
+
+function getManualTimeFilterHelper(filter: string, hasSelectedCourse: boolean): string {
+  if (hasSelectedCourse) {
+    return `과정 시간 자동 적용 후 직접 수정했습니다. 현재는 ${getTimeAvailabilityPhrase(filter)}`
+  }
+  return filter === "all"
+    ? "전체 코치를 표시합니다."
+    : `직접 선택한 시간대 기준으로 ${getTimeAvailabilityPhrase(filter)}`
+}
+
 export default function DashboardContent({ variant }: DashboardContentProps) {
   const now = new Date()
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
@@ -65,13 +179,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
   const [scoutingManagers, setScoutingManagers] = useState<Record<string, string>>({})
   const [statusData, setStatusData] = useState<StatusData | null>(null)
-  const [timeFilter, setTimeFilter] = useState<string>("08-13,13-18")
-
-  // For API calls: pass individual time ranges as-is (e.g. "08-13,18-22")
-  function getApiTimeFilter(): string {
-    if (timeFilter === "all") return "all"
-    return timeFilter
-  }
+  const [timeFilter, setTimeFilter] = useState<string>("all")
+  const [timeFilterSource, setTimeFilterSource] = useState<TimeFilterSource>("default")
   const [fieldFilter, setFieldFilter] = useState<string>("all")
   const [ratingFilter, setRatingFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -96,15 +205,38 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const yearMonth = formatYearMonth(currentYear, currentMonth)
+  const selectedCourse = useMemo(
+    () => courses.find((course) => course.id === selectedCourseId) ?? null,
+    [courses, selectedCourseId]
+  )
+  const courseAutoTimeFilter = useMemo(
+    () => inferCourseTimeFilter(selectedCourse),
+    [selectedCourse]
+  )
+  const timeFilterBadgeLabel = useMemo(() => {
+    if (selectedCourseId) {
+      return timeFilterSource === "course-auto" ? "자동 적용" : "직접 수정"
+    }
+    if (timeFilter !== "all") return "수동 필터"
+    return null
+  }, [selectedCourseId, timeFilter, timeFilterSource])
+  const timeFilterHelper = useMemo(() => {
+    if (selectedCourseId) {
+      return timeFilterSource === "course-auto"
+        ? courseAutoTimeFilter.helper
+        : getManualTimeFilterHelper(timeFilter, true)
+    }
+    if (timeFilter !== "all") return getManualTimeFilterHelper(timeFilter, false)
+    return "과정을 선택하면 과정 시간 기준으로 자동 적용됩니다."
+  }, [courseAutoTimeFilter.helper, selectedCourseId, timeFilter, timeFilterSource])
 
   // Fetch month summary data
   const fetchMonthData = useCallback(async () => {
     setMonthLoading(true)
     try {
       const params = new URLSearchParams()
-      const apiTime = getApiTimeFilter()
-      if (apiTime !== "all") {
-        params.set("timeFilter", apiTime)
+      if (timeFilter !== "all") {
+        params.set("timeFilter", timeFilter)
       }
       if (variant === "general") params.set("coachFilter", "exclude-samsung")
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
@@ -140,8 +272,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   // Fetch coaches for selected date (or date range)
   const fetchCoaches = useCallback(async () => {
     if (!selectedStart) {
-    setCoaches([])
-    setScoutingManagers({})
+      setCoaches([])
+      setScoutingManagers({})
       return
     }
     setCoachLoading(true)
@@ -150,9 +282,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       const ym = selectedStart.slice(0, 7)
       const params = new URLSearchParams()
       if (selectedEnd) params.set("endDate", selectedEnd)
-      const apiTime = getApiTimeFilter()
-      if (apiTime !== "all") {
-        params.set("timeFilter", apiTime)
+      if (timeFilter !== "all") {
+        params.set("timeFilter", timeFilter)
       }
       if (variant === "general") params.set("coachFilter", "exclude-samsung")
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
@@ -243,7 +374,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       setCurrentMonth((m) => m - 1)
     }
     // 시작일 유지 — 월을 넘겨서 범위 선택 가능 (4/7 → 5월로 이동 → 5/7 클릭 = 4/7~5/7)
-    setTimeFilter("all")
   }
 
   function handleNextMonth() {
@@ -254,7 +384,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     } else {
       setCurrentMonth((m) => m + 1)
     }
-    setTimeFilter("all")
   }
 
   function handleSelectDate(dateStr: string) {
@@ -270,6 +399,10 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       }
       setSelectedCourseId(null)
       setSelectedDates(new Set())
+      if (timeFilterSource === "course-auto") {
+        setTimeFilter("all")
+        setTimeFilterSource("default")
+      }
     }
     // 이미 선택된 날짜를 다시 누르면 선택 해제
     if (dateStr === selectedStart && !selectedEnd) {
@@ -286,7 +419,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleTimeFilterChange(filter: string) {
-    setTimeFilter(filter)
+    const normalized = normalizeTimeFilter(filter)
+    setTimeFilter(normalized)
+    setTimeFilterSource(selectedCourseId ? "manual" : normalized === "all" ? "default" : "manual")
   }
 
   async function handleSyncAndRefresh() {
@@ -314,17 +449,22 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     const today = new Date()
     setCurrentYear(today.getFullYear())
     setCurrentMonth(today.getMonth())
+    setSelectedCourseId(null)
     setSelectedStart(formatDate(today))
     setSelectedEnd(null)
+    setSelectedDates(new Set())
     setTimeFilter("all")
+    setTimeFilterSource("default")
   }
 
   function handleReset() {
+    setSelectedCourseId(null)
     setSelectedStart(null)
     setSelectedEnd(null)
     setSelectedDates(new Set())
     setCoaches([])
-    setTimeFilter("08-13,13-18")
+    setTimeFilter("all")
+    setTimeFilterSource("default")
   }
 
   function handleStatusRefresh() {
@@ -485,6 +625,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           syncing={syncing}
           timeFilter={timeFilter}
           onTimeFilterChange={handleTimeFilterChange}
+          timeFilterBadgeLabel={timeFilterBadgeLabel}
+          timeFilterHelper={timeFilterHelper}
         />
         <DashboardCoachList
           selectedDate={selectedStart}
@@ -509,19 +651,31 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
             setSelectedCourseId(id)
             if (id) {
               const course = courses.find((c) => c.id === id)
-              if (course?.startDate) {
-                const sd = course.startDate.slice(0, 10)
-                const ed = course.endDate?.slice(0, 10) || sd
-                const start = new Date(sd + "T12:00:00Z")
+              const autoFilter = inferCourseTimeFilter(course ?? null)
+              const courseDates = parseCourseTimeRanges(course?.workHours).map((timeRange) => timeRange.date).sort()
+              const rangeStart = course?.startDate?.slice(0, 10) || courseDates[0] || null
+              const rangeEnd = course?.endDate?.slice(0, 10) || courseDates[courseDates.length - 1] || rangeStart
+              setTimeFilter(autoFilter.filter)
+              setTimeFilterSource("course-auto")
+              if (rangeStart && rangeEnd) {
+                const start = new Date(rangeStart + "T12:00:00Z")
                 setCurrentYear(start.getUTCFullYear())
                 setCurrentMonth(start.getUTCMonth())
-                setSelectedStart(sd)
-                setSelectedEnd(ed)
+                setSelectedStart(rangeStart)
+                setSelectedEnd(rangeEnd)
                 // 과정 범위 내 모든 날짜를 selectedDates에 채움
-                setSelectedDates(buildDateSet(sd, ed))
+                setSelectedDates(buildDateSet(rangeStart, rangeEnd))
+              } else {
+                setSelectedStart(null)
+                setSelectedEnd(null)
+                setSelectedDates(new Set())
               }
             } else {
               setSelectedDates(new Set())
+              if (timeFilterSource === "course-auto") {
+                setTimeFilter("all")
+                setTimeFilterSource("default")
+              }
             }
           }}
           onReset={handleReset}

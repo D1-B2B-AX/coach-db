@@ -22,6 +22,8 @@ interface DashboardCalendarProps {
   syncing?: boolean
   timeFilter: string
   onTimeFilterChange: (filter: string) => void
+  timeFilterBadgeLabel?: string | null
+  timeFilterHelper?: string | null
 }
 
 const TIME_PRESETS = [
@@ -50,6 +52,8 @@ export default function DashboardCalendar({
   syncing = false,
   timeFilter,
   onTimeFilterChange,
+  timeFilterBadgeLabel,
+  timeFilterHelper,
 }: DashboardCalendarProps) {
   const firstDay = new Date(year, month, 1)
   // Sunday = 0
@@ -64,14 +68,30 @@ export default function DashboardCalendar({
   }
 
   const yearMonthLabel = `${year}년 ${month + 1}월`
+  const activeKeys = timeFilter === "all" ? [] : timeFilter.split(",")
+
+  function toFilterValue(keys: string[]): string {
+    const ordered = TIME_PRESETS.map((preset) => preset.key).filter((key) => keys.includes(key))
+    return ordered.length > 0 ? ordered.join(",") : "all"
+  }
 
   return (
     <div className={`min-w-0 ${SURFACE_CARD_CLASS} p-4 sm:p-5`}>
       {/* Time filter — multi-select preset buttons */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-4 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => onTimeFilterChange("all")}
+              className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                timeFilter === "all"
+                  ? "border-[#D6E7FA] bg-[#EAF3FE] text-[#1565C0]"
+                  : "border-transparent bg-[#F6F8FB] text-gray-500 hover:bg-[#EDEFF3]"
+              }`}
+            >
+              전체
+            </button>
           {TIME_PRESETS.map((f) => {
-            const activeKeys = timeFilter === "all" ? [] : timeFilter.split(",")
             const isActive = activeKeys.includes(f.key)
             return (
               <button
@@ -83,7 +103,7 @@ export default function DashboardCalendar({
                   } else {
                     next = [...activeKeys, f.key]
                   }
-                  onTimeFilterChange(next.length === 0 ? "all" : next.join(","))
+                  onTimeFilterChange(toFilterValue(next))
                 }}
                 className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   isActive
@@ -95,27 +115,32 @@ export default function DashboardCalendar({
               </button>
             )
           })}
-          {timeFilter !== "all" && (() => {
-            const ranges = timeFilter.split(",").sort()
-            const minH = Math.min(...ranges.map((r) => parseInt(r.split("-")[0])))
-            const maxH = Math.max(...ranges.map((r) => parseInt(r.split("-")[1])))
-            return (
-              <span className="ml-1 hidden text-[10px] text-gray-400 md:inline">
-                약 {minH}-{maxH}시
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={onReset}
+              variant="secondary"
+              size="sm"
+              className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
+            >
+              초기화
+            </Button>
+          </div>
+        </div>
+        {(timeFilterHelper || timeFilterBadgeLabel) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {timeFilterBadgeLabel && (
+              <span className="rounded-full bg-[#F3F6FA] px-2 py-0.5 text-[10px] font-medium text-[#5F6B7A]">
+                {timeFilterBadgeLabel}
               </span>
-            )
-          })()}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button
-            onClick={onReset}
-            variant="secondary"
-            size="sm"
-            className="rounded-lg px-2.5 py-1 text-[11px] font-medium"
-          >
-            초기화
-          </Button>
-        </div>
+            )}
+            {timeFilterHelper && (
+              <span className="text-[11px] text-gray-500">
+                {timeFilterHelper}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Header row */}
