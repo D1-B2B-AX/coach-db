@@ -4,16 +4,24 @@ import { syncEngagements } from '@/lib/sync/engagements'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const auth = await requireManager()
-  if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Bearer 토큰 인증 (cron) 또는 매니저 인증
+  let triggeredBy = ''
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ') && authHeader.slice(7) === process.env.SYNC_API_SECRET) {
+    triggeredBy = 'cron:github-actions'
+  } else {
+    const auth = await requireManager()
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    triggeredBy = `button:${auth.manager.email}`
   }
 
   const log = await prisma.syncLog.create({
     data: {
       type: 'engagements',
       status: 'running',
-      triggeredBy: `button:${auth.manager.email}`,
+      triggeredBy,
     },
   })
 

@@ -30,11 +30,13 @@ function CoachPopover({
   updating,
   copiedId,
   onAction,
+  onShowContract,
 }: {
   scouting: Scouting
   updating: string | null
   copiedId: string | null
-  onAction: (id: string, status: string) => void
+  onAction: (id: string, status: string) => Promise<void>
+  onShowContract: (items: Scouting[]) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -95,10 +97,12 @@ function CoachPopover({
 
           {s.status === "accepted" && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (confirm("확정하시겠습니까?")) {
                   setOpen(false)
-                  onAction(s.id, "confirmed")
+                  await onAction(s.id, "confirmed")
+                  const confirmed = [{ ...s, status: "confirmed" }]
+                  onShowContract(confirmed)
                 }
               }}
               disabled={isUpdating}
@@ -240,6 +244,10 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     if (!confirm(`${items.length}건을 모두 ${label}하시겠습니까?`)) return
     for (const s of items) {
       await handleAction(s.id, targetStatus)
+    }
+    if (targetStatus === "confirmed") {
+      const confirmed = items.map(s => ({ ...s, status: "confirmed" }))
+      setContractPreview({ scoutings: confirmed, rows: buildContractRows(confirmed) })
     }
     onRefresh()
   }
@@ -387,6 +395,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                                       updating={updating}
                                       copiedId={copiedId}
                                       onAction={handleAction}
+                                      onShowContract={(items) => setContractPreview({ scoutings: items, rows: buildContractRows(items) })}
                                     />
                                   ))}
                                 </div>

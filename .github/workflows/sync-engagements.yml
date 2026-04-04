@@ -1,0 +1,17 @@
+name: Daily Engagement Sync
+
+on:
+  schedule:
+    - cron: '0 22 * * *'  # 매일 22:00 UTC (KST 07:00)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger engagement sync
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/sync/engagements" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_API_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error

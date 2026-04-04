@@ -20,9 +20,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const scouting = await prisma.scouting.findUnique({
     where: { id },
     include: {
-      coach: { select: { id: true, name: true, accessToken: true } },
+      coach: { select: { id: true, name: true, accessToken: true, workType: true } },
       manager: { select: { id: true, name: true } },
-      course: { select: { id: true, name: true, startDate: true, endDate: true } },
+      course: { select: { id: true, name: true, startDate: true, endDate: true, location: true } },
     },
   })
   if (!scouting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -81,6 +81,52 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         clickUrl,
       },
     })
+  }
+
+  // 확정 시 engagement 자동 생성
+  if (status === 'confirmed') {
+    const dateStr = scouting.date.toISOString().slice(0, 10)
+    const engCourseName = resolvedCourseName || scouting.courseName || ''
+    const courseStartDate = scouting.course?.startDate ?? scouting.date
+    const courseEndDate = scouting.course?.endDate ?? scouting.date
+
+    // 기존 engagement 찾기 (같은 코치 + 과정명)
+    let engagement = await prisma.engagement.findFirst({
+      where: { coachId: scouting.coachId, courseName: engCourseName },
+    })
+
+    if (!engagement) {
+      engagement = await prisma.engagement.create({
+        data: {
+          coachId: scouting.coachId,
+          courseName: engCourseName,
+          status: 'scheduled',
+          startDate: courseStartDate,
+          endDate: courseEndDate,
+          startTime: hireStart ?? scouting.hireStart,
+          endTime: hireEnd ?? scouting.hireEnd,
+          location: scouting.course?.location ?? null,
+          workType: scouting.coach.workType ?? null,
+          hiredBy: auth.manager.name,
+        },
+      })
+    }
+
+    // engagementSchedule 추가 (중복 체크)
+    const existingSchedule = await prisma.engagementSchedule.findFirst({
+      where: { engagementId: engagement.id, coachId: scouting.coachId, date: scouting.date },
+    })
+    if (!existingSchedule && scouting.hireStart && scouting.hireEnd) {
+      await prisma.engagementSchedule.create({
+        data: {
+          engagementId: engagement.id,
+          coachId: scouting.coachId,
+          date: scouting.date,
+          startTime: hireStart ?? scouting.hireStart,
+          endTime: hireEnd ?? scouting.hireEnd,
+        },
+      })
+    }
   }
 
   // 확정 시 코치 정보를 응답에 포함 (클립보드 복사용)
