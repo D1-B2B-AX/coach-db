@@ -664,7 +664,8 @@ function CoachScheduleContent() {
       }
       return hasFutureDays && allFilled
     })
-  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots, BULK_RANGES])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots])
 
   // ─── Save ───────────────────────────────────────────────────────
 
@@ -787,7 +788,7 @@ function CoachScheduleContent() {
   if (coachInfo?.status === "inactive") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5] p-5">
-        <div className="w-full max-w-[400px] rounded-2xl bg-white p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+        <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[400px] rounded-2xl bg-white p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
           <h2 className="text-lg font-semibold text-[#333]">다시 코치로 활동하고 싶으신가요?</h2>
           <p className="mt-3 text-sm text-gray-500 leading-relaxed">
             코치님의 복귀를 언제나 환영합니다!<br />
@@ -809,7 +810,7 @@ function CoachScheduleContent() {
 
   return (
     <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 pb-10 max-md:p-2.5 max-md:pb-20">
-      <div className="flex w-full max-w-[480px] flex-col items-center gap-4">
+      <div className="flex w-full max-w-[calc(100vw-2rem)] sm:max-w-[480px] flex-col items-center gap-4">
         {/* Main container */}
         <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <CoachHeader
@@ -818,7 +819,7 @@ function CoachScheduleContent() {
             onProfile={() => setShowProfile(true)}
           />
 
-          <div className="px-7 pt-5 pb-7">
+          <div className="px-4 sm:px-7 pt-5 pb-7">
             <ScheduleCalendar
               year={currentYear}
               month={currentMonth}
@@ -875,7 +876,7 @@ function CoachScheduleContent() {
       {/* Google Form prompt — shown when profile fields are empty */}
       {showFormPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl text-center">
+          <div className="mx-4 w-full max-w-[calc(100vw-2rem)] sm:max-w-[400px] rounded-2xl bg-white p-6 shadow-xl text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#E3F2FD]">
               <svg className="h-6 w-6 text-[#1976D2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             </div>
@@ -905,7 +906,7 @@ function CoachScheduleContent() {
       {/* Profile modal */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-[480px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
+          <div className="mx-4 w-full max-w-[calc(100vw-2rem)] sm:max-w-[480px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-[#333]">프로필 수정</h3>
               <button onClick={() => setShowProfile(false)} className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors">
@@ -1079,7 +1080,7 @@ function DeactivateSection({ token, phone, onDeactivated }: {
   }
 
   return (
-    <div ref={sectionRef} className="w-[480px] max-md:w-full max-md:max-w-[480px] -mt-2">
+    <div ref={sectionRef} className="w-full sm:w-[480px] -mt-2">
       <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden">
         <div className="px-5 pt-4 pb-1">
           <h3 className="text-sm font-semibold text-[#333]">활동 중지 신청</h3>

@@ -1,3 +1,12 @@
 import nextConfig from "eslint-config-next";
 
-export default [...nextConfig];
+const config = [
+  ...nextConfig,
+  {
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
+];
+
+export default config;
