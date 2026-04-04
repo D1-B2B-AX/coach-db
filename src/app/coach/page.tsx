@@ -664,7 +664,6 @@ function CoachScheduleContent() {
       }
       return hasFutureDays && allFilled
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots])
 
   // ─── Save ───────────────────────────────────────────────────────

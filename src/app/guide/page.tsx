@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 
 function B({ children }: { children: React.ReactNode }) {
   return <strong className="font-semibold text-[#111]">{children}</strong>

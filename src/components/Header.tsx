@@ -45,10 +45,9 @@ function HeaderContent() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  // 페이지 이동 시 모바일 메뉴 닫기
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [pathname, searchParams])
+  // 페이지 이동 시 모바일 메뉴 닫기 — pathname 변경 시 동기 setState 의도적 사용
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMobileMenuOpen(false) }, [pathname, searchParams])
 
   const navItems = useMemo(() => {
     const items: Array<{
