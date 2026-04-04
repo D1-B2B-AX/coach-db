@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
+import { logAccess } from '@/lib/access-log'
 import { toDateOnly } from '@/lib/date-utils'
 import { uploadFile } from '@/lib/r2'
 
@@ -32,6 +33,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   const { startDate, endDate } = parsed
+
+  const viewer = request.nextUrl.searchParams.get('viewer')
+  logAccess(request, {
+    type: viewer === 'manager' ? 'manager_as_viewer' : 'coach',
+    id: coach.id,
+    name: coach.name,
+  })
 
   // Fetch schedules, engagements, engagement_schedules in parallel
   const [schedules, engagements, engagementSchedules, accessLog, scoutings] = await Promise.all([
@@ -166,6 +174,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 
   const { year, month, startDate, endDate } = parsed
+
+  logAccess(request, { type: 'coach', id: coach.id, name: coach.name })
 
   // Only allow saving up to December of current year
   const now = new Date()

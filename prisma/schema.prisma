@@ -368,3 +368,22 @@ model PushSubscription {
   @@index([coachId])
   @@map("push_subscriptions")
 }
+
+// ─── API 접속 로그 ───
+
+model ApiAccessLog {
+  id         String   @id @default(uuid())
+  path       String   @db.VarChar(500)
+  method     String   @db.VarChar(10)
+  actorType  String   @map("actor_type") @db.VarChar(20)
+  actorId    String   @map("actor_id")
+  actorName  String   @map("actor_name") @db.VarChar(50)
+  userAgent  String?  @map("user_agent") @db.Text
+  ip         String?  @db.VarChar(50)
+  statusCode Int?     @map("status_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorType, actorId])
+  @@index([createdAt])
+  @@map("api_access_logs")
+}

@@ -75,6 +75,13 @@ export default function NewCoachPage() {
                 >
                   복사
                 </button>
+                <button
+                  type="button"
+                  onClick={() => window.open(`${successData.coachLink}&viewer=manager`, '_blank')}
+                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-[#1976D2] hover:bg-gray-50 transition-colors"
+                >
+                  들어가기
+                </button>
               </div>
               <p className="mt-1 text-sm text-gray-400">
                 이 링크로 코치가 스케줄을 입력할 수 있습니다.

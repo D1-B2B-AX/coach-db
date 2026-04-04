@@ -1186,11 +1186,19 @@ function CoachManagementTab() {
               onClick={(e) => { e.stopPropagation(); copyCell(`email-${c.id}`, emailMap.get(c.id) || "") }}
               className="text-sm text-gray-500 truncate cursor-pointer hover:text-[#1976D2] transition-colors"
             >{copiedCell === `email-${c.id}` ? "복사됨!" : (emailMap.get(c.id) || "-")}</span>
-            <span
-              title={getLink(c.id)}
-              onClick={(e) => { e.stopPropagation(); copyCell(`link-${c.id}`, getLink(c.id)) }}
-              className="text-sm text-gray-400 truncate cursor-pointer hover:text-[#1976D2] transition-colors"
-            >{copiedCell === `link-${c.id}` ? "복사됨!" : (() => { const link = getLink(c.id); if (!link) return "-"; const token = tokenMap.get(c.id) || ""; return token.length > 12 ? `https://....${token.slice(-8)}` : link })()}</span>
+            <span className="flex items-center gap-2 min-w-0">
+              <span
+                title={getLink(c.id)}
+                onClick={(e) => { e.stopPropagation(); copyCell(`link-${c.id}`, getLink(c.id)) }}
+                className="text-sm text-gray-400 truncate cursor-pointer hover:text-[#1976D2] transition-colors"
+              >{copiedCell === `link-${c.id}` ? "복사됨!" : (() => { const link = getLink(c.id); if (!link) return "-"; const token = tokenMap.get(c.id) || ""; return token.length > 12 ? `https://....${token.slice(-8)}` : link })()}</span>
+              {getLink(c.id) && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); window.open(`${getLink(c.id)}&viewer=manager`, '_blank') }}
+                  className="text-xs text-[#1976D2] cursor-pointer hover:text-[#1565C0] transition-colors shrink-0"
+                >들어가기</span>
+              )}
+            </span>
           </div>
         ))}
         {visibleCoaches.length === 0 && (

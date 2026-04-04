@@ -130,6 +130,10 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
     }
   }
 
+  function openAsViewer() {
+    window.open(`${getCoachLink()}&viewer=manager`, '_blank')
+  }
+
   return (
     <div className="space-y-5">
       {/* Basic info */}

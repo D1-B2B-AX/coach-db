@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
+import { logAccess } from '@/lib/access-log'
 import { canTransition, getNotificationTrigger } from '@/lib/scouting-state-machine'
 import { createNotification } from '@/lib/notification-service'
 import type { ScoutingStatus } from '@/generated/prisma/client'
@@ -18,6 +19,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!coach) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  logAccess(request, { type: 'coach', id: coach.id, name: coach.name })
 
   const { id } = await params
   const { action } = (await request.json()) as { action: string }

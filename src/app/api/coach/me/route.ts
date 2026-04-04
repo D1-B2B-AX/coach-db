@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
+import { logAccess } from '@/lib/access-log'
 
 // GET /api/coach/me — returns coach profile (token auth)
 export async function GET(request: NextRequest) {
@@ -8,6 +9,13 @@ export async function GET(request: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Token required' }, { status: 401 })
   const coach = await validateCoachToken(token)
   if (!coach) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  const viewer = request.nextUrl.searchParams.get('viewer')
+  logAccess(request, {
+    type: viewer === 'manager' ? 'manager_as_viewer' : 'coach',
+    id: coach.id,
+    name: coach.name,
+  })
 
   const data = await prisma.coach.findUnique({
     where: { id: coach.id },
@@ -41,6 +49,8 @@ export async function PUT(request: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Token required' }, { status: 401 })
   const coach = await validateCoachToken(token)
   if (!coach) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  logAccess(request, { type: 'coach', id: coach.id, name: coach.name })
 
   const body = await request.json()
   const { phone, email, affiliation, availabilityDetail, extraRequest, status, statusNote, returnDate, fields, curriculums } = body as {
