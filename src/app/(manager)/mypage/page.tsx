@@ -84,11 +84,12 @@ export default function MyPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, startDate: startDate || null, endDate: endDate || null }),
     })
-    if (res.ok) {
-      const data = await res.json()
-      const c = data.course
-      setCourses(prev => [c, ...prev])
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || "과정 생성에 실패했습니다")
     }
+    const course = await res.json()
+    setCourses(prev => [course, ...prev])
   }
 
   async function handleCourseUpdate(id: string, data: Partial<Course>) {

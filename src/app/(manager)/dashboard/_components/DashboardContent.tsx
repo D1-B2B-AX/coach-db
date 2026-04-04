@@ -438,8 +438,32 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     }
   }
 
+  const [noCoursesDismissed, setNoCoursesDismissed] = useState(false)
+
   return (
     <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
+      {/* No courses prompt */}
+      {courses.length === 0 && !noCoursesDismissed && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-[#BBDEFB] bg-[#E3F2FD] px-4 py-3">
+          <div className="text-sm text-[#1565C0]">
+            과정이 아직 없습니다. 과정관리에서 과정을 먼저 만들어주세요.
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href="/mypage?tab=courses"
+              className="rounded-lg bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1565C0] transition-colors"
+            >
+              과정관리로 이동
+            </a>
+            <button
+              onClick={() => setNoCoursesDismissed(true)}
+              className="cursor-pointer text-xs text-[#90CAF9] hover:text-[#1565C0] transition-colors"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
       {/* Main content: calendar + coach list */}
       <div className="grid min-w-0 gap-5 md:grid-cols-[340px_1fr] lg:grid-cols-[380px_1fr]">
         <DashboardCalendar
