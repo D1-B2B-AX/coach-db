@@ -1,16 +1,20 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { Course, Scouting, buildSheetRow, tsvCell } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
 
 export default function MyPage() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+
   const [scoutings, setScoutings] = useState<Scouting[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [managerId, setManagerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"scoutings" | "courses">("scoutings")
+  const activeTab = tabParam === "courses" ? "courses" : "scoutings"
 
   useEffect(() => {
     async function fetchMe() {
@@ -180,25 +184,6 @@ export default function MyPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      {/* Tab navigation */}
-      <div className="flex items-center gap-0 border-b border-gray-200 mb-4">
-        {([
-          { key: "scoutings", label: "찜꽁스테이지" },
-          { key: "courses", label: "과정 관리" },
-        ] as const).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`cursor-pointer px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === key
-                ? "border-[#1976D2] text-[#1976D2]"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {activeTab === "scoutings" && managerId && (
         <ScoutingTab
