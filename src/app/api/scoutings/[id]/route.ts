@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { canTransition, getNotificationTrigger } from '@/lib/scouting-state-machine'
-import { createNotification } from '@/lib/notification-service'
+import { createNotification, expireScoutingRequestNotifications } from '@/lib/notification-service'
 import type { ScoutingStatus } from '@/generated/prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -51,6 +51,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     },
     select: { id: true, status: true, courseName: true, hireStart: true, hireEnd: true, scheduleText: true },
   })
+
+  // 취소 시 기존 알림 만료
+  if (status === 'cancelled') {
+    await expireScoutingRequestNotifications(id)
+  }
 
   // 알림 트리거
   const trigger = getNotificationTrigger(scouting.status, status as ScoutingStatus)
