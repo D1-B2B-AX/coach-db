@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useEscClose } from "@/lib/useEscClose"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -65,6 +65,14 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 }
 
 export default function CoachDetailPage() {
+  return (
+    <Suspense fallback={<CoachDetailPageSkeleton />}>
+      <CoachDetailPageContent />
+    </Suspense>
+  )
+}
+
+function CoachDetailPageContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -227,7 +235,6 @@ export default function CoachDetailPage() {
       </div>
     )
   }
-
   if (!coach) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -432,6 +439,43 @@ export default function CoachDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CoachDetailPageSkeleton() {
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-5 w-5" />
+        <Skeleton className="h-6 w-28" />
+        <Skeleton className="h-5 w-12" />
+      </div>
+      <div className="mt-5 flex gap-6 border-b border-gray-200 pb-2.5">
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+      <div className="mt-6 space-y-4">
+        <SkeletonCard>
+          <div className="grid grid-cols-2 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </div>
+        </SkeletonCard>
+        <SkeletonCard>
+          <Skeleton className="mb-3 h-3 w-24" />
+          <div className="flex gap-2">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-14 rounded-full" />
+          </div>
+        </SkeletonCard>
+      </div>
     </div>
   )
 }

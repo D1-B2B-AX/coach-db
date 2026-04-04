@@ -1,12 +1,20 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Course, Scouting, buildSheetRow, tsvCell } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
 
 export default function MyPage() {
+  return (
+    <Suspense fallback={<MyPageSkeleton />}>
+      <MyPageContent />
+    </Suspense>
+  )
+}
+
+function MyPageContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
 
@@ -209,3 +217,14 @@ export default function MyPage() {
   )
 }
 
+function MyPageSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6">
+      <div className="p-4 space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 animate-pulse rounded-2xl bg-gray-100" />
+        ))}
+      </div>
+    </div>
+  )
+}

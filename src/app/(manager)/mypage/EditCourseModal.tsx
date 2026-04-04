@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useMemo, useState } from "react"
 import { isHoliday } from "@/lib/holidays"
 import type { Course } from "./utils"
 import { DAY_NAMES, parseTimeRange, calcBreakAndTotal } from "./utils"
@@ -21,7 +21,68 @@ function formatWorkLine(dateStr: string, startTime: string, endTime: string): st
   return `${dateStr}(${dayName}) ${startTime}-${endTime} (점심 휴게 ${breakStr}, ${totalH}H)`
 }
 
+interface DateChip {
+  date: string
+  dayOfMonth: number
+  dayName: string
+  isOff: boolean
+}
+
+function buildDateChips(startDate: string, endDate: string): DateChip[] {
+  if (!startDate || !endDate) return []
+
+  const dates: DateChip[] = []
+  const cursor = new Date(startDate + "T12:00:00Z")
+  const end = new Date(endDate + "T12:00:00Z")
+
+  while (cursor <= end) {
+    const dateStr = cursor.toISOString().slice(0, 10)
+    const dow = cursor.getUTCDay()
+    dates.push({
+      date: dateStr,
+      dayOfMonth: cursor.getUTCDate(),
+      dayName: DAY_NAMES[dow],
+      isOff: dow === 0 || dow === 6 || isHoliday(dateStr),
+    })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+
+  return dates
+}
+
+function parseExistingWorkHours(workHours: string | null | undefined): { selectedDates: Set<string>; dateTimes: Record<string, string>; defaultTime: string } {
+  const selectedDates = new Set<string>()
+  const dateTimes: Record<string, string> = {}
+
+  for (const line of (workHours || "").split("\n")) {
+    const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
+    if (m) {
+      selectedDates.add(m[1])
+      dateTimes[m[1]] = `${m[2]}~${m[3]}`
+    }
+  }
+
+  return {
+    selectedDates,
+    dateTimes,
+    defaultTime: Object.values(dateTimes)[0] || "09:00~18:00",
+  }
+}
+
+function getDefaultSelectedDates(dateChips: DateChip[], dateTimes: Record<string, string>, current?: Set<string>): Set<string> {
+  const chipDates = new Set(dateChips.map((d) => d.date))
+  const preserved = current ? [...current].filter((date) => chipDates.has(date)) : []
+  if (preserved.length > 0) return new Set(preserved)
+
+  const prefilled = Object.keys(dateTimes).filter((date) => chipDates.has(date))
+  if (prefilled.length > 0) return new Set(prefilled)
+
+  return new Set(dateChips.filter((d) => !d.isOff).map((d) => d.date))
+}
+
 export default function EditCourseModal({ course, saving, onSave, onDelete, onClose }: EditCourseModalProps) {
+  const initialSchedule = parseExistingWorkHours(course.workHours)
+  const initialDateChips = buildDateChips(course.startDate?.slice(0, 10) || "", course.endDate?.slice(0, 10) || "")
   const [name, setName] = useState(course.name)
   const [desc, setDesc] = useState(course.description || "")
   const [startDate, setStartDate] = useState(course.startDate?.slice(0, 10) || "")
@@ -32,28 +93,15 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
   )
 
   // Schedule builder state
-  const [defaultTime, setDefaultTime] = useState("09:00~18:00")
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
-  const [dateTimes, setDateTimes] = useState<Record<string, string>>({})
+  const [defaultTime, setDefaultTime] = useState(initialSchedule.defaultTime)
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(() =>
+    getDefaultSelectedDates(initialDateChips, initialSchedule.dateTimes, initialSchedule.selectedDates)
+  )
+  const [dateTimes, setDateTimes] = useState<Record<string, string>>(initialSchedule.dateTimes)
 
   // Generate date chips from start/end
   const dateChips = useMemo(() => {
-    if (!startDate || !endDate) return []
-    const dates: { date: string; dayOfMonth: number; dayName: string; isOff: boolean }[] = []
-    const cursor = new Date(startDate + "T12:00:00Z")
-    const end = new Date(endDate + "T12:00:00Z")
-    while (cursor <= end) {
-      const dateStr = cursor.toISOString().slice(0, 10)
-      const dow = cursor.getUTCDay()
-      dates.push({
-        date: dateStr,
-        dayOfMonth: cursor.getUTCDate(),
-        dayName: DAY_NAMES[dow],
-        isOff: dow === 0 || dow === 6 || isHoliday(dateStr),
-      })
-      cursor.setUTCDate(cursor.getUTCDate() + 1)
-    }
-    return dates
+    return buildDateChips(startDate, endDate)
   }, [startDate, endDate])
 
   // Week groups for visual layout
@@ -73,33 +121,6 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
     }
     if (current.length > 0) groups.push(current)
     return groups
-  }, [dateChips])
-
-  // Init selected dates when dateChips change (exclude weekends/holidays)
-  useEffect(() => {
-    if (dateChips.length > 0) {
-      // Parse existing workHours to restore selections
-      const existing = course.workHours || ""
-      const existingDates = new Set<string>()
-      const existingTimes: Record<string, string> = {}
-      for (const line of existing.split("\n")) {
-        const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
-        if (m) {
-          existingDates.add(m[1])
-          existingTimes[m[1]] = `${m[2]}~${m[3]}`
-        }
-      }
-      if (existingDates.size > 0) {
-        setSelectedDates(existingDates)
-        setDateTimes(existingTimes)
-        const firstTime = Object.values(existingTimes)[0]
-        if (firstTime) setDefaultTime(firstTime)
-      } else {
-        setSelectedDates(new Set(dateChips.filter(d => !d.isOff).map(d => d.date)))
-      }
-    } else {
-      setSelectedDates(new Set())
-    }
   }, [dateChips])
 
   // Generate output lines
@@ -133,6 +154,18 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
       }
       return next
     })
+  }
+
+  function handleStartDateChange(nextStartDate: string) {
+    setStartDate(nextStartDate)
+    const nextDateChips = buildDateChips(nextStartDate, endDate)
+    setSelectedDates((current) => getDefaultSelectedDates(nextDateChips, dateTimes, current))
+  }
+
+  function handleEndDateChange(nextEndDate: string) {
+    setEndDate(nextEndDate)
+    const nextDateChips = buildDateChips(startDate, nextEndDate)
+    setSelectedDates((current) => getDefaultSelectedDates(nextDateChips, dateTimes, current))
   }
 
   function handleSave() {
@@ -183,7 +216,7 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => handleStartDateChange(e.target.value)}
                 disabled={saving}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
               />
@@ -191,7 +224,7 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => handleEndDateChange(e.target.value)}
                 disabled={saving}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
               />

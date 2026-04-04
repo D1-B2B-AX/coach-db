@@ -3,13 +3,13 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
 
 
-export default function Header() {
+function HeaderContent() {
   const { data: session } = useSession()
   const pathname = usePathname()
   const searchParamsObj = useSearchParams()
@@ -128,5 +128,23 @@ export default function Header() {
         </div>
       </div>
     </header>
+  )
+}
+
+function HeaderFallback() {
+  return (
+    <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="h-12 sm:h-14" />
+      </div>
+    </header>
+  )
+}
+
+export default function Header() {
+  return (
+    <Suspense fallback={<HeaderFallback />}>
+      <HeaderContent />
+    </Suspense>
   )
 }

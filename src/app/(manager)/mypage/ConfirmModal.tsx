@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useMemo, useState } from "react"
 import { isHoliday } from "@/lib/holidays"
 import {
   Scouting,
@@ -17,6 +17,80 @@ interface ConfirmModalProps {
   onClose: () => void
 }
 
+interface DateChip {
+  date: string
+  dayOfMonth: number
+  isOff: boolean
+}
+
+function getInitialTimes(
+  scouting: Scouting,
+  prevConfirmed: Scouting | null,
+  start: string,
+  end: string
+): { dateTimes: Record<string, string>; allTimeInput: string } {
+  if (scouting.scheduleText) {
+    const lines = scouting.scheduleText.split("\n")
+    const times: Record<string, string> = {}
+    for (const line of lines) {
+      const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
+      if (m) times[m[1]] = `${m[2]}~${m[3]}`
+    }
+    const first = Object.values(times)[0] || "09:00~18:00"
+    return { dateTimes: times, allTimeInput: first }
+  }
+
+  if (prevConfirmed?.scheduleText) {
+    const lines = prevConfirmed.scheduleText.split("\n")
+    const m = lines[0]?.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
+    const t = m ? `${m[2]}~${m[3]}` : "09:00~18:00"
+    const times: Record<string, string> = {}
+
+    if (start && end) {
+      const cursor = new Date(start + "T12:00:00Z")
+      const endD = new Date(end + "T12:00:00Z")
+      while (cursor <= endD) {
+        const dateStr = cursor.toISOString().slice(0, 10)
+        const dow = cursor.getUTCDay()
+        if (dow !== 0 && dow !== 6 && !isHoliday(dateStr)) times[dateStr] = t
+        cursor.setUTCDate(cursor.getUTCDate() + 1)
+      }
+    }
+
+    return { dateTimes: times, allTimeInput: t }
+  }
+
+  return { dateTimes: {}, allTimeInput: "09:00~18:00" }
+}
+
+function buildDateChips(startDate: string, endDate: string): DateChip[] {
+  if (!startDate || !endDate) return []
+
+  const dates: DateChip[] = []
+  const cursor = new Date(startDate + "T12:00:00Z")
+  const end = new Date(endDate + "T12:00:00Z")
+
+  while (cursor <= end) {
+    const dateStr = cursor.toISOString().slice(0, 10)
+    const dow = cursor.getUTCDay()
+    dates.push({ date: dateStr, dayOfMonth: cursor.getUTCDate(), isOff: dow === 0 || dow === 6 || isHoliday(dateStr) })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+
+  return dates
+}
+
+function getDefaultSelectedDates(dateChips: DateChip[], dateTimes: Record<string, string>, current?: Set<string>): Set<string> {
+  const chipDates = new Set(dateChips.map((d) => d.date))
+  const preserved = current ? [...current].filter((date) => chipDates.has(date)) : []
+  if (preserved.length > 0) return new Set(preserved)
+
+  const prefilled = Object.keys(dateTimes).filter((date) => chipDates.has(date))
+  if (prefilled.length > 0) return new Set(prefilled)
+
+  return new Set(dateChips.filter((d) => !d.isOff).map((d) => d.date))
+}
+
 export default function ConfirmModal({ scouting, scoutings, updating, onConfirm, onClose }: ConfirmModalProps) {
   const s = scouting
   const courseStart = s.course?.startDate ? s.course.startDate.slice(0, 10) : (s.hireStart || "")
@@ -27,62 +101,20 @@ export default function ConfirmModal({ scouting, scoutings, updating, onConfirm,
     if (!s.courseId) return null
     return scoutings.find(x => x.id !== s.id && x.status === "confirmed" && x.courseId === s.courseId && x.scheduleText)
   }, [scoutings, s.id, s.courseId])
-
-  // Determine initial time from previous scouting or default
-  function getInitialTimes(start: string, end: string): { dateTimes: Record<string, string>; allTimeInput: string } {
-    if (s.scheduleText) {
-      // editing confirmed: parse existing schedule
-      const lines = s.scheduleText.split("\n")
-      const times: Record<string, string> = {}
-      for (const line of lines) {
-        const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
-        if (m) times[m[1]] = `${m[2]}~${m[3]}`
-      }
-      const first = Object.values(times)[0] || "09:00~18:00"
-      return { dateTimes: times, allTimeInput: first }
-    }
-    if (prevConfirmed?.scheduleText) {
-      // auto-fill from previous confirmed on same course
-      const lines = prevConfirmed.scheduleText.split("\n")
-      const m = lines[0]?.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})\s*~\s*(\d{2}:\d{2})/)
-      const t = m ? `${m[2]}~${m[3]}` : "09:00~18:00"
-      // apply to all work days in range
-      const times: Record<string, string> = {}
-      if (start && end) {
-        const cursor = new Date(start + "T12:00:00Z")
-        const endD = new Date(end + "T12:00:00Z")
-        while (cursor <= endD) {
-          const dateStr = cursor.toISOString().slice(0, 10)
-          const dow = cursor.getUTCDay()
-          if (dow !== 0 && dow !== 6 && !isHoliday(dateStr)) times[dateStr] = t
-          cursor.setUTCDate(cursor.getUTCDate() + 1)
-        }
-      }
-      return { dateTimes: times, allTimeInput: t }
-    }
-    return { dateTimes: {}, allTimeInput: "09:00~18:00" }
-  }
+  const initialTimes = getInitialTimes(s, prevConfirmed || null, courseStart, courseEnd)
+  const initialDateChips = buildDateChips(courseStart, courseEnd)
 
   const [startDate, setStartDate] = useState(courseStart)
   const [endDate, setEndDate] = useState(courseEnd)
-
-  const initialTimes = useMemo(() => getInitialTimes(courseStart, courseEnd), []) // eslint-disable-line react-hooks/exhaustive-deps
-  const [dateTimes, setDateTimes] = useState<Record<string, string>>(initialTimes.dateTimes)
-  const [allTimeInput, setAllTimeInput] = useState(initialTimes.allTimeInput)
+  const [dateTimes, setDateTimes] = useState<Record<string, string>>(() => initialTimes.dateTimes)
+  const [allTimeInput, setAllTimeInput] = useState(() => initialTimes.allTimeInput)
   const [showPreview, setShowPreview] = useState(false)
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(() =>
+    getDefaultSelectedDates(initialDateChips, initialTimes.dateTimes)
+  )
 
   const dateChips = useMemo(() => {
-    if (!startDate || !endDate) return []
-    const dates: { date: string; dayOfMonth: number; isOff: boolean }[] = []
-    const cursor = new Date(startDate + "T12:00:00Z")
-    const end = new Date(endDate + "T12:00:00Z")
-    while (cursor <= end) {
-      const dateStr = cursor.toISOString().slice(0, 10)
-      const dow = cursor.getUTCDay()
-      dates.push({ date: dateStr, dayOfMonth: cursor.getUTCDate(), isOff: dow === 0 || dow === 6 || isHoliday(dateStr) })
-      cursor.setUTCDate(cursor.getUTCDate() + 1)
-    }
-    return dates
+    return buildDateChips(startDate, endDate)
   }, [startDate, endDate])
 
   const weekGroups = useMemo(() => {
@@ -103,23 +135,13 @@ export default function ConfirmModal({ scouting, scoutings, updating, onConfirm,
     if (current.length > 0) groups.push(current)
     return groups
   }, [dateChips])
-
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    if (dateChips.length > 0) {
-      setSelectedDates(new Set(dateChips.filter(d => !d.isOff).map(d => d.date)))
-    } else {
-      setSelectedDates(new Set())
+  let defaultTime = ""
+  for (const d of dateChips) {
+    if (selectedDates.has(d.date) && dateTimes[d.date]?.trim()) {
+      defaultTime = dateTimes[d.date].trim()
+      break
     }
-  }, [dateChips])
-
-  const defaultTime = useMemo(() => {
-    for (const d of dateChips) {
-      if (selectedDates.has(d.date) && dateTimes[d.date]?.trim()) return dateTimes[d.date].trim()
-    }
-    return ""
-  }, [dateChips, selectedDates, dateTimes])
+  }
 
   const outputLines = useMemo(() => {
     if (!defaultTime || selectedDates.size === 0) return []
@@ -158,6 +180,18 @@ export default function ConfirmModal({ scouting, scoutings, updating, onConfirm,
       for (const d of dateChips) { if (selectedDates.has(d.date)) next[d.date] = v }
       return next
     })
+  }
+
+  function handleStartDateChange(nextStartDate: string) {
+    setStartDate(nextStartDate)
+    const nextDateChips = buildDateChips(nextStartDate, endDate)
+    setSelectedDates((current) => getDefaultSelectedDates(nextDateChips, dateTimes, current))
+  }
+
+  function handleEndDateChange(nextEndDate: string) {
+    setEndDate(nextEndDate)
+    const nextDateChips = buildDateChips(startDate, nextEndDate)
+    setSelectedDates((current) => getDefaultSelectedDates(nextDateChips, dateTimes, current))
   }
 
   function handleConfirm() {
@@ -201,10 +235,10 @@ export default function ConfirmModal({ scouting, scoutings, updating, onConfirm,
       {/* Period */}
       <div className="flex items-center gap-2">
         <span className="text-[11px] text-gray-400 shrink-0">기간:</span>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+        <input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)}
           className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none" />
         <span className="text-xs text-gray-400">~</span>
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+        <input type="date" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)}
           className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-[#333] focus:border-[#1976D2] focus:outline-none" />
       </div>
 
