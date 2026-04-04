@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { expireScoutingRequestNotifications } from '@/lib/notification-service'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -85,20 +86,28 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Cancel related scoutings before deleting
-    await prisma.scouting.updateMany({
+    // Cancel active scoutings and expire their notifications
+    const activeScoutings = await prisma.scouting.findMany({
       where: { courseId: id, status: { in: ['scouting', 'accepted'] } },
-      data: { status: 'cancelled', courseId: null },
+      select: { id: true },
     })
-    // Detach remaining (confirmed, etc.)
-    await prisma.scouting.updateMany({
-      where: { courseId: id },
-      data: { courseId: null },
+    if (activeScoutings.length > 0) {
+      await prisma.scouting.updateMany({
+        where: { id: { in: activeScoutings.map(s => s.id) } },
+        data: { status: 'cancelled' },
+      })
+      for (const s of activeScoutings) {
+        await expireScoutingRequestNotifications(s.id)
+      }
+    }
+
+    // Soft delete (keep course record for history)
+    await prisma.course.update({
+      where: { id },
+      data: { deletedAt: new Date() },
     })
 
-    await prisma.course.delete({ where: { id } })
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, cancelledScoutings: activeScoutings.length })
   } catch (e) {
     console.error('[DELETE /api/courses] Error:', e)
     const message = e instanceof Error ? e.message : 'Unknown error'

@@ -51,6 +51,7 @@ function formatManagerLabel(name?: string | null, email?: string | null): string
 export default function ScoutingAlerts({ token, onAction }: { token: string; onAction?: () => void }) {
   const [alerts, setAlerts] = useState<ScoutingNotification[]>([])
   const [acting, setActing] = useState<string | null>(null)
+  const [bulkActing, setBulkActing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [forcedVisible, setForcedVisible] = useState(false)
@@ -174,6 +175,28 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
     finally { setActing(null) }
   }
 
+  async function handleBulkAction(items: ScoutingNotification[], action: "accept" | "reject") {
+    const label = action === "accept" ? "수락" : "거절"
+    if (!confirm(`${items.length}건을 전부 ${label}하시겠습니까?`)) return
+    setBulkActing(true)
+    for (const a of items) {
+      if (!a.data?.scoutingId) continue
+      try {
+        const res = await fetch(`/api/coach/scoutings/${a.data.scoutingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action }),
+        })
+        if (res.ok) {
+          await fetch(`/api/coach/notifications/${a.id}/read?token=${token}`, { method: "PATCH" })
+        }
+      } catch { /* ignore */ }
+    }
+    setBulkActing(false)
+    fetchAlerts()
+    onAction?.()
+  }
+
   if (!shouldRender) return null
 
   return (
@@ -202,9 +225,9 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
             </div>
           )}
           {(() => {
-            // 과정별 그룹핑 후 날짜순 정렬
+            // 전체 pendingAlerts로 과정별 그룹핑 (정확한 카운트)
             const grouped = new Map<string, ScoutingNotification[]>()
-            for (const a of visibleAlerts) {
+            for (const a of pendingAlerts) {
               const key = a.enriched?.courseName || a.data?.courseName || "과정명 없음"
               if (!grouped.has(key)) grouped.set(key, [])
               grouped.get(key)!.push(a)
@@ -213,13 +236,31 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
             for (const [, items] of grouped) {
               items.sort((a, b) => (a.data?.date ?? "").localeCompare(b.data?.date ?? ""))
             }
+            // 미확장 시 그룹별로 limit 적용
+            const groupLimit = expanded ? Infinity : limit
             return [...grouped.entries()].map(([courseName, items]) => (
               <div key={courseName} className="space-y-1.5">
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[12px] font-semibold text-[#333]">{courseName}</span>
+                  <span className="text-[14px] font-semibold text-[#333]">{courseName}</span>
                   <span className="text-[10px] text-gray-400">{items.length}건</span>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleBulkAction(items, "accept")}
+                      disabled={bulkActing}
+                      className="cursor-pointer rounded-full bg-[#1976D2] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1565C0] disabled:opacity-50"
+                    >
+                      {bulkActing ? "..." : "전부 수락"}
+                    </button>
+                    <button
+                      onClick={() => handleBulkAction(items, "reject")}
+                      disabled={bulkActing}
+                      className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200 disabled:opacity-50"
+                    >
+                      전부 거절
+                    </button>
+                  </div>
                 </div>
-                {items.map((a) => (
+                {items.slice(0, groupLimit).map((a) => (
                   <div
                     key={a.id}
                     className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"

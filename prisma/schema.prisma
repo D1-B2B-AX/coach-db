@@ -123,6 +123,7 @@ model Course {
   location    String?   @db.VarChar(200)
   hourlyRate  Int?      @map("hourly_rate")
   createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
 
   manager   Manager   @relation(fields: [managerId], references: [id], onDelete: Cascade)
   scoutings Scouting[]
