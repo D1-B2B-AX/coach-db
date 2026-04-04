@@ -12,7 +12,6 @@ import {
   formatPeriod,
   getStatusCounts,
 } from "./utils"
-import ConfirmModal from "./ConfirmModal"
 
 interface ScoutingTabProps {
   courses: Course[]
@@ -28,13 +27,11 @@ function CoachPopover({
   updating,
   copiedId,
   onAction,
-  onConfirmOpen,
 }: {
   scouting: Scouting
   updating: string | null
   copiedId: string | null
   onAction: (id: string, status: string) => void
-  onConfirmOpen: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -95,21 +92,16 @@ function CoachPopover({
 
           {s.status === "accepted" && (
             <button
-              onClick={() => { setOpen(false); onConfirmOpen(s.id) }}
+              onClick={() => {
+                if (confirm("확정하시겠습니까?")) {
+                  setOpen(false)
+                  onAction(s.id, "confirmed")
+                }
+              }}
               disabled={isUpdating}
               className="flex w-full items-center px-3 py-1.5 text-xs text-[#1976D2] font-medium rounded-lg hover:bg-[#E3F2FD] transition-colors disabled:opacity-50 cursor-pointer"
             >
               확정하기
-            </button>
-          )}
-
-          {s.status === "confirmed" && (
-            <button
-              onClick={() => { setOpen(false); onConfirmOpen(s.id) }}
-              disabled={isUpdating}
-              className="flex w-full items-center px-3 py-1.5 text-xs text-gray-500 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              수정
             </button>
           )}
 
@@ -152,7 +144,6 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
   const [statusFilter, setStatusFilter] = useState("all")
   const [openAccordions, setOpenAccordions] = useState<Set<string | null>>(new Set())
   const [updating, setUpdating] = useState<string | null>(null)
-  const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const counts = useMemo(() => ({
@@ -240,25 +231,14 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     }
   }
 
-  async function handleConfirm(extra: Record<string, string>) {
-    if (!confirmTargetId) return
-    setUpdating(confirmTargetId)
-    try {
-      await onStatusChange(confirmTargetId, "confirmed", extra)
-      // copy to clipboard
-      const found = scoutings.find(x => x.id === confirmTargetId)
-      if (found) {
-        setCopiedId(confirmTargetId)
-        setTimeout(() => setCopiedId(null), 3000)
-      }
-      setConfirmTargetId(null)
-    } finally {
-      setUpdating(null)
+  async function handleBulkAction(items: Scouting[], targetStatus: string) {
+    const label = targetStatus === "confirmed" ? "확정" : "취소"
+    if (!confirm(`${items.length}건을 모두 ${label}하시겠습니까?`)) return
+    for (const s of items) {
+      await handleAction(s.id, targetStatus)
     }
     onRefresh()
   }
-
-  const confirmScouting = confirmTargetId ? scoutings.find(s => s.id === confirmTargetId) ?? null : null
 
   return (
     <div className="space-y-3">
@@ -325,6 +305,26 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                 {/* Accordion content */}
                 {isOpen && (
                   <div>
+                    {group.allScoutings.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-5 py-2 border-t border-gray-100">
+                        {group.allScoutings.some(s => s.status === "accepted") && (
+                          <button
+                            onClick={() => handleBulkAction(group.allScoutings.filter(s => s.status === "accepted"), "confirmed")}
+                            className="cursor-pointer rounded-full bg-[#1976D2] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1565C0]"
+                          >
+                            모두 확정 ({group.allScoutings.filter(s => s.status === "accepted").length})
+                          </button>
+                        )}
+                        {group.allScoutings.some(s => s.status === "scouting" || s.status === "accepted") && (
+                          <button
+                            onClick={() => handleBulkAction(group.allScoutings.filter(s => s.status === "scouting" || s.status === "accepted"), "cancelled")}
+                            className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200"
+                          >
+                            모두 취소 ({group.allScoutings.filter(s => s.status === "scouting" || s.status === "accepted").length})
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {group.allScoutings.length === 0 ? (
                       <div className="px-5 py-8 text-center text-sm text-gray-400">
                         아직 컨택한 코치가 없습니다
@@ -362,24 +362,9 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                                       updating={updating}
                                       copiedId={copiedId}
                                       onAction={handleAction}
-                                      onConfirmOpen={(id) => setConfirmTargetId(id)}
                                     />
                                   ))}
                                 </div>
-                                {/* ConfirmModal inline per scouting */}
-                                {scoutingsForDate.map(s => {
-                                  if (confirmTargetId !== s.id || !confirmScouting) return null
-                                  return (
-                                    <ConfirmModal
-                                      key={s.id}
-                                      scouting={confirmScouting}
-                                      scoutings={scoutings}
-                                      updating={updating === confirmTargetId}
-                                      onConfirm={handleConfirm}
-                                      onClose={() => setConfirmTargetId(null)}
-                                    />
-                                  )
-                                })}
                               </div>
                             </div>
                           </div>
