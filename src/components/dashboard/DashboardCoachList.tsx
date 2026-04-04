@@ -197,6 +197,15 @@ export default function DashboardCoachList({
         else { if (count < parseInt(engagementFilter)) return false }
       }
       return true
+    }).sort((a, b) => {
+      // 분야 있는 코치 우선
+      const aHasFields = a.fields.length > 0 ? 0 : 1
+      const bHasFields = b.fields.length > 0 ? 0 : 1
+      if (aHasFields !== bHasFields) return aHasFields - bHasFields
+      // 평점 높은 순 (null은 뒤로)
+      const aRating = a.avgRating ?? -1
+      const bRating = b.avgRating ?? -1
+      return bRating - aRating
     })
   }, [coaches, timeFilter, fieldFilter, ratingFilter, engagementFilter])
 
