@@ -201,65 +201,80 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
               현재 확인할 요청이 없습니다.
             </div>
           )}
-          {visibleAlerts.map((a) => {
-            return (
-              <React.Fragment key={a.id}>
-                <div
-                  className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"
-                  onClick={() => {
-                    setModalTarget({
-                      date: a.data?.date ?? "",
-                      hireStart: a.data?.hireStart ?? null,
-                      hireEnd: a.data?.hireEnd ?? null,
-                      managerEmail: a.data?.managerEmail ?? null,
-                      courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
-                      note: a.enriched?.note ?? null,
-                      managerName: a.data?.managerName ?? null,
-                    })
-                  }}
-                >
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#EAF2FD] px-2.5 py-1 text-[11px] font-semibold text-[#1976D2]">
-                          {formatAlertDate(a.data?.date ?? "")}
-                          {" "}
-                          {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
-                        </span>
-                        <span className="text-sm font-semibold text-[#1F2937]">
-                          {a.enriched?.courseName || a.data?.courseName || "과정명 없음"}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-[#6B7280]">
-                        {a.data?.managerName?.trim() ? `${a.data.managerName.trim()} 매니저` : "매니저 미정"}
-                      </p>
-                      {a.enriched?.note && (
-                        <p className="line-clamp-2 text-[12px] leading-relaxed text-[#374151]">
-                          {a.enriched.note}
+          {(() => {
+            // 과정별 그룹핑 후 날짜순 정렬
+            const grouped = new Map<string, ScoutingNotification[]>()
+            for (const a of visibleAlerts) {
+              const key = a.enriched?.courseName || a.data?.courseName || "과정명 없음"
+              if (!grouped.has(key)) grouped.set(key, [])
+              grouped.get(key)!.push(a)
+            }
+            // 각 그룹 내 날짜순 정렬
+            for (const [, items] of grouped) {
+              items.sort((a, b) => (a.data?.date ?? "").localeCompare(b.data?.date ?? ""))
+            }
+            return [...grouped.entries()].map(([courseName, items]) => (
+              <div key={courseName} className="space-y-1.5">
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[12px] font-semibold text-[#333]">{courseName}</span>
+                  <span className="text-[10px] text-gray-400">{items.length}건</span>
+                </div>
+                {items.map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"
+                    onClick={() => {
+                      setModalTarget({
+                        date: a.data?.date ?? "",
+                        hireStart: a.data?.hireStart ?? null,
+                        hireEnd: a.data?.hireEnd ?? null,
+                        managerEmail: a.data?.managerEmail ?? null,
+                        courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
+                        note: a.enriched?.note ?? null,
+                        managerName: a.data?.managerName ?? null,
+                      })
+                    }}
+                  >
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#EAF2FD] px-2.5 py-1 text-[11px] font-semibold text-[#1976D2]">
+                            {formatAlertDate(a.data?.date ?? "")}
+                            {" "}
+                            {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-[#6B7280]">
+                          {a.data?.managerName?.trim() ? `${a.data.managerName.trim()} 매니저` : "매니저 미정"}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
-                        disabled={acting === a.id}
-                        className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
-                      >
-                        {acting === a.id ? "..." : "수락"}
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
-                        disabled={acting === a.id}
-                        className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
-                      >
-                        거절
-                      </button>
+                        {a.enriched?.note && (
+                          <p className="line-clamp-2 text-[12px] leading-relaxed text-[#374151]">
+                            {a.enriched.note}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
+                          disabled={acting === a.id}
+                          className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
+                        >
+                          {acting === a.id ? "..." : "수락"}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
+                          disabled={acting === a.id}
+                          className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                        >
+                          거절
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </React.Fragment>
-            )
-          })}
+                ))}
+              </div>
+            ))
+          })()}
           {hasMore && !expanded && (
             <button
               onClick={() => setExpanded(true)}

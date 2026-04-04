@@ -513,7 +513,19 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setBulkCourseDescription(selectedCourse?.description ?? "")
     setBulkExtra("")
     setBulkError("")
+    setBulkSending(false)
     setShowScoutModal(true)
+  }
+
+  function closeBulkModal() {
+    closeBulkModal()
+    setBulkCoachIds([])
+    setBulkDates([])
+    setBulkCourseName("")
+    setBulkCourseDescription("")
+    setBulkExtra("")
+    setBulkError("")
+    setBulkSending(false)
   }
 
   // 팝업 입력값으로 여러 코치를 선택된 날짜 범위에 일괄 컨택
@@ -577,7 +589,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       )
       setShowToast(true)
       if (failedCount === 0) {
-        setShowScoutModal(false)
+        closeBulkModal()
       } else {
         setBulkError(firstErrorMessage || "일부 전송에 실패했습니다. 다시 시도해주세요.")
       }
@@ -699,7 +711,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       {showScoutModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => !bulkSending && setShowScoutModal(false)}
+          onClick={() => !bulkSending && closeBulkModal()}
         >
           <div
             className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-xl"
@@ -750,7 +762,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowScoutModal(false)}
+                onClick={() => closeBulkModal()}
                 disabled={bulkSending}
                 className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
