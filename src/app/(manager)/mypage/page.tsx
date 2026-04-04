@@ -2,9 +2,10 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Course, Scouting } from "./utils"
+import { Course, Scouting, EngagementHistory } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
+import EngagementHistorySection from "./EngagementHistory"
 
 export default function MyPage() {
   return (
@@ -20,6 +21,7 @@ function MyPageContent() {
 
   const [scoutings, setScoutings] = useState<Scouting[]>([])
   const [courses, setCourses] = useState<Course[]>([])
+  const [engagementHistory, setEngagementHistory] = useState<EngagementHistory[]>([])
   const [managerId, setManagerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const activeTab = tabParam === "courses" ? "courses" : "scoutings"
@@ -78,12 +80,23 @@ function MyPageContent() {
     } catch { /* ignore */ }
   }, [managerId])
 
+  const fetchEngagementHistory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/engagements/mine")
+      if (res.ok) {
+        const data = await res.json()
+        setEngagementHistory(data.engagements || [])
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   useEffect(() => {
     fetchScoutings()
     fetchCourses()
+    fetchEngagementHistory()
     const interval = setInterval(() => fetchScoutings(true), 30000)
     return () => clearInterval(interval)
-  }, [fetchScoutings, fetchCourses])
+  }, [fetchScoutings, fetchCourses, fetchEngagementHistory])
 
   // Course CRUD handlers
   async function handleCourseCreate(name: string, startDate?: string, endDate?: string) {
@@ -194,13 +207,16 @@ function MyPageContent() {
       )}
 
       {activeTab === "courses" && (
-        <CourseTab
-          courses={courses}
-          scoutings={scoutings}
-          onCourseCreate={handleCourseCreate}
-          onCourseUpdate={handleCourseUpdate}
-          onCourseDelete={handleCourseDelete}
-        />
+        <>
+          <CourseTab
+            courses={courses}
+            scoutings={scoutings}
+            onCourseCreate={handleCourseCreate}
+            onCourseUpdate={handleCourseUpdate}
+            onCourseDelete={handleCourseDelete}
+          />
+          <EngagementHistorySection engagements={engagementHistory} />
+        </>
       )}
     </div>
   )

@@ -1,5 +1,33 @@
 // Types
 
+export interface EngagementHistory {
+  id: string
+  courseName: string
+  status: string
+  startDate: string
+  endDate: string
+  startTime: string | null
+  endTime: string | null
+  location: string | null
+  rating: number | null
+  feedback: string | null
+  rehire: boolean | null
+  hiredBy: string | null
+  coach: {
+    id: string
+    name: string
+    employeeId: string | null
+    phone: string | null
+    email: string | null
+  }
+}
+
+export interface EngagementGroup {
+  courseName: string
+  engagements: EngagementHistory[]
+  period: string
+}
+
 export interface Scouting {
   id: string
   coachId: string
@@ -221,6 +249,29 @@ export function copyContractToClipboard(scoutings: Scouting[]): Promise<boolean>
   const rows = buildContractRows(scoutings)
   const tsv = rows.map(row => row.map(tsvCell).join("\t")).join("\n")
   return navigator.clipboard.writeText(tsv).then(() => true).catch(() => false)
+}
+
+export function groupEngagements(list: EngagementHistory[]): EngagementGroup[] {
+  const map = new Map<string, EngagementHistory[]>()
+  for (const e of list) {
+    const key = e.courseName
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(e)
+  }
+  return [...map.entries()].map(([courseName, engagements]) => {
+    const sorted = engagements.sort((a, b) => a.startDate.localeCompare(b.startDate))
+    const first = sorted[0].startDate.slice(0, 7)
+    const last = sorted[sorted.length - 1].endDate.slice(0, 7)
+    const period = first === last ? first : `${first} ~ ${last}`
+    return { courseName, engagements: sorted, period }
+  })
+}
+
+export const ENGAGEMENT_STATUS: Record<string, { label: string; className: string }> = {
+  scheduled: { label: "예정", className: "text-[#1976D2] bg-[#E3F2FD]" },
+  in_progress: { label: "진행", className: "text-[#F57C00] bg-[#FFF3E0]" },
+  completed: { label: "완료", className: "text-[#388E3C] bg-[#E8F5E9]" },
+  cancelled: { label: "취소", className: "text-gray-400 bg-gray-100" },
 }
 
 export function formatPeriod(start: string | null, end: string | null): string {
