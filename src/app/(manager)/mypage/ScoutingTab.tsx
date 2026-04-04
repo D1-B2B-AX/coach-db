@@ -344,7 +344,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                               rel="noopener noreferrer"
                               className="rounded-full border border-[#0F9D58] px-2.5 py-1 text-[10px] font-medium text-[#0F9D58] hover:bg-[#E8F5E9]"
                             >
-                              확인하러 가기
+                              계약하러 가기
                             </a>
                           </>
                         )}
@@ -445,7 +445,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
               <button
                 onClick={async () => {
                   const ok = await copyContractToClipboard(contractPreview.scoutings)
-                  if (ok) alert("클립보드에 복사됨 — 시트에 붙여넣기 하세요")
+                  if (ok) alert("클립보드에 복사됨\n\n시트에서 빈 행의 A열을 클릭한 뒤 붙여넣기 하세요")
                   else alert("복사 실패")
                 }}
                 className="cursor-pointer rounded-lg border border-[#1976D2] px-3 py-2 text-sm font-medium text-[#1976D2] hover:bg-[#E3F2FD]"
