@@ -615,14 +615,14 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       {courses.length === 0 && !noCoursesDismissed && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-[#BBDEFB] bg-[#E3F2FD] px-4 py-3">
           <div className="text-sm text-[#1565C0]">
-            과정이 아직 없습니다. 과정관리에서 과정을 먼저 만들어주세요.
+            과정이 아직 없습니다. 나의 과정에서 과정을 먼저 만들어주세요.
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <a
               href="/mypage?tab=courses"
               className="rounded-lg bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1565C0] transition-colors"
             >
-              과정관리로 이동
+              나의 과정로 이동
             </a>
             <button
               onClick={() => setNoCoursesDismissed(true)}
@@ -718,7 +718,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onClick={() => !bulkSending && closeBulkModal()}
         >
           <div
-            className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-xl"
+            className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-[#333]">컨택 내용 확인</h3>

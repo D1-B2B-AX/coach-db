@@ -80,18 +80,18 @@ export default function DashboardCalendar({
       {/* Time filter — multi-select preset buttons */}
       <div className="mb-4 space-y-2">
         {(timeFilterHelper || timeFilterBadgeLabel) && (
-          <div className="flex items-center gap-2 min-w-0">
-            {timeFilterBadgeLabel && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${
-                timeFilterBadgeLabel === "자동 적용"
-                  ? "bg-[#E8F5E9] text-[#2E7D32]"
-                  : "bg-[#FFF3E0] text-[#E65100]"
-              }`}>
-                {timeFilterBadgeLabel}
-              </span>
-            )}
+          <div className="min-w-0">
             {timeFilterHelper && (
-              <span className="text-[11px] text-gray-500 truncate" title={timeFilterHelper}>
+              <span className="text-[11px] text-gray-500 leading-relaxed">
+                {timeFilterBadgeLabel && (
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mr-1.5 align-middle ${
+                    timeFilterBadgeLabel === "자동 적용"
+                      ? "bg-[#E8F5E9] text-[#2E7D32]"
+                      : "bg-[#FFF3E0] text-[#E65100]"
+                  }`}>
+                    {timeFilterBadgeLabel}
+                  </span>
+                )}
                 {timeFilterHelper}
               </span>
             )}
