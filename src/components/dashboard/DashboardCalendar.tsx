@@ -222,17 +222,15 @@ export default function DashboardCalendar({
               >
                 {dayNum}
               </span>
-              {count > 0 ? (
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
-                    isSelected
-                      ? "bg-white text-[#1565C0]"
-                      : "bg-[#EAF3FE] text-[#1565C0]"
-                  }`}
-                >
-                  {count}
-                </span>
-              ) : null}
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                  count > 0
+                    ? isSelected ? "bg-white text-[#1565C0]" : "bg-[#EAF3FE] text-[#1565C0]"
+                    : "text-gray-300"
+                }`}
+              >
+                {count > 0 ? count : "-"}
+              </span>
               {isToday && !isSelected && (
                 <span className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-[#1565C0]" />
               )}
