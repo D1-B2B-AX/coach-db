@@ -120,6 +120,14 @@ function getCourseTimeDescriptor(filter: string): string {
   return getTimeFilterLabels(normalized).join("·")
 }
 
+function formatCourseTimeRange(timeRanges: Array<{ startTime: string; endTime: string }>): string {
+  const starts = timeRanges.map(r => r.startTime)
+  const ends = timeRanges.map(r => r.endTime)
+  const minStart = starts.sort()[0]
+  const maxEnd = ends.sort().reverse()[0]
+  return `${minStart}~${maxEnd}`
+}
+
 function inferCourseTimeFilter(course: CourseOption | null): { filter: string; helper: string } {
   if (!course) {
     return { filter: "all", helper: "과정을 선택하면 과정 시간 기준으로 자동 적용됩니다." }
@@ -129,9 +137,11 @@ function inferCourseTimeFilter(course: CourseOption | null): { filter: string; h
   if (timeRanges.length === 0) {
     return {
       filter: "all",
-      helper: "이 과정은 시간 정보가 없어 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+      helper: `${course.name} — 시간 정보 없음, 전체 코치 표시. 시간대를 직접 수정하세요.`,
     }
   }
+
+  const timeStr = formatCourseTimeRange(timeRanges)
 
   const distinctFilters = new Set(
     timeRanges.map((timeRange) => normalizeTimeFilter(getPresetKeysForCourseTime(timeRange.startTime, timeRange.endTime).join(",")))
@@ -140,7 +150,7 @@ function inferCourseTimeFilter(course: CourseOption | null): { filter: string; h
   if (distinctFilters.size !== 1) {
     return {
       filter: "all",
-      helper: "이 과정은 날짜별 시간이 달라 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+      helper: `${course.name} (${timeStr}) — 날짜별 시간이 달라 전체 코치 표시. 시간대를 직접 수정하세요.`,
     }
   }
 
@@ -148,14 +158,14 @@ function inferCourseTimeFilter(course: CourseOption | null): { filter: string; h
   if (filter === "all") {
     return {
       filter: "all",
-      helper: "이 과정은 시간대를 자동으로 해석하기 어려워 전체 코치를 표시합니다. 필요하면 시간대를 직접 수정하세요.",
+      helper: `${course.name} (${timeStr}) — 시간대 자동 해석 불가, 전체 코치 표시. 시간대를 직접 수정하세요.`,
     }
   }
   const descriptor = getCourseTimeDescriptor(filter)
 
   return {
     filter,
-    helper: `이 과정은 ${descriptor} 과정이라 ${getTimeAvailabilityPhrase(filter)}`,
+    helper: `${course.name} (${timeStr}) — ${descriptor} 과정, ${getTimeAvailabilityPhrase(filter)}`,
   }
 }
 
