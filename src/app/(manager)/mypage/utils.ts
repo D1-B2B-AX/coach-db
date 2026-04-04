@@ -178,11 +178,13 @@ export function buildContractRows(scoutings: Scouting[]): string[][] {
     const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
     const scheduleLines = items
       .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-      .map((s) => s.scheduleText || "")
-      .filter(Boolean)
+      .filter((s) => s.hireStart && s.hireEnd)
+      .map((s) => formatScheduleLine(s.date.slice(0, 10), s.hireStart!, s.hireEnd!))
       .join("\n")
     const phone = c.phone || ""
     const last4 = phone.replace(/[^0-9]/g, "").slice(-4)
+    const courseStart = first.course?.startDate?.slice(0, 10) || ""
+    const courseEnd = first.course?.endDate?.slice(0, 10) || ""
     return [
       "",
       isNew ? "V" : "",
@@ -193,8 +195,8 @@ export function buildContractRows(scoutings: Scouting[]): string[][] {
       first.manager.name,
       first.courseName || "",
       "15000",
-      first.hireStart || "",
-      first.hireEnd || "",
+      courseStart,
+      courseEnd,
       "",
       scheduleLines,
       c.email || "",

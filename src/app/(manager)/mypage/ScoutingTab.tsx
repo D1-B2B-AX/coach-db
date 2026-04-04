@@ -11,6 +11,7 @@ import {
   formatFullDate,
   formatPeriod,
   getStatusCounts,
+  buildContractRows,
   appendToContract,
 } from "./utils"
 
@@ -146,6 +147,8 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
   const [openAccordions, setOpenAccordions] = useState<Set<string | null>>(new Set())
   const [updating, setUpdating] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [contractPreview, setContractPreview] = useState<{ scoutings: Scouting[]; rows: string[][] } | null>(null)
+  const [contractSending, setContractSending] = useState(false)
 
   const counts = useMemo(() => ({
     all: scoutings.length,
@@ -327,15 +330,9 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                         {group.allScoutings.some(s => s.status === "confirmed") && (
                           <>
                             <button
-                              onClick={async () => {
+                              onClick={() => {
                                 const confirmed = group.allScoutings.filter(s => s.status === "confirmed")
-                                if (!confirm(`${confirmed.length}건을 계약 시트에 추가하시겠습니까?`)) return
-                                const result = await appendToContract(confirmed)
-                                if (result.success) {
-                                  alert(`계약 시트에 ${result.updatedRows}행 추가됨`)
-                                } else {
-                                  alert(`실패: ${result.error}`)
-                                }
+                                setContractPreview({ scoutings: confirmed, rows: buildContractRows(confirmed) })
                               }}
                               className="cursor-pointer rounded-full bg-[#0F9D58] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#0B8043]"
                             >
@@ -406,6 +403,74 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
           })
         )}
       </div>
+
+      {/* 계약 작성 미리보기 모달 */}
+      {contractPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => !contractSending && setContractPreview(null)}>
+          <div className="w-full max-w-4xl max-h-[80vh] overflow-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-[#333]">계약 시트에 추가할 내용</h3>
+            <p className="mt-1 text-xs text-gray-500">{contractPreview.rows.length}명 (코치별 1행)</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">성명</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">사번</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">직무</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">과정명</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">고용시작</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">고용종료</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">근로시간</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">이메일</th>
+                    <th className="px-2 py-1.5 text-left font-medium text-gray-500 border-b">연락처</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contractPreview.rows.map((row, i) => (
+                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-2 py-1.5 font-medium text-[#333]">{row[4]}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[3] || "-"}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[5]}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[7]}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[9] || "-"}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[10] || "-"}</td>
+                      <td className="px-2 py-1.5 text-gray-500 whitespace-pre-line">{row[12] || "-"}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[13] || "-"}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{row[14] || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setContractPreview(null)}
+                disabled={contractSending}
+                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  setContractSending(true)
+                  const result = await appendToContract(contractPreview.scoutings)
+                  setContractSending(false)
+                  if (result.success) {
+                    alert(`계약 시트에 ${result.updatedRows}행 추가됨`)
+                    setContractPreview(null)
+                  } else {
+                    alert(`실패: ${result.error}`)
+                  }
+                }}
+                disabled={contractSending}
+                className="cursor-pointer rounded-lg bg-[#0F9D58] px-3 py-2 text-sm font-medium text-white hover:bg-[#0B8043] disabled:opacity-50"
+              >
+                {contractSending ? "추가 중..." : "시트에 추가"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
