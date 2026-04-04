@@ -2,6 +2,111 @@
 
 ## 2026-04-04
 
+### 코치뷰 — 일정 상세 표시 + 알림 개선
+
+**구현 완료**
+- 캘린더 확정 날짜 클릭 → 과정명/시간 표시 (파란색 카드)
+- 캘린더 스카우팅 날짜 클릭 → 과정명/매니저/시간 표시 (노란색 카드, 클릭 시 받은 요청으로 스크롤)
+- 확정/스카우팅 상세 표시 시 시간 버튼(오전/오후/저녁/전일) 숨김
+- 스카우팅 API에 courseName/hireStart/hireEnd 추가, status=scouting 필터
+- 수락 시 확인 다이얼로그 추가, 수락/거절 후 캘린더 즉시 갱신
+- 알림 셀에서 이메일 제거 (팝업에서만 표시), 팝업 UI 간소화
+- "나의 일정" 섹션 플랫 리스트로 간소화, 통계 제거
+
+**확인 필요**
+- [ ] 확정 날짜 클릭 → 과정명+시간 카드 표시
+- [ ] 스카우팅 날짜 클릭 → 노란 카드 → 클릭 시 받은 요청으로 스크롤
+- [ ] 수락 클릭 → "수락하시겠습니까?" 확인 후 처리 + 캘린더 갱신
+- [ ] 코치뷰 알림 팝업에서 과정설명/기타 분리 표시
+
+---
+
+### 마이페이지 전면 재설계
+
+**구현 완료**
+- 1,074줄 모놀리식 → 6파일 분리 (page/CourseTab/ScoutingTab/ConfirmModal/EditCourseModal/utils)
+- 헤더에서 찜꽁스테이지/과정관리 직접 메뉴 (URL 파라미터 ?tab=scoutings/courses)
+- 과정관리: 카드 클릭 → 인라인 펼침 수정, 날짜별 스케줄 빌더 (날짜칩 토글 + 일괄입력 + 프리셋)
+- 찜꽁스테이지: 코치 칩 클릭 → 팝오버 액션 (확정/수정/취소/복구/프로필)
+- 확정 모달: courseId 있으면 자동채움, 시간 파싱 실패 시 확정 차단
+- 모두 확정/취소 시 코치 이름 표시
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/(manager)/mypage/page.tsx` | 리라이트 — 탭 네비 + 공유 상태 |
+| `src/app/(manager)/mypage/CourseTab.tsx` | 신규 — 인라인 과정 생성 + 카드 펼침 수정 |
+| `src/app/(manager)/mypage/ScoutingTab.tsx` | 신규 — 칩 팝오버 + 아코디언 |
+| `src/app/(manager)/mypage/ConfirmModal.tsx` | 신규 — 확정 모달 (시간 검증 포함) |
+| `src/app/(manager)/mypage/EditCourseModal.tsx` | 신규 — 스케줄 빌더 포함 |
+| `src/app/(manager)/mypage/utils.ts` | 신규 — 타입 + 유틸 |
+| `src/components/Header.tsx` | 네비 재구성, 관리자 뱃지 제거 |
+
+**확인 필요**
+- [ ] 찜꽁→수락→확정→자동취소 전체 플로우
+- [ ] 과정 생성 → 찜꽁스테이지에서 해당 과정 아코디언 표시
+- [ ] 카드 클릭 → 인라인 수정 펼침 → 저장 → 접힘
+- [ ] 스케줄 빌더: 날짜칩 토글 + 일괄입력 + 개별 오버라이드 → workHours 저장
+
+---
+
+### 대시보드 개선
+
+**구현 완료**
+- 시간 필터 다중 범위 개별 전달 (08-13,18-22 → 합치지 않고 AND 로직)
+- 코치 행 2줄 구조: 이름+분야태그+평점 / 근무유형+가능시간+참여과정
+- 참여과정 vs 참여예정과정 endDate 기준 자동 구분 (과거 우선)
+- workType API 응답에 추가
+- 0명 날짜에 `-` 표시
+- 분야 등록 코치 우선 정렬, 평점순 2차 정렬
+- 대시보드에서 과정 생성 UI 제거 (과정관리 전용)
+- 과정 0건 시 과정관리 이동 안내 배너
+- 찜꽁 모달: 과정에서 내용 자동채움 + 기타 필드 + 컨택 시간 제거 (workHours에서 자동 추출)
+- 초기화 버튼: 날짜+코치+시간필터 모두 리셋
+- 새로고침 버튼 제거 (30초 폴링 충분)
+
+**DB 변경**
+- `courses.work_hours`: VarChar(100) → Text (프로덕션 적용 완료)
+
+**확인 필요**
+- [ ] 오전+오후 선택 → 둘 다 가능한 코치만 표시 (캘린더 숫자와 리스트 일치)
+- [ ] 오전만 선택 → 오전 가능 코치 표시
+- [ ] workHours 없는 과정으로 찜꽁 시 코치에게 시간 표시 확인
+- [ ] 초기화 클릭 → 날짜/코치/필터 모두 리셋
+- [ ] 과정 0건 → 안내 배너 표시 → 과정관리로 이동
+
+---
+
+### 과정관리 — 과거 투입 이력 + 코치 평가
+
+**구현 완료**
+- `GET /api/engagements/mine` — 로그인 매니저의 `hiredBy` 이름 매칭으로 과거 투입 이력 조회
+- `PATCH /api/engagements/[id]/review` — 별점(1~5)/한줄평/재투입 저장, 본인 담당 검증, AuditLog 기록
+- `EngagementHistory.tsx` — 과정명별 접기/펼치기 그룹핑, 코치 이름 클릭→상세 이동
+- 별점 클릭 + 한줄평 인라인 + 재투입 체크박스, 500ms debounce 자동저장
+- `utils.ts`에 `EngagementHistory` 타입, `groupEngagements()`, `ENGAGEMENT_STATUS` 상수 추가
+- `page.tsx`에서 `fetchEngagementHistory` → CourseTab 아래 렌더
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/api/engagements/mine/route.ts` | 신규 — 내 이력 조회 API |
+| `src/app/api/engagements/[id]/review/route.ts` | 신규 — 평가 저장 API |
+| `src/app/(manager)/mypage/EngagementHistory.tsx` | 신규 — UI 컴포넌트 |
+| `src/app/(manager)/mypage/utils.ts` | 타입/유틸/상수 추가 |
+| `src/app/(manager)/mypage/page.tsx` | fetch + 렌더 연동 |
+
+**확인 필요**
+- [ ] 과정관리 탭 하단에 과거 투입 이력 표시 확인
+- [ ] 과정명 클릭 시 펼침/접기 동작
+- [ ] 별점 클릭 → 새로고침 후 유지 확인
+- [ ] 한줄평 입력 → debounce 저장 확인
+- [ ] 재투입 체크 → 저장 확인
+- [ ] 다른 매니저 이력에 평가 시도 → 403 반환 확인
+- [ ] 코치 이름 클릭 → `/coaches/[id]` 이동
+
+---
+
 ### API 접속 로깅
 
 **구현 완료**
@@ -164,6 +269,28 @@
 **확인 필요**
 - [ ] GitHub Actions secrets에 APP_URL, SYNC_API_SECRET 설정 확인
 - [ ] 수동 workflow_dispatch 실행 테스트
+
+---
+
+### 코드 리뷰 지적사항 수정 (5건)
+
+**CRITICAL**
+- `closeBulkModal()` 무한 재귀 — `replace_all`로 `setShowScoutModal(false)`를 `closeBulkModal()`로 바꿨을 때 함수 내부도 치환됨. `setShowScoutModal(false)`로 복원.
+
+**HIGH**
+- `logAccess` catch 무시 — `.catch(() => {})` → `.catch((e) => console.error('[access-log]', e.message))` 로 변경. 프로덕션에서 로그 유실 감지 가능.
+- engagement `findFirst` courseName 기반 매칭 — 동일 과정명 다른 기수 충돌 가능. `courseName + startDate + endDate`로 매칭 조건 강화.
+- course soft delete 후 개별 조회 필터 누락 — `PATCH`/`DELETE` 핸들러에서 `deletedAt` 체크 추가. 삭제된 과정 수정/재삭제 방지.
+- 코치뷰 전부수락/거절 실패 피드백 — 실패 건수 카운팅 + `alert` 표시. 부분 처리 시 사용자 인지 가능.
+
+**변경 파일**
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/(manager)/dashboard/_components/DashboardContent.tsx` | closeBulkModal 재귀 수정 |
+| `src/lib/access-log.ts` | catch 에러 로깅 |
+| `src/app/api/scoutings/[id]/route.ts` | engagement findFirst 조건 강화 |
+| `src/app/api/courses/[id]/route.ts` | deletedAt 필터 추가 |
+| `src/components/coach/ScoutingAlerts.tsx` | 실패 피드백 추가 |
 
 ---
 

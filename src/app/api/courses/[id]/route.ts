@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { name, startDate, endDate, description, workHours, location, hourlyRate } = (await request.json()) as {
+    const { name, startDate, endDate, description, workHours, location, hourlyRate, remarks } = (await request.json()) as {
       name?: string
       startDate?: string | null
       endDate?: string | null
@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       workHours?: string | null
       location?: string | null
       hourlyRate?: number | string | null
+      remarks?: string | null
     }
 
     if (name !== undefined && (!name || !name.trim())) {
@@ -62,6 +63,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(workHours !== undefined && { workHours: trimmedWorkHours }),
         ...(location !== undefined && { location: trimmedLocation }),
         ...(hourlyRate !== undefined && { hourlyRate: parsedHourlyRate }),
+        ...(remarks !== undefined && { remarks: remarks?.trim() || null }),
       },
     })
 

@@ -63,7 +63,7 @@ function MyPageContent() {
         const list = (data.courses || []).map((c: {
           id: string; name: string; description: string | null
           startDate: string | null; endDate: string | null; workHours: string | null
-          location: string | null; hourlyRate: number | null; createdAt: string
+          location: string | null; hourlyRate: number | null; remarks: string | null; createdAt: string
         }) => ({
           id: c.id,
           name: c.name,
@@ -73,6 +73,7 @@ function MyPageContent() {
           workHours: c.workHours || null,
           location: c.location || null,
           hourlyRate: c.hourlyRate ?? null,
+          remarks: c.remarks || null,
           createdAt: c.createdAt,
         }))
         setCourses(list)

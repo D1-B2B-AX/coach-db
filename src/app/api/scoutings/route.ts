@@ -65,10 +65,12 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
+    const { coachId, date, note, courseDescription, extraNote, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
       coachId: string
       date: string
       note?: string
+      courseDescription?: string
+      extraNote?: string
       courseId?: string
       courseName?: string
       hireStart?: string
@@ -81,7 +83,15 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedCourseName = courseName?.trim() || null
-    const trimmedNote = note?.trim() || null
+    // courseDescription / extraNote가 별도로 오면 마커 포맷으로 합침
+    const composedNote = (courseDescription?.trim() || extraNote?.trim())
+      ? [
+          courseDescription?.trim() ? `[과정설명] ${courseDescription.trim()}` : '',
+          extraNote?.trim() ? `[기타] ${extraNote.trim()}` : '',
+        ].filter(Boolean).join('\n')
+      : null
+    const trimmedNote = composedNote || note?.trim() || null
+    const hasNoteInput = note !== undefined || courseDescription !== undefined || extraNote !== undefined
     const trimmedHireStart = hireStart?.trim() || null
     const trimmedHireEnd = hireEnd?.trim() || null
 
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest) {
             status: 'scouting',
             ...(courseId !== undefined && { courseId: courseId || null }),
             ...(courseName !== undefined && { courseName: trimmedCourseName }),
-            ...(note !== undefined && { note: trimmedNote }),
+            ...(hasNoteInput && { note: trimmedNote }),
             ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
             ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },
@@ -158,7 +168,7 @@ export async function POST(request: NextRequest) {
           data: {
             ...(courseId !== undefined && { courseId: courseId || null }),
             ...(courseName !== undefined && { courseName: trimmedCourseName }),
-            ...(note !== undefined && { note: trimmedNote }),
+            ...(hasNoteInput && { note: trimmedNote }),
             ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
             ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },
@@ -224,7 +234,7 @@ export async function POST(request: NextRequest) {
             status: 'scouting',
             ...(courseId !== undefined && { courseId: courseId || null }),
             ...(courseName !== undefined && { courseName: trimmedCourseName }),
-            ...(note !== undefined && { note: trimmedNote }),
+            ...(hasNoteInput && { note: trimmedNote }),
             ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
             ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },
@@ -264,7 +274,7 @@ export async function POST(request: NextRequest) {
           data: {
             ...(courseId !== undefined && { courseId: courseId || null }),
             ...(courseName !== undefined && { courseName: trimmedCourseName }),
-            ...(note !== undefined && { note: trimmedNote }),
+            ...(hasNoteInput && { note: trimmedNote }),
             ...(hireStart !== undefined && { hireStart: trimmedHireStart }),
             ...(hireEnd !== undefined && { hireEnd: trimmedHireEnd }),
           },

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from "react"
 import { isHoliday } from "@/lib/holidays"
-import { Course, Scouting, STATUS_CONFIG, formatPeriod, getStatusCounts, DAY_NAMES, parseTimeRange, calcBreakAndTotal } from "./utils"
+import { Course, Scouting, STATUS_CONFIG, formatPeriod, getStatusCounts, DAY_NAMES, parseTimeRange, calcBreakAndTotal, formatScheduleLine } from "./utils"
 
 interface CourseTabProps {
   courses: Course[]
@@ -45,6 +45,7 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
   })
   const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set())
   const [dateTimes, setDateTimes] = useState<Record<string, string>>(() => ({}))
+  const [remarks, setRemarks] = useState(course.remarks || "")
 
   const dateChips = useMemo(() => {
     if (!startDate || !endDate) return []
@@ -109,6 +110,18 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
       .filter((l): l is string => l !== null)
   }, [dateChips, selectedDates, dateTimes, defaultTime])
 
+  const previewLines = useMemo(() => {
+    if (selectedDates.size === 0) return []
+    return dateChips
+      .filter(d => selectedDates.has(d.date))
+      .map(d => {
+        const t = parseTimeRange(dateTimes[d.date]?.trim() || defaultTime)
+        if (!t) return null
+        return formatScheduleLine(d.date, t.start, t.end)
+      })
+      .filter((l): l is string => l !== null)
+  }, [dateChips, selectedDates, dateTimes, defaultTime])
+
   function applyTimeToAll(time: string) {
     setDefaultTime(time)
     setDateTimes(prev => {
@@ -133,6 +146,7 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
       workHours: outputLines.length > 0 ? outputLines.join("\n") : null,
       location: location.trim() || null,
       hourlyRate: parsedHourlyRate,
+      remarks: remarks.trim() || null,
     })
   }
 
@@ -197,6 +211,14 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
             ))}
           </div>
         )}
+
+        {/* 미리보기 */}
+        {previewLines.length > 0 && (
+          <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="mb-1 text-[10px] font-medium text-gray-400">미리보기</div>
+            <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-[#333]">{previewLines.join("\n")}</pre>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -216,6 +238,12 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
         <span className="mb-1 block text-xs font-medium text-gray-600">과정 내용</span>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="코치에게 보여질 과정 설명을 입력하세요" rows={3} disabled={saving}
           className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none" />
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-gray-600">비고</span>
+        <input type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="예: 식사 제공" disabled={saving}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none" />
       </label>
 
       <div className="flex items-center justify-end gap-2">

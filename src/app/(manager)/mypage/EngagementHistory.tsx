@@ -121,7 +121,7 @@ export default function EngagementHistorySection({ engagements }: Props) {
   if (groups.length === 0) {
     return (
       <div className="mt-6">
-        <h3 className="text-sm font-semibold text-gray-500 mb-3">과거 투입 이력</h3>
+        <h3 className="text-sm font-semibold text-gray-500 mb-3">지난 과정</h3>
         <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-8 text-center text-sm text-gray-400">
           아직 투입 이력이 없습니다
         </div>
@@ -131,7 +131,7 @@ export default function EngagementHistorySection({ engagements }: Props) {
 
   return (
     <div className="mt-6">
-      <h3 className="text-sm font-semibold text-gray-500 mb-3">과거 투입 이력</h3>
+      <h3 className="text-sm font-semibold text-gray-500 mb-3">지난 과정</h3>
       <div className="space-y-2">
         {groups.map((g) => (
           <GroupCard key={g.courseName} group={g} />

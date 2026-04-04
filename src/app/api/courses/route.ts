@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
         workHours: c.workHours,
         location: c.location,
         hourlyRate: c.hourlyRate,
+        remarks: c.remarks,
         createdAt: c.createdAt,
         scoutingCount: c._count.scoutings,
         statusCounts,

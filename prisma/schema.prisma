@@ -122,6 +122,7 @@ model Course {
   workHours   String?   @map("work_hours") @db.Text
   location    String?   @db.VarChar(200)
   hourlyRate  Int?      @map("hourly_rate")
+  remarks     String?   @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
   deletedAt   DateTime? @map("deleted_at")
 

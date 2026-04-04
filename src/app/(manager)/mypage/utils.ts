@@ -67,6 +67,7 @@ export interface Course {
   workHours: string | null
   location: string | null
   hourlyRate: number | null
+  remarks: string | null
   createdAt: string
 }
 

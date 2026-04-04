@@ -209,7 +209,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [bulkDates, setBulkDates] = useState<string[]>([])
   const [bulkCourseName, setBulkCourseName] = useState("")
   const [bulkCourseDescription, setBulkCourseDescription] = useState("")
-  const [bulkExtra, setBulkExtra] = useState("")
+  const [bulkRemark, setBulkRemark] = useState("")
+  const [bulkMessage, setBulkMessage] = useState("")
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkError, setBulkError] = useState("")
 
@@ -511,7 +512,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setBulkDates(getSelectedDateRange())
     setBulkCourseName(selectedCourse?.name ?? "")
     setBulkCourseDescription(selectedCourse?.description ?? "")
-    setBulkExtra("")
+    setBulkRemark("")
+    setBulkMessage("")
     setBulkError("")
     setBulkSending(false)
     setShowScoutModal(true)
@@ -523,7 +525,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setBulkDates([])
     setBulkCourseName("")
     setBulkCourseDescription("")
-    setBulkExtra("")
+    setBulkRemark("")
+    setBulkMessage("")
     setBulkError("")
     setBulkSending(false)
   }
@@ -564,7 +567,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
                 date,
                 mode: 'upsert',
                 courseName,
-                note: [bulkCourseDescription.trim(), bulkExtra.trim()].filter(Boolean).join("\n\n") || undefined,
+                courseDescription: bulkCourseDescription.trim() || undefined,
+                message: bulkMessage.trim() || undefined,
                 hireStart: dateTime?.start || undefined,
                 hireEnd: dateTime?.end || undefined,
                 ...(selectedCourseId && { courseId: selectedCourseId }),
@@ -746,11 +750,11 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
                 />
               </div>
               <div>
-                <span className="mb-1 block text-xs font-medium text-gray-600">기타</span>
+                <span className="mb-1 block text-xs font-medium text-gray-600">함께 전하는 말</span>
                 <textarea
-                  value={bulkExtra}
-                  onChange={(e) => setBulkExtra(e.target.value)}
-                  placeholder="추가로 전달할 내용 (예: 경험 여부 문의, 전화 예정 안내 등)"
+                  value={bulkMessage}
+                  onChange={(e) => setBulkMessage(e.target.value)}
+                  placeholder="코치에게 따로 전할 말이 있으면 입력하세요"
                   rows={2}
                   disabled={bulkSending}
                   className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"

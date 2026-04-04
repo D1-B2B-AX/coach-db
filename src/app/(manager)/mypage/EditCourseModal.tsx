@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react"
 import { isHoliday } from "@/lib/holidays"
 import type { Course } from "./utils"
-import { DAY_NAMES, parseTimeRange, calcBreakAndTotal } from "./utils"
+import { DAY_NAMES, parseTimeRange, calcBreakAndTotal, formatScheduleLine } from "./utils"
 
 interface EditCourseModalProps {
   course: Course
@@ -98,6 +98,7 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
     getDefaultSelectedDates(initialDateChips, initialSchedule.dateTimes, initialSchedule.selectedDates)
   )
   const [dateTimes, setDateTimes] = useState<Record<string, string>>(initialSchedule.dateTimes)
+  const [remarks, setRemarks] = useState(course.remarks || "")
 
   // Generate date chips from start/end
   const dateChips = useMemo(() => {
@@ -132,6 +133,19 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
         const t = parseTimeRange(dateTimes[d.date]?.trim() || defaultTime)
         if (!t) return null
         return formatWorkLine(d.date, t.start, t.end)
+      })
+      .filter((l): l is string => l !== null)
+  }, [dateChips, selectedDates, dateTimes, defaultTime])
+
+  // 미리보기 텍스트
+  const previewLines = useMemo(() => {
+    if (selectedDates.size === 0) return []
+    return dateChips
+      .filter(d => selectedDates.has(d.date))
+      .map(d => {
+        const t = parseTimeRange(dateTimes[d.date]?.trim() || defaultTime)
+        if (!t) return null
+        return formatScheduleLine(d.date, t.start, t.end)
       })
       .filter((l): l is string => l !== null)
   }, [dateChips, selectedDates, dateTimes, defaultTime])
@@ -183,6 +197,7 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
       workHours: outputLines.length > 0 ? outputLines.join("\n") : null,
       location: location.trim() || null,
       hourlyRate: parsedHourlyRate,
+      remarks: remarks.trim() || null,
     })
   }
 
@@ -307,6 +322,14 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
 
               </div>
             )}
+
+            {/* 미리보기 */}
+            {previewLines.length > 0 && (
+              <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <div className="mb-1 text-[10px] font-medium text-gray-400">미리보기</div>
+                <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-[#333]">{previewLines.join("\n")}</pre>
+              </div>
+            )}
           </div>
 
           {/* 장소 + 시급 */}
@@ -347,6 +370,19 @@ export default function EditCourseModal({ course, saving, onSave, onDelete, onCl
               rows={3}
               disabled={saving}
               className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
+            />
+          </label>
+
+          {/* 비고 */}
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-600">비고</span>
+            <input
+              type="text"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="예: 식사 제공"
+              disabled={saving}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
             />
           </label>
         </div>

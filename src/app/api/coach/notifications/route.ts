@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
           hireStart: true,
           hireEnd: true,
           manager: { select: { name: true, email: true } },
+          course: { select: { location: true, hourlyRate: true, remarks: true } },
         },
       })
     : []
@@ -101,7 +102,23 @@ export async function GET(request: NextRequest) {
         hireEnd,
         managerEmail,
       },
-      enriched: { displayText, courseName, note: scouting.note },
+      enriched: (() => {
+        const raw = scouting.note ?? ''
+        const cdMatch = raw.match(/\[과정설명\]\s*([\s\S]*?)(?=\n\[기타\]|$)/)
+        const exMatch = raw.match(/\[기타\]\s*([\s\S]*?)$/)
+        const hasMark = cdMatch || exMatch
+        return {
+          displayText,
+          courseName,
+          note: scouting.note,
+          courseDescription: hasMark ? (cdMatch?.[1]?.trim() || null) : (raw.trim() || null),
+          extraNote: hasMark ? (exMatch?.[1]?.trim() || null) : null,
+          location: scouting.course?.location ?? null,
+          hourlyRate: scouting.course?.hourlyRate ?? null,
+          remarks: scouting.course?.remarks ?? null,
+          managerName: managerName ?? null,
+        }
+      })(),
     }
   })
 
