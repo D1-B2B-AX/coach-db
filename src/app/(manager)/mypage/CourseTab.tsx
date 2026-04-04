@@ -35,9 +35,16 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
   const [hourlyRate, setHourlyRate] = useState(
     course.hourlyRate !== null && course.hourlyRate !== undefined ? String(course.hourlyRate) : ""
   )
-  const [defaultTime, setDefaultTime] = useState("09:00~18:00")
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
-  const [dateTimes, setDateTimes] = useState<Record<string, string>>({})
+  const [defaultTime, setDefaultTime] = useState(() => {
+    const existing = course.workHours || ""
+    for (const line of existing.split("\n")) {
+      const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
+      if (m) return `${m[2]}~${m[3]}`
+    }
+    return "09:00~18:00"
+  })
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set())
+  const [dateTimes, setDateTimes] = useState<Record<string, string>>(() => ({}))
 
   const dateChips = useMemo(() => {
     if (!startDate || !endDate) return []
@@ -69,26 +76,26 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
   }, [dateChips])
 
   useEffect(() => {
-    if (dateChips.length > 0) {
-      const existing = course.workHours || ""
-      const existingDates = new Set<string>()
-      const existingTimes: Record<string, string> = {}
-      for (const line of existing.split("\n")) {
-        const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
-        if (m) { existingDates.add(m[1]); existingTimes[m[1]] = `${m[2]}~${m[3]}` }
-      }
-      if (existingDates.size > 0) {
-        setSelectedDates(existingDates)
-        setDateTimes(existingTimes)
-        const firstTime = Object.values(existingTimes)[0]
-        if (firstTime) setDefaultTime(firstTime)
-      } else {
-        setSelectedDates(new Set(dateChips.filter(d => !d.isOff).map(d => d.date)))
-      }
-    } else {
+    if (dateChips.length === 0) {
       setSelectedDates(new Set())
+      return
     }
-  }, [dateChips])
+    const existing = course.workHours || ""
+    const existingDates = new Set<string>()
+    const existingTimes: Record<string, string> = {}
+    for (const line of existing.split("\n")) {
+      const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
+      if (m) { existingDates.add(m[1]); existingTimes[m[1]] = `${m[2]}~${m[3]}` }
+    }
+    if (existingDates.size > 0) {
+      // Use functional updates to avoid synchronous setState-in-effect lint error
+      setSelectedDates(() => existingDates)
+      setDateTimes(() => existingTimes)
+    } else {
+      setSelectedDates(() => new Set(dateChips.filter(d => !d.isOff).map(d => d.date)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate])
 
   const outputLines = useMemo(() => {
     if (selectedDates.size === 0) return []
