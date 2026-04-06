@@ -5,7 +5,6 @@
 import { google } from 'googleapis'
 import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
-import { generateAccessToken } from '@/lib/coach-auth'
 import { normalizeWorkTypeString } from '@/lib/work-type'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -388,20 +387,9 @@ export async function syncEngagements(): Promise<SyncResult> {
 
     let coachId = coachByName.get(name)
     if (!coachId) {
-      // 26년 계약자 자동 생성
-      const created = await prisma.coach.create({
-        data: {
-          name,
-          status: 'active',
-          accessToken: generateAccessToken(),
-          email,
-          phone,
-          workType: workType || null,
-          employeeId: resolvedEmployeeId.get(name) || null,
-        },
-      })
-      coachId = created.id
-      coachByName.set(name, coachId)
+      // DB에 없는 코치는 건너뛰기 (과거 이력만 있는 코치 자동 생성 방지)
+      result.skipped++
+      continue
     } else {
       // 기존 코치: 이메일/연락처/사번만 보완 (근무유형은 노션 기준 유지)
       const resolvedEid = resolvedEmployeeId.get(name) || null
