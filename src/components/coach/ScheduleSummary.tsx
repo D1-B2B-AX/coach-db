@@ -63,27 +63,27 @@ export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSu
 
   return (
     <>
-      <div className="mt-5 rounded-xl border border-[#eee] bg-[#FAFAFA] p-4">
-        <div className="mb-2.5 text-[13px] font-semibold text-[#333]">나의 일정</div>
+      <div className="mt-4 rounded-2xl border border-[#eee] bg-[#FAFAFA] p-4">
+        <div className="mb-3 text-[13px] font-semibold text-[#333]">나의 일정</div>
 
         {/* Confirmed engagements */}
         {confirmedEngagements.length > 0 ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {confirmedEngagements
               .sort((a, b) => a.startDate.localeCompare(b.startDate))
               .map((eng) => (
               <button
                 key={eng.id}
                 onClick={() => setPopupEngagement(eng)}
-                className="w-full cursor-pointer rounded-lg border border-[#E7EDF3] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#D9E5F5] hover:bg-[#F8FAFC]"
+                className="w-full cursor-pointer rounded-[10px] border border-[#E7EDF3] bg-white px-3.5 py-3 text-left transition-colors hover:border-[#D9E5F5] hover:bg-[#F8FAFC]"
               >
                 <div className="truncate text-[13px] font-semibold text-[#333]">
                   {cleanCourseName(eng.courseName)}
                 </div>
-                <div className="mt-0.5 text-[12px] text-[#888]">
+                <div className="mt-1 text-[12px] text-[#888]">
                   {formatDateRange(eng.startDate, eng.endDate)}
                   {formatTimeRange(eng.startTime, eng.endTime) && (
-                    <span className="ml-1 font-semibold text-[#1976D2]">{formatTimeRange(eng.startTime, eng.endTime)}</span>
+                    <> · <span className="font-semibold text-[#1976D2]">{formatTimeRange(eng.startTime, eng.endTime)}</span></>
                   )}
                   {eng.location && <span className="text-[#aaa]"> · {eng.location}</span>}
                 </div>
@@ -91,11 +91,11 @@ export default function ScheduleSummary({ engagements, lastSavedAt }: ScheduleSu
             ))}
           </div>
         ) : (
-          <div className="py-1 pl-3 text-sm text-[#bbb]">확정된 일정이 없습니다</div>
+          <div className="py-4 text-center text-[13px] text-[#bbb]">확정된 일정이 없습니다</div>
         )}
 
         {lastSavedAt && (
-          <div className="mt-2 text-right text-[10px] text-[#bbb]">
+          <div className="mt-3 text-right text-[10px] text-[#bbb]">
             마지막 저장: {(() => { const d = new Date(lastSavedAt); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` })()}
           </div>
         )}

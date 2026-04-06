@@ -115,11 +115,11 @@ export default function ScheduleCalendar({
       </div>
 
       {/* Weekday headers */}
-      <div className="mb-2 grid grid-cols-7 text-center">
+      <div className="mb-1 grid grid-cols-7 text-center">
         {["일", "월", "화", "수", "목", "금", "토"].map((w, i) => (
           <span
             key={w}
-            className={`py-2 text-sm ${
+            className={`py-1 text-[11px] font-medium ${
               i === 0 ? "text-[#E53935]" : i === 6 ? "text-[#1565C0]" : "text-[#999]"
             }`}
           >
@@ -129,7 +129,7 @@ export default function ScheduleCalendar({
       </div>
 
       {/* Days grid */}
-      <div className="grid grid-cols-7 gap-[4px]">
+      <div className="grid grid-cols-7 gap-[3px]">
         {/* Empty cells for offset */}
         {Array.from({ length: firstDayOfWeek }).map((_, i) => (
           <div key={`empty-${i}`} className="aspect-square" />
@@ -149,7 +149,7 @@ export default function ScheduleCalendar({
           const isSelected = selectedDay === key
 
           let cellClass =
-            "aspect-square flex items-center justify-center rounded-[10px] text-base transition-all relative"
+            "aspect-square flex items-center justify-center rounded-[8px] text-[13px] transition-all relative"
 
           if (past) {
             cellClass += " text-[#ccc] cursor-default"

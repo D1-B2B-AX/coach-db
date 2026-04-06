@@ -63,7 +63,7 @@ export default function CoachHeader({
   }
 
   return (
-    <div className="bg-[#1565C0] px-5 pt-5 pb-4 text-white">
+    <div className="px-5 pt-5 pb-6 text-white">
       <div className="flex items-center">
         <img
           src="/fastcampus-logo.svg"
