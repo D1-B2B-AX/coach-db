@@ -71,6 +71,14 @@ export interface Course {
   createdAt: string
 }
 
+export interface DeletedCourse {
+  id: string
+  name: string
+  startDate: string | null
+  endDate: string | null
+  deletedAt: string
+}
+
 // Constants
 
 export const STATUS_CONFIG: Record<string, { label: string; className: string; activeClassName: string }> = {
@@ -224,7 +232,6 @@ export function buildContractRows(scoutings: Scouting[]): string[][] {
       "15000",
       courseStart,
       courseEnd,
-      "",
       scheduleLines,
       c.email || "",
       phone,

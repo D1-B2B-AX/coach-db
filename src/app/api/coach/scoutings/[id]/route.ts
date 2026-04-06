@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     include: {
       manager: { select: { id: true, name: true } },
       coach: { select: { id: true, name: true, accessToken: true } },
+      course: { select: { id: true, deletedAt: true } },
     },
   })
 
@@ -43,6 +44,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   if (scouting.coachId !== coach.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  if (scouting.course?.deletedAt) {
+    return NextResponse.json(
+      { error: '과정이 삭제되어 처리할 수 없습니다' },
+      { status: 409 },
+    )
   }
 
   const targetStatus: ScoutingStatus = action === 'accept' ? 'accepted' : 'rejected'

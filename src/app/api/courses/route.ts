@@ -8,8 +8,11 @@ export async function GET(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const qManagerId = request.nextUrl.searchParams.get('managerId')
+    const targetManagerId = (qManagerId && auth.manager.role === 'admin') ? qManagerId : auth.manager.id
+
     const courses = await prisma.course.findMany({
-      where: { managerId: auth.manager.id, deletedAt: null },
+      where: { managerId: targetManagerId, deletedAt: null },
       include: {
         _count: { select: { scoutings: true } },
         scoutings: {
@@ -41,7 +44,14 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ courses: result })
+    // 삭제된 과정도 함께 반환 (흔적 표시용)
+    const deletedCourses = await prisma.course.findMany({
+      where: { managerId: targetManagerId, deletedAt: { not: null } },
+      select: { id: true, name: true, startDate: true, endDate: true, deletedAt: true },
+      orderBy: { deletedAt: 'desc' },
+    })
+
+    return NextResponse.json({ courses: result, deletedCourses })
   } catch (e) {
     console.error('[GET /api/courses] Error:', e)
     const message = e instanceof Error ? e.message : 'Unknown error'

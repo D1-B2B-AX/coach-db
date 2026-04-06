@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useMemo, useEffect } from "react"
 import { isHoliday } from "@/lib/holidays"
-import { Course, Scouting, STATUS_CONFIG, formatPeriod, getStatusCounts, DAY_NAMES, parseTimeRange, calcBreakAndTotal, formatScheduleLine } from "./utils"
+import { Course, DeletedCourse, Scouting, STATUS_CONFIG, formatPeriod, getStatusCounts, DAY_NAMES, parseTimeRange, calcBreakAndTotal, formatScheduleLine } from "./utils"
 
 interface CourseTabProps {
   courses: Course[]
+  deletedCourses: DeletedCourse[]
   scoutings: Scouting[]
   onCourseCreate: (name: string, startDate?: string, endDate?: string) => Promise<void>
   onCourseUpdate: (id: string, data: Partial<Course>) => Promise<void>
@@ -21,9 +22,11 @@ function formatWorkLine(dateStr: string, startTime: string, endTime: string): st
 }
 
 // Inline edit form for a course card
-function CourseEditForm({ course, saving, onSave, onCancel }: {
+function CourseEditForm({ course, saving, hasAcceptedScoutings, hasConfirmedScoutings, onSave, onCancel }: {
   course: Course
   saving: boolean
+  hasAcceptedScoutings?: boolean
+  hasConfirmedScoutings?: boolean
   onSave: (data: Partial<Course>) => void
   onCancel: () => void
 }) {
@@ -136,6 +139,12 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
     const parsedHourlyRate = hourlyRate.trim() ? Number(hourlyRate) : null
     if (parsedHourlyRate !== null && (!Number.isFinite(parsedHourlyRate) || parsedHourlyRate < 0)) {
       alert("시급은 0 이상의 숫자로 입력해주세요.")
+      return
+    }
+    const resetMsg = hasConfirmedScoutings
+      ? "확정이 취소되고,\n다시 요청 알림이 갑니다. 계속하시겠습니까?"
+      : "찜꽁 수락이 취소되고\n다시 요청 알림이 갑니다. 계속하시겠습니까?"
+    if (hasAcceptedScoutings && !confirm(resetMsg)) {
       return
     }
     onSave({
@@ -260,7 +269,7 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
   )
 }
 
-export default function CourseTab({ courses, scoutings, onCourseCreate, onCourseUpdate, onCourseDelete }: CourseTabProps) {
+export default function CourseTab({ courses, deletedCourses, scoutings, onCourseCreate, onCourseUpdate, onCourseDelete }: CourseTabProps) {
   const [newName, setNewName] = useState("")
   const [newStart, setNewStart] = useState("")
   const [newEnd, setNewEnd] = useState("")
@@ -295,6 +304,7 @@ export default function CourseTab({ courses, scoutings, onCourseCreate, onCourse
     }
   }
 
+  const [showDeleted, setShowDeleted] = useState(false)
   const sorted = [...courses].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   return (
@@ -324,6 +334,8 @@ export default function CourseTab({ courses, scoutings, onCourseCreate, onCourse
         sorted.map(course => {
           const courseScoutings = scoutings.filter(s => s.courseId === course.id)
           const isEditing = editId === course.id
+          const hasConfirmed = courseScoutings.some(s => s.status === "confirmed")
+          const hasAcceptedOrConfirmed = courseScoutings.some(s => s.status === "accepted" || s.status === "confirmed")
           return (
             <div key={course.id} className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-3">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setEditId(isEditing ? null : course.id)}>
@@ -339,7 +351,10 @@ export default function CourseTab({ courses, scoutings, onCourseCreate, onCourse
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button onClick={async () => {
-                    if (!confirm("이 과정을 삭제하시겠습니까? 연결된 찜꽁은 '과정 미지정'으로 이동합니다.")) return
+                    const msg = hasConfirmed
+                      ? "확정된 섭외가 취소됩니다.\n이 과정을 삭제하시겠습니까?"
+                      : "연결된 찜꽁이 모두 취소됩니다.\n이 과정을 삭제하시겠습니까?"
+                    if (!confirm(msg)) return
                     await onCourseDelete(course.id)
                   }}
                     className="cursor-pointer rounded-lg px-2.5 py-1 text-[11px] text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
@@ -351,6 +366,8 @@ export default function CourseTab({ courses, scoutings, onCourseCreate, onCourse
                 <CourseEditForm
                   course={course}
                   saving={saving}
+                  hasAcceptedScoutings={hasAcceptedOrConfirmed}
+                  hasConfirmedScoutings={hasConfirmed}
                   onSave={(data) => handleSave(course.id, data)}
                   onCancel={() => setEditId(null)}
                 />
@@ -358,6 +375,36 @@ export default function CourseTab({ courses, scoutings, onCourseCreate, onCourse
             </div>
           )
         })
+      )}
+
+      {/* 삭제된 과정 */}
+      {deletedCourses.length > 0 && (
+        <div className="rounded-2xl bg-gray-50 border border-gray-200">
+          <button
+            onClick={() => setShowDeleted(p => !p)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-gray-100 transition-colors"
+          >
+            <span className={`text-xs text-gray-400 transition-transform ${showDeleted ? "rotate-90" : ""}`}>▶</span>
+            <span className="text-xs font-medium text-gray-400">삭제된 과정 ({deletedCourses.length})</span>
+          </button>
+          {showDeleted && (
+            <div className="border-t border-gray-200 px-4 py-2 space-y-1.5">
+              {deletedCourses.map(dc => (
+                <div key={dc.id} className="flex items-center gap-2 py-1">
+                  <span className="text-xs text-gray-400 line-through">{dc.name}</span>
+                  {dc.startDate && dc.endDate && (
+                    <span className="text-[10px] text-gray-300 line-through">
+                      {dc.startDate.slice(0, 10)} ~ {dc.endDate.slice(0, 10)}
+                    </span>
+                  )}
+                  <span className="ml-auto text-[10px] text-gray-300">
+                    삭제됨 {dc.deletedAt.slice(0, 10)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

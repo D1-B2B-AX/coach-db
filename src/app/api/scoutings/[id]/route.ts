@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { canTransition, getNotificationTrigger } from '@/lib/scouting-state-machine'
 import { createNotification, expireScoutingRequestNotifications } from '@/lib/notification-service'
+import { cancelEngagementScheduleForScouting } from '@/lib/engagement-cascade'
 import type { ScoutingStatus } from '@/generated/prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -21,13 +22,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     where: { id },
     include: {
       coach: { select: { id: true, name: true, accessToken: true, workType: true } },
-      manager: { select: { id: true, name: true } },
-      course: { select: { id: true, name: true, startDate: true, endDate: true, location: true } },
+      manager: { select: { id: true, name: true, email: true } },
+      course: { select: { id: true, name: true, startDate: true, endDate: true, location: true, deletedAt: true } },
     },
   })
   if (!scouting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (scouting.managerId !== auth.manager.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  if (status === 'confirmed' && scouting.course?.deletedAt) {
+    return NextResponse.json(
+      { error: '과정이 삭제되어 확정할 수 없습니다' },
+      { status: 409 },
+    )
   }
 
   // canTransition 기반 검증
@@ -52,8 +60,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     select: { id: true, status: true, courseName: true, hireStart: true, hireEnd: true, scheduleText: true },
   })
 
-  // 취소 시 기존 알림 만료
+  // 취소 시 기존 알림 만료 + confirmed면 EngagementSchedule cascade
   if (status === 'cancelled') {
+    await expireScoutingRequestNotifications(id)
+    if (scouting.status === 'confirmed') {
+      await cancelEngagementScheduleForScouting(scouting, scouting.course)
+    }
+  }
+
+  // 수정 시 (scouting→scouting) 기존 T1 만료 후 새 알림 발송
+  if (scouting.status === 'scouting' && status === 'scouting') {
     await expireScoutingRequestNotifications(id)
   }
 
@@ -75,6 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         managerId: scouting.managerId,
         coachName: scouting.coach.name,
         managerName: scouting.manager.name,
+        managerEmail: scouting.manager.email || undefined,
         date: dateStr,
         courseName: scouting.courseName || undefined,
         accessToken: scouting.coach.accessToken,

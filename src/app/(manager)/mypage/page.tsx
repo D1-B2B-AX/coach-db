@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Course, Scouting, EngagementHistory } from "./utils"
+import { Course, DeletedCourse, Scouting, EngagementHistory } from "./utils"
 import CourseTab from "./CourseTab"
 import ScoutingTab from "./ScoutingTab"
 import EngagementHistorySection from "./EngagementHistory"
@@ -21,10 +21,15 @@ function MyPageContent() {
 
   const [scoutings, setScoutings] = useState<Scouting[]>([])
   const [courses, setCourses] = useState<Course[]>([])
+  const [deletedCourses, setDeletedCourses] = useState<DeletedCourse[]>([])
   const [engagementHistory, setEngagementHistory] = useState<EngagementHistory[]>([])
   const [managerId, setManagerId] = useState<string | null>(null)
+  const [myId, setMyId] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(null)
+  const [managers, setManagers] = useState<{ id: string; name: string; email: string }[]>([])
   const [loading, setLoading] = useState(true)
   const activeTab = tabParam === "courses" ? "courses" : "scoutings"
+  const isViewingOther = myId !== null && managerId !== null && myId !== managerId
 
   useEffect(() => {
     async function fetchMe() {
@@ -32,7 +37,16 @@ function MyPageContent() {
         const res = await fetch("/api/auth/me")
         if (res.ok) {
           const data = await res.json()
+          setMyId(data.id)
           setManagerId(data.id)
+          setRole(data.role)
+          if (data.role === "admin") {
+            const mRes = await fetch("/api/admin/managers")
+            if (mRes.ok) {
+              const mData = await mRes.json()
+              setManagers(mData.managers || [])
+            }
+          }
         } else {
           console.error("[mypage] /api/auth/me failed:", res.status)
         }
@@ -57,7 +71,8 @@ function MyPageContent() {
   const fetchCourses = useCallback(async () => {
     if (!managerId) return
     try {
-      const res = await fetch("/api/courses")
+      const courseUrl = isViewingOther ? `/api/courses?managerId=${managerId}` : "/api/courses"
+      const res = await fetch(courseUrl)
       if (res.ok) {
         const data = await res.json()
         const list = (data.courses || []).map((c: {
@@ -77,19 +92,25 @@ function MyPageContent() {
           createdAt: c.createdAt,
         }))
         setCourses(list)
+        setDeletedCourses(
+          (data.deletedCourses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null; deletedAt: string }) => ({
+            id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, deletedAt: c.deletedAt,
+          }))
+        )
       }
     } catch { /* ignore */ }
-  }, [managerId])
+  }, [managerId, isViewingOther])
 
   const fetchEngagementHistory = useCallback(async () => {
     try {
-      const res = await fetch("/api/engagements/mine")
+      const engUrl = isViewingOther ? `/api/engagements/mine?managerId=${managerId}` : "/api/engagements/mine"
+      const res = await fetch(engUrl)
       if (res.ok) {
         const data = await res.json()
         setEngagementHistory(data.engagements || [])
       }
     } catch { /* ignore */ }
-  }, [])
+  }, [managerId, isViewingOther])
 
   useEffect(() => {
     fetchScoutings()
@@ -121,7 +142,11 @@ function MyPageContent() {
       body: JSON.stringify(data),
     })
     if (res.ok) {
+      const result = await res.json()
       setCourses(prev => prev.map(c => c.id === id ? { ...c, ...data } : c))
+      if (result.resetScoutings > 0) {
+        fetchScoutings(true)
+      }
     }
   }
 
@@ -140,44 +165,49 @@ function MyPageContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
-    if (res.ok) {
-      setScoutings(prev =>
-        prev.map(s => s.id === id ? {
-          ...s,
-          status: newStatus,
-          ...(newStatus === "confirmed" && extra && {
-            courseName: extra.courseName ?? s.courseName,
-            hireStart: extra.hireStart ?? s.hireStart,
-            hireEnd: extra.hireEnd ?? s.hireEnd,
-            scheduleText: extra.scheduleText ?? s.scheduleText,
-          }),
-        } : s)
-      )
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || '처리 중 오류가 발생했습니다')
+      await fetchScoutings(true)
+      return
+    }
 
-      if (newStatus === "confirmed") {
-        const found = scoutings.find(x => x.id === id)
-        if (found) {
-          // Auto-cancel siblings (same course + date, accepted)
-          const siblings = scoutings.filter(s =>
-            s.id !== id &&
-            s.status === "accepted" &&
-            s.date.slice(0, 10) === found.date.slice(0, 10) &&
-            s.courseId === found.courseId
-          )
-          for (const sib of siblings) {
-            fetch(`/api/scoutings/${sib.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "cancelled" }),
-            })
-          }
-          if (siblings.length > 0) {
-            setScoutings(prev => prev.map(s =>
-              siblings.some(sib => sib.id === s.id) ? { ...s, status: "cancelled" } : s
-            ))
-          }
+    setScoutings(prev =>
+      prev.map(s => s.id === id ? {
+        ...s,
+        status: newStatus,
+        ...(newStatus === "confirmed" && extra && {
+          courseName: extra.courseName ?? s.courseName,
+          hireStart: extra.hireStart ?? s.hireStart,
+          hireEnd: extra.hireEnd ?? s.hireEnd,
+          scheduleText: extra.scheduleText ?? s.scheduleText,
+        }),
+      } : s)
+    )
 
+    if (newStatus === "confirmed") {
+      const found = scoutings.find(x => x.id === id)
+      if (found) {
+        // Auto-cancel siblings (same course + date, accepted)
+        const siblings = scoutings.filter(s =>
+          s.id !== id &&
+          s.status === "accepted" &&
+          s.date.slice(0, 10) === found.date.slice(0, 10) &&
+          s.courseId === found.courseId
+        )
+        for (const sib of siblings) {
+          fetch(`/api/scoutings/${sib.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "cancelled" }),
+          })
         }
+        if (siblings.length > 0) {
+          setScoutings(prev => prev.map(s =>
+            siblings.some(sib => sib.id === s.id) ? { ...s, status: "cancelled" } : s
+          ))
+        }
+
       }
     }
   }
@@ -197,6 +227,28 @@ function MyPageContent() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
 
+      {role === "admin" && managers.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <select
+            value={managerId || ""}
+            onChange={(e) => setManagerId(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+          >
+            {managers.filter(m => m.id !== myId).length > 0 && (
+              <>
+                <option value={myId || ""}>내 마이페이지</option>
+                {managers.filter(m => m.id !== myId).map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+                ))}
+              </>
+            )}
+          </select>
+          {isViewingOther && (
+            <span className="text-xs text-amber-600 font-medium">열람 모드</span>
+          )}
+        </div>
+      )}
+
       {activeTab === "scoutings" && managerId && (
         <ScoutingTab
           courses={courses}
@@ -211,6 +263,7 @@ function MyPageContent() {
         <>
           <CourseTab
             courses={courses}
+            deletedCourses={deletedCourses}
             scoutings={scoutings}
             onCourseCreate={handleCourseCreate}
             onCourseUpdate={handleCourseUpdate}

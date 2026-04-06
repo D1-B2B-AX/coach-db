@@ -43,6 +43,8 @@ export async function createNotification(
 
   const title = trigger.type === 'scouting_request'
     ? '찜꽁'
+    : trigger.type === 'scouting_request_modified'
+      ? '찜꽁 수정'
     : trigger.type === 'coach_accepted'
       ? '코치 수락'
       : trigger.type === 'coach_rejected'
@@ -125,7 +127,7 @@ export async function createNotification(
 export async function expireScoutingRequestNotifications(scoutingId: string) {
   await prisma.notification.updateMany({
     where: {
-      type: 'scouting_request',
+      type: { in: ['scouting_request', 'scouting_request_modified'] },
       data: { path: ['scoutingId'], equals: scoutingId },
       expiredAt: null,
     },

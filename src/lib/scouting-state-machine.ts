@@ -11,6 +11,7 @@ interface Transition {
 const VALID_TRANSITIONS: Transition[] = [
   { from: 'scouting', to: 'accepted', actor: 'coach' },
   { from: 'scouting', to: 'rejected', actor: 'coach' },
+  { from: 'scouting', to: 'scouting', actor: 'manager' },   // 수정 (재알림)
   { from: 'scouting', to: 'cancelled', actor: 'manager' },
   { from: 'accepted', to: 'confirmed', actor: 'manager' },
   { from: 'accepted', to: 'cancelled', actor: 'manager' },
@@ -38,6 +39,13 @@ export type NotificationTrigger = {
 }
 
 const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
+  // T1-mod: 섭외 수정 (매니저가 미수락 상태에서 수정 → 코치에게 재알림)
+  'scouting->scouting': {
+    type: 'scouting_request_modified',
+    recipientRole: 'coach',
+    messageTemplate: '{managerLabel}가 {date} 섭외를 수정했습니다',
+    clickUrlPattern: '/coach?token={accessToken}',
+  },
   // T1: 섭외 생성 (POST 신규 or 복원) — 별도 호출, 여기는 상태 전이 기준
   'scouting->accepted': {
     type: 'coach_accepted',
@@ -58,7 +66,12 @@ const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
     messageTemplate: '{date} 투입이 확정되었습니다 ({courseName})',
     clickUrlPattern: '/coach?token={accessToken}',
   },
-  'accepted->cancelled': null, // v2 범위 밖
+  'accepted->cancelled': {
+    type: 'engagement_cancelled',
+    recipientRole: 'coach',
+    messageTemplate: '{date} 섭외가 취소되었습니다',
+    clickUrlPattern: '/coach?token={accessToken}',
+  },
   // rejected는 최종 상태 — 전이 없음
   'confirmed->cancelled': {
     type: 'engagement_cancelled',

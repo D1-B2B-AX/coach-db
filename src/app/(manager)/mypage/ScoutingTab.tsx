@@ -112,6 +112,21 @@ function CoachPopover({
             </button>
           )}
 
+          {s.status === "scouting" && (
+            <button
+              onClick={() => {
+                if (confirm("수정된 섭외 요청을 코치에게 다시 보내시겠습니까?")) {
+                  setOpen(false)
+                  onAction(s.id, "scouting")
+                }
+              }}
+              disabled={isUpdating}
+              className="flex w-full items-center px-3 py-1.5 text-xs text-[#F57C00] font-medium rounded-lg hover:bg-[#FFF3E0] transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              수정 알림 보내기
+            </button>
+          )}
+
           {(s.status === "scouting" || s.status === "accepted" || s.status === "confirmed") && (
             <button
               onClick={() => {

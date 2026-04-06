@@ -233,6 +233,7 @@ model EngagementSchedule {
   date         DateTime   @db.Date
   startTime    String     @map("start_time") @db.VarChar(5)
   endTime      String     @map("end_time") @db.VarChar(5)
+  cancelledAt  DateTime?  @map("cancelled_at")
   engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
   coach        Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
 

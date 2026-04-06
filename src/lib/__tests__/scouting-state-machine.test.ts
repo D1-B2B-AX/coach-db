@@ -99,8 +99,11 @@ describe('getNotificationTrigger', () => {
     expect(getNotificationTrigger('scouting', 'cancelled')).toBeNull()
   })
 
-  it('accepted -> cancelled returns null (v2 범위 밖)', () => {
-    expect(getNotificationTrigger('accepted', 'cancelled')).toBeNull()
+  it('accepted -> cancelled returns engagement_cancelled for coach', () => {
+    const trigger = getNotificationTrigger('accepted', 'cancelled')
+    expect(trigger).not.toBeNull()
+    expect(trigger!.type).toBe('engagement_cancelled')
+    expect(trigger!.recipientRole).toBe('coach')
   })
 
   it('cancelled -> scouting returns null (POST 토글에서 처리)', () => {
