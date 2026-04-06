@@ -50,7 +50,7 @@ function formatManagerLabel(name?: string | null, email?: string | null): string
 
 
 
-export default function ScoutingAlerts({ token, onAction }: { token: string; onAction?: () => void }) {
+export default function ScoutingAlerts({ token, readOnly, onAction }: { token: string; readOnly?: boolean; onAction?: () => void }) {
   const [alerts, setAlerts] = useState<ScoutingNotification[]>([])
   const [acting, setActing] = useState<string | null>(null)
   const [bulkActing, setBulkActing] = useState(false)
@@ -211,10 +211,10 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
 
   return (
     <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-      <div className="px-5 pt-4 pb-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#333]">받은 요청</h3>
-          <span className="rounded-full bg-[#EAF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#1976D2]">
+      <div className="px-5 pt-5 pb-5">
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="text-[14px] font-semibold text-[#333]">받은 요청</h3>
+          <span className="rounded-full bg-[#EAF2FD] px-2.5 py-0.5 text-[11px] font-semibold text-[#1976D2]">
             {pendingAlerts.length}건
           </span>
         </div>
@@ -263,20 +263,20 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                   <span className="text-[14px] font-semibold text-[#333]">{courseName}</span>
                   <span className="text-[10px] text-gray-400">{items.length}건</span>
                   <div className="ml-auto flex items-center gap-1.5">
-                    <button
+                    {!readOnly && <button
                       onClick={() => handleBulkAction(items, "accept")}
                       disabled={bulkActing}
                       className="cursor-pointer rounded-full bg-[#1976D2] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1565C0] disabled:opacity-50"
                     >
                       {bulkActing ? "..." : "전부 수락"}
-                    </button>
-                    <button
+                    </button>}
+                    {!readOnly && <button
                       onClick={() => handleBulkAction(items, "reject")}
                       disabled={bulkActing}
                       className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200 disabled:opacity-50"
                     >
                       전부 거절
-                    </button>
+                    </button>}
                   </div>
                 </div>
                 {(location || hourlyRate || managerName || courseRemarks) && (
@@ -329,7 +329,7 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                           {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      {!readOnly && <div className="flex items-center gap-1.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
                           disabled={acting === a.id}
@@ -344,7 +344,7 @@ export default function ScoutingAlerts({ token, onAction }: { token: string; onA
                         >
                           거절
                         </button>
-                      </div>
+                      </div>}
                     </div>
                   </div>
                 ))}

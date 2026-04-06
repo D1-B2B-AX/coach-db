@@ -237,6 +237,7 @@ export default function CoachSchedulePage() {
 function CoachScheduleContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
+  const isViewer = searchParams.get("viewer") === "manager"
 
   // Core state
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -808,17 +809,24 @@ function CoachScheduleContent() {
   }
 
   return (
-    <div className="flex min-h-screen justify-center bg-[#f5f5f5] p-5 pb-10 max-md:p-2.5 max-md:pb-20">
-      <div className="flex w-full max-w-[calc(100vw-2rem)] sm:max-w-[480px] flex-col items-center gap-4">
+    <div className="min-h-screen bg-[#f5f5f5] pb-20 flex flex-col items-center">
+      {isViewer && (
+        <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] mt-3 rounded-xl bg-[#FFF3E0] border border-[#FFE0B2] px-4 py-2.5 text-center">
+          <p className="text-xs font-semibold text-[#E65100]">코치가 보는 화면입니다</p>
+          <p className="text-[10px] text-[#BF360C] mt-0.5">매니저 미리보기 (읽기 전용)</p>
+        </div>
+      )}
+      <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-b-2xl bg-[#1565C0] overflow-hidden">
+        <CoachHeader
+          coachName={coachInfo?.name ?? ""}
+          token={isViewer ? undefined : (token ?? undefined)}
+          onProfile={isViewer ? undefined : () => setShowProfile(true)}
+        />
+      </div>
+      <div className="flex w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] flex-col items-center gap-4 -mt-3">
         {/* Main container */}
-        <div className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <CoachHeader
-            coachName={coachInfo?.name ?? ""}
-            token={token ?? undefined}
-            onProfile={() => setShowProfile(true)}
-          />
-
-          <div className="px-4 sm:px-7 pt-5 pb-7">
+        <div className="w-full rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="px-4 sm:px-5 pt-5 pb-5">
             <ScheduleCalendar
               year={currentYear}
               month={currentMonth}
@@ -856,7 +864,7 @@ function CoachScheduleContent() {
         {/* 받은 요청 — 나의 스케줄 박스 아래 */}
         {token && (
           <div id="scouting-alerts" className="w-full scroll-mt-4">
-            <ScoutingAlerts token={token} onAction={async () => {
+            <ScoutingAlerts token={token} readOnly={isViewer} onAction={async () => {
               const ym = yearMonthStr(currentYear, currentMonth)
               const data = await fetchSchedule(ym)
               setScoutingEntries(data.scoutings || [])
@@ -865,7 +873,7 @@ function CoachScheduleContent() {
         )}
 
         {/* 활동 중지 — 나의 스케줄 박스 바로 아래 */}
-        {coachInfo && coachInfo.status !== "inactive" && (
+        {!isViewer && coachInfo && coachInfo.status !== "inactive" && (
           <DeactivateSection token={token!} phone={coachInfo.phone} onDeactivated={() => {
             window.alert("활동 중지 신청이 완료되었습니다.\n그동안 감사했습니다.")
             setCoachInfo(prev => prev ? { ...prev, status: "inactive" } : prev)
@@ -973,16 +981,20 @@ function CoachScheduleContent() {
       </div>
 
       {/* Save — mobile: full-width bottom bar, desktop: inline under calendar */}
-      {isEditable ? (
+      {isViewer ? (
+        <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-400 backdrop-blur-sm">
+          매니저 미리보기 모드
+        </div>
+      ) : isEditable ? (
         <>
-          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:hidden">
+          <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-100 bg-white px-4 py-3 md:hidden">
             <button
               onClick={handleSave}
               disabled={saving}
-              className={`block w-full cursor-pointer rounded-lg border-none py-3 text-sm font-semibold transition-all disabled:opacity-50 ${
+              className={`block w-full cursor-pointer rounded-[10px] border-none py-3 text-[15px] font-semibold shadow-lg transition-all disabled:opacity-50 ${
                 saved
                   ? "bg-[#2E7D32] text-white"
-                  : "bg-[#1976D2] text-white hover:bg-[#1565C0]"
+                  : "bg-[#1976D2] text-white hover:bg-[#1565C0] shadow-[0_2px_8px_rgba(25,118,210,0.3)]"
               }`}
             >
               {saving ? "저장 중..." : saved ? "✓ 저장됨" : "저장하기"}
