@@ -1,6 +1,3 @@
-[dotenv@17.3.1] injecting env (16) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 

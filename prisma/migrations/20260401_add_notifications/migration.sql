@@ -1,7 +1,3 @@
--- AlterEnum
-ALTER TYPE "ScoutingStatus" ADD VALUE 'accepted';
-ALTER TYPE "ScoutingStatus" ADD VALUE 'rejected';
-
 -- AlterTable
 ALTER TABLE "coaches" ALTER COLUMN "status_note" SET DATA TYPE VARCHAR(60);
 

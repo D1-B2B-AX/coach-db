@@ -38,10 +38,13 @@ export default function CoachesPage() {
   const [workTypeFilter, setWorkTypeFilter] = useState<Set<string>>(new Set())
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const composingRef = useRef(false)
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [compositionEnd, setCompositionEnd] = useState(0)
 
-  // Debounce search input (300ms)
+  // Debounce search input (300ms), skip during IME composition
   useEffect(() => {
+    if (composingRef.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(search)
@@ -49,7 +52,7 @@ export default function CoachesPage() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [search])
+  }, [search, compositionEnd])
 
   // Fetch master fields on mount
   useEffect(() => {
@@ -68,8 +71,9 @@ export default function CoachesPage() {
   }, [])
 
   // Fetch coaches when filters change
+  const initialLoadDone = useRef(false)
   const fetchCoaches = useCallback(async () => {
-    setLoading(true)
+    if (!initialLoadDone.current) setLoading(true)
     try {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set("search", debouncedSearch)
@@ -98,6 +102,7 @@ export default function CoachesPage() {
       // silently fail
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [debouncedSearch, statusFilter])
 
@@ -212,6 +217,11 @@ export default function CoachesPage() {
           loading={loading}
           search={search}
           onSearchChange={setSearch}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={() => {
+            composingRef.current = false
+            setCompositionEnd(c => c + 1)
+          }}
           onExport={handleExport}
           exporting={exporting}
           filterSlot={

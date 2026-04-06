@@ -36,6 +36,8 @@ interface CoachListTableProps {
   onSortChange?: (sort: string) => void
   search?: string
   onSearchChange?: (v: string) => void
+  onCompositionStart?: () => void
+  onCompositionEnd?: () => void
   onExport?: (type: "phone" | "email") => void
   exporting?: boolean
   filterSlot?: ReactNode
@@ -80,6 +82,8 @@ export default function CoachListTable({
   onSortChange,
   search,
   onSearchChange,
+  onCompositionStart,
+  onCompositionEnd,
   onExport,
   exporting,
   filterSlot,
@@ -89,6 +93,22 @@ export default function CoachListTable({
   if (loading) {
     return (
       <Table>
+        <div className={`flex flex-wrap items-center gap-1.5 border-b ${TABLE_DIVIDER_COLOR} px-5 py-2.5`}>
+          {filterSlot}
+          {!filterSlot && <div className="flex-1" />}
+          {onSearchChange && (
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" /></svg>
+              <input
+                type="text"
+                value={search || ""}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="검색"
+                className="w-36 rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-xs text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
+              />
+            </div>
+          )}
+        </div>
         <TableHeader className="hidden sm:grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
           <div className="w-4" /><div>이름</div><div>근무유형</div><div>연락처</div><div>이메일</div><div>분야</div><div>누적 근무일</div><div>평가</div>
         </TableHeader>
@@ -111,6 +131,22 @@ export default function CoachListTable({
   if (coaches.length === 0) {
     return (
       <Table>
+        <div className={`flex flex-wrap items-center gap-1.5 border-b ${TABLE_DIVIDER_COLOR} px-5 py-2.5`}>
+          {filterSlot}
+          {!filterSlot && <div className="flex-1" />}
+          {onSearchChange && (
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" /></svg>
+              <input
+                type="text"
+                value={search || ""}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="검색"
+                className="w-36 rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-xs text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
+              />
+            </div>
+          )}
+        </div>
         <TableEmpty className="text-base">검색 조건에 맞는 코치가 없습니다</TableEmpty>
       </Table>
     )
@@ -152,6 +188,8 @@ export default function CoachListTable({
               type="text"
               value={search || ""}
               onChange={(e) => onSearchChange(e.target.value)}
+              onCompositionStart={onCompositionStart}
+              onCompositionEnd={onCompositionEnd}
               placeholder="검색"
               className="w-36 rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-7 pr-2 text-xs text-gray-600 placeholder:text-gray-400 focus:border-[#1976D2] focus:bg-white focus:outline-none transition-all"
             />
