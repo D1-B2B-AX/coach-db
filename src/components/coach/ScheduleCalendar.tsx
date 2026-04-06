@@ -251,7 +251,7 @@ export default function ScheduleCalendar({
       {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && !(dayScoutings && dayScoutings.length > 0) && (
         <>
           <div className="mt-4">
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {TIME_RANGES.map(({ label, start, end }) => {
                 const rangeSlots = ALL_SLOTS.filter((s) => s >= start && s < end)
                 const allSelected = rangeSlots.every(

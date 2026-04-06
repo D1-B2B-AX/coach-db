@@ -351,7 +351,7 @@ export default function DashboardCoachList({
                   className={`px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedIds.has(coach.id) ? "bg-blue-50/40" : ""}`}
                 >
                   {/* 1줄: 체크박스 + 이름 + 분야 태그 + 평점 */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <div className="w-4 flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -378,14 +378,14 @@ export default function DashboardCoachList({
                     </span>
                   </div>
                   {/* 2줄: 근무유형 + 가능시간 + 최근과정 */}
-                  <div className="flex items-center gap-2 mt-1.5 ml-6 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 ml-6 text-[11px]">
                     {coach.workType && (
                       <span className="text-gray-400">{coach.workType}</span>
                     )}
-                    {coach.workType && <span className="text-gray-200">|</span>}
+                    {coach.workType && <span className="text-gray-200 hidden sm:inline">|</span>}
                     <span><span className="text-gray-400">가능시간: </span><span className="text-[#1976D2] font-medium">{formatScheduleLabel(coach.schedules)}</span></span>
-                    <span className="text-gray-200">|</span>
-                    <span className="truncate"><span className="text-gray-400">{courseLabel}: </span><span className="text-gray-500">{courseName || "-"}</span></span>
+                    <span className="text-gray-200 hidden sm:inline">|</span>
+                    <span><span className="text-gray-400">{courseLabel}: </span><span className="text-gray-500">{courseName || "-"}</span></span>
                   </div>
                 </div>
               )

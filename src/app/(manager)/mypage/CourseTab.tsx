@@ -221,7 +221,7 @@ function CourseEditForm({ course, saving, onSave, onCancel }: {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-gray-600">장소</span>
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="예: 강남 본사" disabled={saving}

@@ -123,7 +123,7 @@ export default function CoachProfileEdit({ token, profile, onSaved, onClose, onD
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-1">
         {/* 연락처 + 이메일 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-400">연락처</label>
             <input

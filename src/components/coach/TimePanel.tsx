@@ -111,7 +111,7 @@ export default function TimePanel({
       </div>
 
       {/* Quick select: time-of-day + clear */}
-      <div className="mb-3 grid grid-cols-4 gap-1.5">
+      <div className="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {(
           [
             { label: "오전", start: "07:00", end: "13:00" },
