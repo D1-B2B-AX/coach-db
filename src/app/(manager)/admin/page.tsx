@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useEscClose } from "@/lib/useEscClose"
 import Toast from "@/components/Toast"
+import ContentModerationTab from "@/components/admin/ContentModerationTab"
 
 interface Manager {
   id: string
@@ -38,7 +39,8 @@ export default function AdminPage() {
   const [deletedCoaches, setDeletedCoaches] = useState<DeletedCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync">("links")
+  const [activeTab, setActiveTab] = useState<"managers" | "applications" | "deleted" | "links" | "sync" | "moderation">("links")
+  const [moderationBadge, setModerationBadge] = useState(0)
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [managerFilter, setManagerFilter] = useState<string | null>("all")
@@ -127,6 +129,16 @@ export default function AdminPage() {
     }
     load()
   }, [accessState, fetchManagers, fetchDeletedCoaches, fetchPendingCoaches])
+
+  // 콘텐츠 관리 새 항목 배지
+  useEffect(() => {
+    if (accessState !== "allowed") return
+    const lastSeen = localStorage.getItem("admin-moderation-last-seen") || "1970-01-01T00:00:00.000Z"
+    fetch(`/api/admin/content-moderation/new-count?since=${encodeURIComponent(lastSeen)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.count) setModerationBadge(data.count) })
+      .catch(() => {})
+  }, [accessState])
 
   // Filter managers by preset + search
   const filteredManagers = useMemo(() => {
@@ -280,6 +292,7 @@ export default function AdminPage() {
     { key: "deleted" as const, label: `삭제 내역 (${deletedCoaches.length})` },
     { key: "managers" as const, label: `매니저 (${managers.length})` },
     { key: "sync" as const, label: "동기화" },
+    { key: "moderation" as const, label: `콘텐츠 관리${moderationBadge > 0 ? ` (${moderationBadge})` : ""}` },
   ]
 
   return (
@@ -290,7 +303,13 @@ export default function AdminPage() {
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setSearch(""); setSelectedIds(new Set()) }}
+              onClick={() => {
+                setActiveTab(tab.key); setSearch(""); setSelectedIds(new Set())
+                if (tab.key === "moderation") {
+                  localStorage.setItem("admin-moderation-last-seen", new Date().toISOString())
+                  setModerationBadge(0)
+                }
+              }}
               className={`cursor-pointer border-b-2 pb-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? "border-[#1976D2] text-[#1976D2]"
@@ -883,6 +902,11 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Content moderation tab */}
+        {activeTab === "moderation" && (
+          <ContentModerationTab />
         )}
       </div>
 
