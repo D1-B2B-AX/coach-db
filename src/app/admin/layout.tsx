@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   })
 
   if (!manager || manager.role !== 'admin') {
-    redirect('/dashboard')
+    redirect('/schedule')
   }
 
   return (

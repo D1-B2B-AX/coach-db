@@ -9,7 +9,7 @@ function LoginContent() {
   const error = searchParams.get("error")
 
   const handleLogin = () => {
-    signIn("google", { callbackUrl: "/dashboard" })
+    signIn("google", { callbackUrl: "/schedule" })
   }
 
   return (

@@ -6,7 +6,7 @@ export default function ForbiddenPage() {
       title="403 Access Denied"
       message="이 페이지를 볼 권한이 없습니다."
       actionLabel="Return to Dashboard"
-      actionHref="/dashboard"
+      actionHref="/schedule"
     />
   )
 }

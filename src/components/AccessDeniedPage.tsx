@@ -13,7 +13,7 @@ export default function AccessDeniedPage({
   title = "403 Access Denied",
   message = "이 페이지를 볼 권한이 없습니다.",
   actionLabel = "Return to Dashboard",
-  actionHref = "/dashboard",
+  actionHref = "/schedule",
 }: AccessDeniedPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#f8fbff_0%,_#f4f7fb_38%,_#eef3f9_100%)] px-4 py-10">
