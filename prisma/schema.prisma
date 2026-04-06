@@ -389,3 +389,17 @@ model ApiAccessLog {
   @@index([createdAt])
   @@map("api_access_logs")
 }
+
+// ─── 지표 스냅샷 (수동 입력) ───
+
+model MetricSnapshot {
+  id        String   @id @default(uuid())
+  yearMonth String   @map("year_month") @db.VarChar(7)
+  metricKey String   @map("metric_key") @db.VarChar(50)
+  value     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([yearMonth, metricKey])
+  @@map("metric_snapshots")
+}
