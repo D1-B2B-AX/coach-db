@@ -72,10 +72,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (session.manager.role !== 'admin' && session.manager.role !== 'samsung_admin') {
       return NextResponse.json({ error: 'Samsung dashboard access denied' }, { status: 403 })
     }
-    coachWhere.OR = [
-      { workType: { contains: '삼전 DS' } },
-      { workType: { contains: '삼전 DX' } },
-    ]
+    const { excludeDS, excludeDX } = getSamsungExclusions(yearMonth)
+    const orConditions: { workType: { contains: string } }[] = []
+    if (!excludeDS) orConditions.push({ workType: { contains: '삼전 DS' } })
+    if (!excludeDX) orConditions.push({ workType: { contains: '삼전 DX' } })
+    if (orConditions.length === 0) {
+      return NextResponse.json({ date: fullDate, coaches: [], total: 0 })
+    }
+    coachWhere.OR = orConditions
   }
 
   // Build list of target dates

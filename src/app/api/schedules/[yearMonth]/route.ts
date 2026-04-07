@@ -59,10 +59,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       coachWhere.NOT = notConditions
     }
   } else if (coachFilter === 'samsung-only') {
-    coachWhere.OR = [
-      { workType: { contains: '삼전 DS' } },
-      { workType: { contains: '삼전 DX' } },
-    ]
+    const { excludeDS, excludeDX } = getSamsungExclusions(yearMonth)
+    const orConditions: { workType: { contains: string } }[] = []
+    if (!excludeDS) orConditions.push({ workType: { contains: '삼전 DS' } })
+    if (!excludeDX) orConditions.push({ workType: { contains: '삼전 DX' } })
+    if (orConditions.length === 0) {
+      return NextResponse.json({ yearMonth, days: {} })
+    }
+    coachWhere.OR = orConditions
   }
 
   // Fetch availability + busy schedules in parallel
