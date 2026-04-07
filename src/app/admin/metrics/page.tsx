@@ -147,7 +147,7 @@ function DailyHeatmap({ data: rawData, samsung }: { data: DailyTrendPoint[]; sam
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 w-full">
       <h3 className="text-base font-semibold text-gray-800 mb-3">일별 입력수 추이</h3>
       <div className="overflow-x-auto">
         <table className="text-[11px]">
@@ -155,7 +155,7 @@ function DailyHeatmap({ data: rawData, samsung }: { data: DailyTrendPoint[]; sam
             <tr>
               <th className="text-left py-1 pr-2 text-gray-500 font-medium sticky left-0 bg-white z-10 min-w-[72px]" />
               {data.map((pt) => (
-                <th key={pt.day} className="text-center py-1 px-[3px] text-gray-400 font-normal min-w-[22px]">
+                <th key={pt.day} className="text-center py-1 px-[3px] text-gray-400 font-normal w-[26px] min-w-[26px]">
                   {pt.day}
                 </th>
               ))}
@@ -171,7 +171,7 @@ function DailyHeatmap({ data: rawData, samsung }: { data: DailyTrendPoint[]; sam
                   {row.values.map((v, i) => (
                     <td
                       key={i}
-                      className="text-center py-1.5 px-[3px]"
+                      className="text-center px-[3px] h-[28px] w-[26px] min-w-[26px]"
                       style={v > 0 ? { backgroundColor: row.hue + String(Math.min(Math.round(15 + (v / max) * 70), 85)).padStart(2, '0') } : undefined}
                     >
                       <span className={v > 0 ? 'text-gray-800 font-medium' : 'text-gray-300'}>{v}</span>
@@ -393,7 +393,7 @@ export default function AdminMetricsPage() {
 
             {/* Card: Daily Heatmap (spans 2 cols) */}
             {data.dailyTrend.length > 0 && (
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 flex">
                 <DailyHeatmap data={data.dailyTrend} samsung={data.metrics.samsungSchedule} />
               </div>
             )}
