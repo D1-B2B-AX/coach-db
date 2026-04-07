@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { google } from 'googleapis'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+
+const LINK_SHEET_ID = '1HFG4pRM7vH4FhezmkQXokFfCJcpI9Dsp9kzc1CH-K2Q'
 
 const YM_RE = /^\d{4}-(?:0[1-9]|1[0-2])$/
 
@@ -25,9 +28,53 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10
 }
 
+// --- link sheet: 실제 발송 대상 코치 ID 조회 ---
+
+async function fetchSentCoachIds(): Promise<string[]> {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    })
+    const sheets = google.sheets({ version: 'v4', auth })
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: LINK_SHEET_ID,
+      range: "'시트1'!C2:C",
+    })
+    const tokens = (res.data.values ?? [])
+      .map((row) => {
+        const url = String(row[0] || '')
+        const m = url.match(/token=([a-f0-9]{64})/)
+        return m ? m[1] : null
+      })
+      .filter((t): t is string => !!t)
+
+    if (tokens.length === 0) return []
+
+    const coaches = await prisma.coach.findMany({
+      where: { accessToken: { in: tokens }, deletedAt: null },
+      select: { id: true },
+    })
+    return coaches.map((c) => c.id)
+  } catch {
+    return []
+  }
+}
+
 // --- metric helpers ---
 
-async function calcScheduleInputRate(ym: string) {
+async function calcScheduleInputRate(ym: string, sentCoachIds?: string[]) {
+  if (sentCoachIds && sentCoachIds.length > 0) {
+    const completed = await prisma.scheduleAccessLog.count({
+      where: { yearMonth: ym, lastEditedAt: { not: null }, coachId: { in: sentCoachIds } },
+    })
+    const total = sentCoachIds.length
+    const rate = total > 0 ? round1((completed / total) * 100) : null
+    return { completed, total, rate }
+  }
   const completed = await prisma.scheduleAccessLog.count({
     where: { yearMonth: ym, lastEditedAt: { not: null } },
   })
@@ -39,11 +86,10 @@ async function calcScheduleInputRate(ym: string) {
 }
 
 async function calcExternalHireRate(ym: string, year: number, month: number) {
-  const channelKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
+  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_other'] as const
   const channelLabels: Record<string, string> = {
-    ext_open_chat: '오픈채팅방',
-    ext_slack: '슬랙',
     ext_albamon: '알바몬',
+    ext_slack: '슬랙',
     ext_other: '기타',
   }
 
@@ -118,6 +164,131 @@ async function calcScoutingResponseRate(year: number, month: number) {
   return { requested, responded, rate }
 }
 
+async function calcDailyTrend(year: number, month: number, ym: string, isCurrentMonth: boolean, sentCoachIds?: string[]) {
+  const { start, end } = monthRange(year, month)
+  const lastDayOfMonth = new Date(year, month, 0).getDate()
+  const today = new Date()
+  const lastDay = isCurrentMonth ? Math.min(today.getDate(), lastDayOfMonth) : lastDayOfMonth
+
+  // 삼전 DS/DX 코치 ID 조회
+  const samsungCoaches = await prisma.coach.findMany({
+    where: {
+      deletedAt: null,
+      status: 'active',
+      OR: [{ workType: { contains: '삼전 DS' } }, { workType: { contains: '삼전 DX' } }],
+      ...(sentCoachIds && sentCoachIds.length > 0 ? { id: { in: sentCoachIds } } : {}),
+    },
+    select: { id: true, workType: true },
+  })
+  const dsIds = new Set(samsungCoaches.filter((c) => (c.workType || '').includes('삼전 DS')).map((c) => c.id))
+  const dxIds = new Set(samsungCoaches.filter((c) => (c.workType || '').includes('삼전 DX')).map((c) => c.id))
+
+  const [schedRaw, scoutRaw, samsungRaw] = await Promise.all([
+    prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
+      `SELECT TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+       FROM schedule_access_logs
+       WHERE year_month = $1 AND last_edited_at IS NOT NULL
+       GROUP BY 1`,
+      ym,
+    ),
+    prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
+      `SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+       FROM scoutings
+       WHERE created_at >= $1 AND created_at < $2
+       GROUP BY 1`,
+      start,
+      end,
+    ),
+    // 삼전 코치별 입력 완료 날짜
+    prisma.$queryRawUnsafe<Array<{ coach_id: string; d: string }>>(
+      `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
+       FROM schedule_access_logs
+       WHERE year_month = $1 AND last_edited_at IS NOT NULL`,
+      ym,
+    ),
+  ])
+
+  const schedMap = new Map(schedRaw.map((r) => [r.d, Number(r.cnt)]))
+  const scoutMap = new Map(scoutRaw.map((r) => [r.d, Number(r.cnt)]))
+
+  // 일별 삼전 DS/DX 누적 완료 수 계산
+  const dsDailyNew = new Map<string, number>()
+  const dxDailyNew = new Map<string, number>()
+  for (const row of samsungRaw) {
+    if (dsIds.has(row.coach_id)) dsDailyNew.set(row.d, (dsDailyNew.get(row.d) ?? 0) + 1)
+    if (dxIds.has(row.coach_id)) dxDailyNew.set(row.d, (dxDailyNew.get(row.d) ?? 0) + 1)
+  }
+
+  let dsCum = 0
+  let dxCum = 0
+  const days: Array<{
+    date: string; day: number; scheduleEdits: number; scoutingsCreated: number
+    dsCompleted: number; dxCompleted: number
+  }> = []
+  for (let d = 1; d <= lastDay; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    dsCum += dsDailyNew.get(dateStr) ?? 0
+    dxCum += dxDailyNew.get(dateStr) ?? 0
+    days.push({
+      date: dateStr,
+      day: d,
+      scheduleEdits: schedMap.get(dateStr) ?? 0,
+      scoutingsCreated: scoutMap.get(dateStr) ?? 0,
+      dsCompleted: dsCum,
+      dxCompleted: dxCum,
+    })
+  }
+  return days
+}
+
+async function calcSamsungScheduleRate(ym: string, sentCoachIds?: string[]) {
+  const where: any = {
+    deletedAt: null,
+    status: 'active',
+    OR: [
+      { workType: { contains: '삼전 DS' } },
+      { workType: { contains: '삼전 DX' } },
+    ],
+  }
+  if (sentCoachIds && sentCoachIds.length > 0) {
+    where.id = { in: sentCoachIds }
+  }
+  const coaches = await prisma.coach.findMany({
+    where,
+    select: { id: true, workType: true },
+  })
+
+  const logs = await prisma.scheduleAccessLog.findMany({
+    where: { yearMonth: ym, coachId: { in: coaches.map((c) => c.id) } },
+    select: { coachId: true, lastEditedAt: true },
+  })
+  const logMap = new Map(logs.map((l) => [l.coachId, l]))
+
+  const result: Record<string, { total: number; unvisited: number; accessedOnly: number; completed: number }> = {
+    '삼전 DS': { total: 0, unvisited: 0, accessedOnly: 0, completed: 0 },
+    '삼전 DX': { total: 0, unvisited: 0, accessedOnly: 0, completed: 0 },
+  }
+
+  for (const coach of coaches) {
+    const types = (coach.workType || '').split(',').map((t) => t.trim())
+    const log = logMap.get(coach.id)
+
+    for (const type of types) {
+      if (type !== '삼전 DS' && type !== '삼전 DX') continue
+      result[type].total++
+      if (!log) result[type].unvisited++
+      else if (!log.lastEditedAt) result[type].accessedOnly++
+      else result[type].completed++
+    }
+  }
+
+  return Object.entries(result).map(([type, counts]) => ({
+    type,
+    ...counts,
+    rate: counts.total > 0 ? round1((counts.completed / counts.total) * 100) : null,
+  }))
+}
+
 // --- route ---
 
 export async function GET(request: NextRequest) {
@@ -138,10 +309,13 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month
 
+  // --- fetch sent coach IDs from link sheet ---
+  const sentCoachIds = await fetchSentCoachIds()
+
   // --- current month metrics ---
-  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev] =
+  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule] =
     await Promise.all([
-      calcScheduleInputRate(yearMonth),
+      calcScheduleInputRate(yearMonth, sentCoachIds),
       calcScheduleInputRate(prevYMStr),
       calcExternalHireRate(yearMonth, year, month),
       calcExternalHireRateSimple(prevYMStr, prev.year, prev.month),
@@ -149,6 +323,8 @@ export async function GET(request: NextRequest) {
       calcCoachPoolByManager(prev.year, prev.month),
       calcScoutingResponseRate(year, month),
       calcScoutingResponseRate(prev.year, prev.month),
+      calcDailyTrend(year, month, yearMonth, isCurrentMonth, sentCoachIds),
+      calcSamsungScheduleRate(yearMonth, sentCoachIds),
     ])
 
   // merge prevMonth into coachPoolByManager
@@ -161,73 +337,6 @@ export async function GET(request: NextRequest) {
       changeRate: pv != null && pv > 0 ? round1(((m.uniqueCoaches - pv) / pv) * 100) : null,
     }
   })
-
-  // --- trend (6 months) ---
-  const trendMonths: Array<{ year: number; month: number; ym: string }> = []
-  let ty = year
-  let tm = month
-  for (let i = 0; i < 6; i++) {
-    trendMonths.unshift({ year: ty, month: tm, ym: ymStr(ty, tm) })
-    const p = prevYM(ty, tm)
-    ty = p.year
-    tm = p.month
-  }
-
-  const trend = await Promise.all(
-    trendMonths.map(async ({ year: y, month: m, ym }) => {
-      const [sched, ext, pool, resp] = await Promise.all([
-        calcScheduleInputRate(ym),
-        calcExternalHireRateSimple(ym, y, m),
-        calcCoachPoolByManager(y, m),
-        calcScoutingResponseRate(y, m),
-      ])
-      const avgCoachPool =
-        pool.length > 0
-          ? round1(pool.reduce((s, p) => s + p.uniqueCoaches, 0) / pool.length)
-          : null
-      return {
-        yearMonth: ym,
-        scheduleInputRate: sched.rate,
-        externalHireRate: ext,
-        avgCoachPool,
-        scoutingResponseRate: resp.rate,
-      }
-    }),
-  )
-
-  // --- weeklyTrend (current month only) ---
-  let weeklyTrend: Array<{ weekLabel: string; scheduleInputRate: number | null; completedCount: number }> | undefined
-  if (isCurrentMonth) {
-    const totalCoaches = await prisma.coach.count({
-      where: { status: 'active', deletedAt: null },
-    })
-
-    const lastDay = new Date(year, month, 0).getDate()
-    const weeks = [
-      { label: 'W1', start: 1, end: 7 },
-      { label: 'W2', start: 8, end: 14 },
-      { label: 'W3', start: 15, end: 21 },
-      { label: 'W4', start: 22, end: lastDay },
-    ]
-
-    weeklyTrend = await Promise.all(
-      weeks.map(async (w) => {
-        const wStart = new Date(year, month - 1, w.start)
-        const wEnd = new Date(year, month - 1, w.end + 1)
-        const completedCount = await prisma.scheduleAccessLog.count({
-          where: {
-            yearMonth: yearMonth,
-            lastEditedAt: { gte: wStart, lt: wEnd },
-          },
-        })
-        return {
-          weekLabel: w.label,
-          completedCount,
-          scheduleInputRate: totalCoaches > 0 ? round1((completedCount / totalCoaches) * 100) : null,
-        }
-      }),
-    )
-  }
 
   return NextResponse.json({
     yearMonth,
@@ -255,8 +364,8 @@ export async function GET(request: NextRequest) {
         rate: respCurr.rate,
         prevMonth: respPrev.rate,
       },
+      samsungSchedule,
     },
-    trend,
-    ...(weeklyTrend ? { weeklyTrend } : {}),
+    dailyTrend,
   })
 }
