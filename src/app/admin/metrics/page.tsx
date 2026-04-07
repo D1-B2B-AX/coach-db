@@ -456,20 +456,33 @@ export default function AdminMetricsPage() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
               <h3 className="text-sm font-medium text-gray-700 mb-1">매니저당 평균 코치 pool</h3>
               {data.metrics.coachPoolByManager.managers.length > 0 ? (
-                <>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {(
-                      data.metrics.coachPoolByManager.managers.reduce(
-                        (sum, m) => sum + m.uniqueCoaches,
-                        0
-                      ) / data.metrics.coachPoolByManager.managers.length
-                    ).toFixed(1)}
-                    <span className="text-lg font-medium text-gray-500 ml-0.5">명</span>
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {data.metrics.coachPoolByManager.managers.length}명 매니저 · 총 {data.metrics.coachPoolByManager.managers.reduce((s, m) => s + m.uniqueCoaches, 0)}명 코치
-                  </p>
-                </>
+                (() => {
+                  const mgrs = data.metrics.coachPoolByManager.managers
+                  const avg = mgrs.reduce((s, m) => s + m.uniqueCoaches, 0) / mgrs.length
+                  const prevAvg = mgrs.filter(m => m.prevMonth !== null).length > 0
+                    ? mgrs.reduce((s, m) => s + (m.prevMonth ?? 0), 0) / mgrs.filter(m => m.prevMonth !== null).length
+                    : null
+                  const delta = prevAvg !== null ? avg - prevAvg : null
+                  return (
+                    <>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {avg.toFixed(1)}
+                        <span className="text-lg font-medium text-gray-500 ml-0.5">명</span>
+                      </p>
+                      {prevAvg !== null && delta !== null && (
+                        <p className="text-sm mt-1">
+                          <span className="text-gray-400">{prevAvg.toFixed(1)}명 →</span>
+                          <span className={`ml-1 font-medium ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}명
+                          </span>
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-500 mt-1">
+                        {mgrs.length}명 매니저 · 총 {mgrs.reduce((s, m) => s + m.uniqueCoaches, 0)}명 코치
+                      </p>
+                    </>
+                  )
+                })()
               ) : (
                 <p className="text-sm text-gray-400 mt-2">데이터 없음</p>
               )}
