@@ -86,11 +86,11 @@ async function calcScheduleInputRate(ym: string, sentCoachIds?: string[]) {
 }
 
 async function calcExternalHireRate(ym: string, year: number, month: number) {
-  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_other'] as const
+  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_kakao'] as const
   const channelLabels: Record<string, string> = {
     ext_albamon: '알바몬',
     ext_slack: '슬랙',
-    ext_other: '기타',
+    ext_kakao: '카톡방',
   }
 
   const snapshots = await prisma.metricSnapshot.findMany({
@@ -117,6 +117,40 @@ async function calcExternalHireRate(ym: string, year: number, month: number) {
 async function calcExternalHireRateSimple(ym: string, year: number, month: number) {
   const r = await calcExternalHireRate(ym, year, month)
   return r.rate
+}
+
+async function calcExternalHireHistory(currentYear: number, currentMonth: number) {
+  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_kakao'] as const
+  const channelLabels: Record<string, string> = {
+    ext_albamon: '알바몬',
+    ext_slack: '슬랙',
+    ext_kakao: '카톡방',
+  }
+
+  const months: string[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(currentYear, currentMonth - 1 - i, 1)
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const snapshots = await prisma.metricSnapshot.findMany({
+    where: { yearMonth: { in: months }, metricKey: { in: [...channelKeys] } },
+  })
+
+  const dataMap = new Map<string, Map<string, number>>()
+  for (const s of snapshots) {
+    if (!dataMap.has(s.yearMonth)) dataMap.set(s.yearMonth, new Map())
+    dataMap.get(s.yearMonth)!.set(s.metricKey, s.value)
+  }
+
+  return {
+    months,
+    channels: channelKeys.map((key) => ({
+      key,
+      label: channelLabels[key],
+      values: months.map((ym) => dataMap.get(ym)?.get(key) ?? null),
+    })),
+  }
 }
 
 async function calcCoachPoolByManager(year: number, month: number) {
@@ -183,7 +217,12 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   const dsIds = new Set(samsungCoaches.filter((c) => (c.workType || '').includes('삼전 DS')).map((c) => c.id))
   const dxIds = new Set(samsungCoaches.filter((c) => (c.workType || '').includes('삼전 DX')).map((c) => c.id))
 
-  const [schedRaw, scoutRaw, samsungRaw] = await Promise.all([
+  // 전체 코치 수 (입력률 분모)
+  const totalCoachWhere: any = { status: 'active' as const, deletedAt: null }
+  if (sentCoachIds && sentCoachIds.length > 0) totalCoachWhere.id = { in: sentCoachIds }
+  const totalCoaches = await prisma.coach.count({ where: totalCoachWhere })
+
+  const [schedRaw, scoutRaw, allCompletionRaw] = await Promise.all([
     prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
       `SELECT TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
        FROM schedule_access_logs
@@ -199,34 +238,44 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
       start,
       end,
     ),
-    // 삼전 코치별 입력 완료 날짜
+    // 코치별 입력 완료 날짜 (삼전 분류 + 전체 누적용)
     prisma.$queryRawUnsafe<Array<{ coach_id: string; d: string }>>(
-      `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
-       FROM schedule_access_logs
-       WHERE year_month = $1 AND last_edited_at IS NOT NULL`,
+      sentCoachIds && sentCoachIds.length > 0
+        ? `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
+           FROM schedule_access_logs
+           WHERE year_month = $1 AND last_edited_at IS NOT NULL AND coach_id = ANY($2::text[])`
+        : `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
+           FROM schedule_access_logs
+           WHERE year_month = $1 AND last_edited_at IS NOT NULL`,
       ym,
+      ...(sentCoachIds && sentCoachIds.length > 0 ? [sentCoachIds] : []),
     ),
   ])
 
   const schedMap = new Map(schedRaw.map((r) => [r.d, Number(r.cnt)]))
   const scoutMap = new Map(scoutRaw.map((r) => [r.d, Number(r.cnt)]))
 
-  // 일별 삼전 DS/DX 누적 완료 수 계산
+  // 일별 누적 완료 수 계산 (전체 + 삼전 DS/DX)
+  const allDailyNew = new Map<string, number>()
   const dsDailyNew = new Map<string, number>()
   const dxDailyNew = new Map<string, number>()
-  for (const row of samsungRaw) {
+  for (const row of allCompletionRaw) {
+    allDailyNew.set(row.d, (allDailyNew.get(row.d) ?? 0) + 1)
     if (dsIds.has(row.coach_id)) dsDailyNew.set(row.d, (dsDailyNew.get(row.d) ?? 0) + 1)
     if (dxIds.has(row.coach_id)) dxDailyNew.set(row.d, (dxDailyNew.get(row.d) ?? 0) + 1)
   }
 
+  let allCum = 0
   let dsCum = 0
   let dxCum = 0
   const days: Array<{
     date: string; day: number; scheduleEdits: number; scoutingsCreated: number
     dsCompleted: number; dxCompleted: number
+    inputRate: number | null
   }> = []
   for (let d = 1; d <= lastDay; d++) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    allCum += allDailyNew.get(dateStr) ?? 0
     dsCum += dsDailyNew.get(dateStr) ?? 0
     dxCum += dxDailyNew.get(dateStr) ?? 0
     days.push({
@@ -236,6 +285,7 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
       scoutingsCreated: scoutMap.get(dateStr) ?? 0,
       dsCompleted: dsCum,
       dxCompleted: dxCum,
+      inputRate: totalCoaches > 0 ? round1((allCum / totalCoaches) * 100) : null,
     })
   }
   return days
@@ -313,7 +363,7 @@ export async function GET(request: NextRequest) {
   const sentCoachIds = await fetchSentCoachIds()
 
   // --- current month metrics ---
-  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule] =
+  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule, extHistory] =
     await Promise.all([
       calcScheduleInputRate(yearMonth, sentCoachIds),
       calcScheduleInputRate(prevYMStr),
@@ -325,6 +375,7 @@ export async function GET(request: NextRequest) {
       calcScoutingResponseRate(prev.year, prev.month),
       calcDailyTrend(year, month, yearMonth, isCurrentMonth, sentCoachIds),
       calcSamsungScheduleRate(yearMonth, sentCoachIds),
+      calcExternalHireHistory(year, month),
     ])
 
   // merge prevMonth into coachPoolByManager
@@ -365,6 +416,7 @@ export async function GET(request: NextRequest) {
         prevMonth: respPrev.rate,
       },
       samsungSchedule,
+      externalHireHistory: extHistory,
     },
     dailyTrend,
   })

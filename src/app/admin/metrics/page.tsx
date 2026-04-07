@@ -29,7 +29,7 @@ interface ExternalHireRate extends MetricBase {
 
 interface ExternalHireHistory {
   months: string[]
-  channels: { key: string; label: string; values: number[] }[]
+  channels: { key: string; label: string; values: (number | null)[] }[]
 }
 
 interface CoachPoolManager {
@@ -65,6 +65,7 @@ interface DailyTrendPoint {
   scoutingsCreated: number
   dsCompleted: number
   dxCompleted: number
+  inputRate: number | null
 }
 
 interface MetricsData {
@@ -120,11 +121,12 @@ function DailyChart({ data }: { data: DailyTrendPoint[] }) {
   if (!data.length) return null
 
   const padX = 40
+  const padRightExtra = 36
   const padY = 20
   const padBottom = 32
   const w = 700
   const h = 220
-  const plotW = w - padX * 2
+  const plotW = w - padX - padX - padRightExtra
   const plotH = h - padY - padBottom
 
   const maxVal = Math.max(...data.flatMap((d) => [d.scheduleEdits, d.scoutingsCreated]), 1)
@@ -136,6 +138,18 @@ function DailyChart({ data }: { data: DailyTrendPoint[] }) {
   const yTicks: number[] = []
   for (let v = 0; v <= maxVal; v += yStep) yTicks.push(v)
   if (yTicks[yTicks.length - 1] < maxVal) yTicks.push(maxVal)
+
+  // 입력률 라인 (0~100% 우측 Y축)
+  const ratePoints = data
+    .map((pt, i) => {
+      if (pt.inputRate === null) return null
+      const cx = padX + (i + 0.5) * barGroupW
+      const ry = padY + plotH - (pt.inputRate / 100) * plotH
+      return `${cx},${ry}`
+    })
+    .filter(Boolean)
+    .join(' ')
+  const lastRate = data[data.length - 1]?.inputRate
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
@@ -150,20 +164,35 @@ function DailyChart({ data }: { data: DailyTrendPoint[] }) {
             <span className="inline-block w-3 h-3 rounded-sm bg-violet-400" />
             <span className="text-xs text-gray-600">섭외 발송</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 bg-emerald-500" style={{ width: 12 }} />
+            <span className="text-xs text-gray-600">입력률</span>
+          </div>
         </div>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 220 }}>
+        {/* 좌측 Y축 그리드 */}
         {yTicks.map((t) => {
           const y = padY + plotH - (t / maxVal) * plotH
           return (
             <g key={t}>
-              <line x1={padX} x2={w - padX} y1={y} y2={y} stroke="#E5E7EB" strokeWidth={1} />
+              <line x1={padX} x2={w - padX - padRightExtra} y1={y} y2={y} stroke="#E5E7EB" strokeWidth={1} />
               <text x={padX - 6} y={y + 4} textAnchor="end" className="text-[10px]" fill="#9CA3AF">
                 {t}
               </text>
             </g>
           )
         })}
+        {/* 우측 Y축 라벨 (%) */}
+        {[0, 50, 100].map((pct) => {
+          const y = padY + plotH - (pct / 100) * plotH
+          return (
+            <text key={pct} x={w - padX - padRightExtra + 6} y={y + 4} textAnchor="start" className="text-[10px]" fill="#10B981">
+              {pct}%
+            </text>
+          )
+        })}
+        {/* 바 차트 */}
         {data.map((pt, i) => {
           const cx = padX + (i + 0.5) * barGroupW
           const schedH = maxVal > 0 ? (pt.scheduleEdits / maxVal) * plotH : 0
@@ -194,6 +223,17 @@ function DailyChart({ data }: { data: DailyTrendPoint[] }) {
             </g>
           )
         })}
+        {/* 입력률 라인 */}
+        {ratePoints && <polyline points={ratePoints} fill="none" stroke="#10B981" strokeWidth={2} />}
+        {lastRate !== null && lastRate !== undefined && (
+          <text
+            x={padX + (data.length - 0.5) * barGroupW + 8}
+            y={padY + plotH - (lastRate / 100) * plotH + 4}
+            className="text-[10px]" fill="#10B981" fontWeight="bold"
+          >
+            {lastRate}%
+          </text>
+        )}
       </svg>
     </div>
   )
@@ -529,7 +569,7 @@ export default function AdminMetricsPage() {
                           <td className="py-1.5 pr-2 text-gray-700">{ch.label}</td>
                           {ch.values.map((v, i) => (
                             <td key={i} className={`text-right py-1.5 px-1.5 ${data.metrics.externalHireHistory.months[i] === yearMonth ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
-                              {v || <span className="text-gray-300">-</span>}
+                              {v !== null ? v : <span className="text-gray-300">-</span>}
                             </td>
                           ))}
                         </tr>
@@ -537,10 +577,12 @@ export default function AdminMetricsPage() {
                       <tr className="border-t border-gray-200">
                         <td className="py-1.5 pr-2 text-gray-700 font-medium">합계</td>
                         {data.metrics.externalHireHistory.months.map((m, mi) => {
-                          const sum = data.metrics.externalHireHistory.channels.reduce((s, ch) => s + ch.values[mi], 0)
+                          const vals = data.metrics.externalHireHistory.channels.map((ch) => ch.values[mi])
+                          const hasAny = vals.some((v) => v !== null)
+                          const sum = hasAny ? vals.reduce<number>((s, v) => s + (v ?? 0), 0) : null
                           return (
                             <td key={m} className={`text-right py-1.5 px-1.5 font-semibold ${m === yearMonth ? 'text-blue-600' : 'text-gray-700'}`}>
-                              {sum || <span className="text-gray-300">-</span>}
+                              {sum !== null ? sum : <span className="text-gray-300">-</span>}
                             </td>
                           )
                         })}
