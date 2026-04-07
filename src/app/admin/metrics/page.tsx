@@ -115,231 +115,75 @@ function DeltaBadge({ current, prev }: { current: number | null; prev: number | 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Daily Trend Chart                                                  */
+/*  Daily Heatmap Table                                                */
 /* ------------------------------------------------------------------ */
-function DailyChart({ data }: { data: DailyTrendPoint[] }) {
-  if (!data.length) return null
-
-  const padX = 40
-  const padRightExtra = 36
-  const padY = 20
-  const padBottom = 32
-  const w = 700
-  const h = 220
-  const plotW = w - padX - padX - padRightExtra
-  const plotH = h - padY - padBottom
-
-  const maxVal = Math.max(...data.flatMap((d) => [d.scheduleEdits, d.scoutingsCreated]), 1)
-  const barGroupW = plotW / data.length
-  const barW = Math.max(barGroupW * 0.35, 2)
-  const gap = Math.max(barGroupW * 0.05, 1)
-
-  const yStep = maxVal <= 5 ? 1 : Math.ceil(maxVal / 4)
-  const yTicks: number[] = []
-  for (let v = 0; v <= maxVal; v += yStep) yTicks.push(v)
-  if (yTicks[yTicks.length - 1] < maxVal) yTicks.push(maxVal)
-
-  // 입력률 라인 (0~100% 우측 Y축)
-  const ratePoints = data
-    .map((pt, i) => {
-      if (pt.inputRate === null) return null
-      const cx = padX + (i + 0.5) * barGroupW
-      const ry = padY + plotH - (pt.inputRate / 100) * plotH
-      return `${cx},${ry}`
-    })
-    .filter(Boolean)
-    .join(' ')
-  const lastRate = data[data.length - 1]?.inputRate
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold text-gray-800">일별 추이</h3>
-        <div className="flex gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-blue-400" />
-            <span className="text-xs text-gray-600">일정 입력</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-violet-400" />
-            <span className="text-xs text-gray-600">섭외 발송</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-emerald-500" style={{ width: 12 }} />
-            <span className="text-xs text-gray-600">입력률</span>
-          </div>
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 220 }}>
-        {/* 좌측 Y축 그리드 */}
-        {yTicks.map((t) => {
-          const y = padY + plotH - (t / maxVal) * plotH
-          return (
-            <g key={t}>
-              <line x1={padX} x2={w - padX - padRightExtra} y1={y} y2={y} stroke="#E5E7EB" strokeWidth={1} />
-              <text x={padX - 6} y={y + 4} textAnchor="end" className="text-[10px]" fill="#9CA3AF">
-                {t}
-              </text>
-            </g>
-          )
-        })}
-        {/* 우측 Y축 라벨 (%) */}
-        {[0, 50, 100].map((pct) => {
-          const y = padY + plotH - (pct / 100) * plotH
-          return (
-            <text key={pct} x={w - padX - padRightExtra + 6} y={y + 4} textAnchor="start" className="text-[10px]" fill="#10B981">
-              {pct}%
-            </text>
-          )
-        })}
-        {/* 바 차트 */}
-        {data.map((pt, i) => {
-          const cx = padX + (i + 0.5) * barGroupW
-          const schedH = maxVal > 0 ? (pt.scheduleEdits / maxVal) * plotH : 0
-          const scoutH = maxVal > 0 ? (pt.scoutingsCreated / maxVal) * plotH : 0
-          return (
-            <g key={pt.date}>
-              <rect
-                x={cx - barW - gap / 2}
-                y={padY + plotH - schedH}
-                width={barW}
-                height={Math.max(schedH, 0)}
-                fill="#60A5FA"
-                rx={1}
-              />
-              <rect
-                x={cx + gap / 2}
-                y={padY + plotH - scoutH}
-                width={barW}
-                height={Math.max(scoutH, 0)}
-                fill="#A78BFA"
-                rx={1}
-              />
-              {(pt.day === 1 || pt.day % 5 === 0 || pt.day === data.length) && (
-                <text x={cx} y={h - 8} textAnchor="middle" className="text-[10px]" fill="#9CA3AF">
-                  {pt.day}일
-                </text>
-              )}
-            </g>
-          )
-        })}
-        {/* 입력률 라인 */}
-        {ratePoints && <polyline points={ratePoints} fill="none" stroke="#10B981" strokeWidth={2} />}
-        {lastRate !== null && lastRate !== undefined && (
-          <text
-            x={padX + (data.length - 0.5) * barGroupW + 8}
-            y={padY + plotH - (lastRate / 100) * plotH + 4}
-            className="text-[10px]" fill="#10B981" fontWeight="bold"
-          >
-            {lastRate}%
-          </text>
-        )}
-      </svg>
-    </div>
-  )
+interface HeatmapRow {
+  label: string
+  hue: string
+  values: number[]
+  suffix?: string
 }
 
-/* ------------------------------------------------------------------ */
-/*  Samsung Daily Trend Line Chart                                     */
-/* ------------------------------------------------------------------ */
-function SamsungDailyChart({
-  data,
-  samsung,
-}: {
-  data: DailyTrendPoint[]
-  samsung: SamsungScheduleItem[]
-}) {
-  if (!data.length || !samsung.length) return null
+function DailyHeatmap({ data: rawData, samsung }: { data: DailyTrendPoint[]; samsung?: SamsungScheduleItem[] }) {
+  // 링크 발송 전 날짜 제외 (3일부터)
+  const data = rawData.filter((d) => d.day >= 3)
+  if (!data.length) return null
 
-  const dsTotal = samsung.find((s) => s.type === '삼전 DS')?.total ?? 0
-  const dxTotal = samsung.find((s) => s.type === '삼전 DX')?.total ?? 0
-  const maxTotal = Math.max(dsTotal, dxTotal, 1)
+  const rows: HeatmapRow[] = [
+    { label: '전체 입력', hue: '#3B82F6', values: data.map((d) => d.scheduleEdits), suffix: `합 ${data.reduce((s, d) => s + d.scheduleEdits, 0)}` },
+  ]
 
-  const padX = 40
-  const padY = 16
-  const padBottom = 28
-  const w = 700
-  const h = 180
-  const plotW = w - padX * 2
-  const plotH = h - padY - padBottom
-
-  const yStep = maxTotal <= 5 ? 1 : Math.ceil(maxTotal / 4)
-  const yTicks: number[] = []
-  for (let v = 0; v <= maxTotal; v += yStep) yTicks.push(v)
-  if (yTicks[yTicks.length - 1] < maxTotal) yTicks.push(maxTotal)
-
-  function toPoints(key: 'dsCompleted' | 'dxCompleted') {
-    return data
-      .map((pt, i) => {
-        const x = padX + ((i + 0.5) / data.length) * plotW
-        const y = padY + plotH - (pt[key] / maxTotal) * plotH
-        return `${x},${y}`
-      })
-      .join(' ')
+  if (samsung && samsung.length > 0) {
+    const dsItem = samsung.find((s) => s.type === '삼전 DS')
+    const dxItem = samsung.find((s) => s.type === '삼전 DX')
+    if (dsItem) {
+      const dsDaily = data.map((d, i) => d.dsCompleted - (i > 0 ? data[i - 1].dsCompleted : 0))
+      rows.push({ label: 'DS 입력', hue: '#F59E0B', values: dsDaily, suffix: `${data[data.length - 1]?.dsCompleted ?? 0}/${dsItem.total}` })
+    }
+    if (dxItem) {
+      const dxDaily = data.map((d, i) => d.dxCompleted - (i > 0 ? data[i - 1].dxCompleted : 0))
+      rows.push({ label: 'DX 입력', hue: '#0EA5E9', values: dxDaily, suffix: `${data[data.length - 1]?.dxCompleted ?? 0}/${dxItem.total}` })
+    }
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-800">삼전 일정 입력 추이 (누적)</h3>
-        <div className="flex gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-amber-500" />
-            <span className="text-xs text-gray-600">DS ({dsTotal}명)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-blue-500" />
-            <span className="text-xs text-gray-600">DX ({dxTotal}명)</span>
-          </div>
-        </div>
+      <h3 className="text-base font-semibold text-gray-800 mb-3">일별 입력수 추이</h3>
+      <div className="overflow-x-auto">
+        <table className="text-[11px]">
+          <thead>
+            <tr>
+              <th className="text-left py-1 pr-2 text-gray-500 font-medium sticky left-0 bg-white z-10 min-w-[72px]" />
+              {data.map((pt) => (
+                <th key={pt.day} className="text-center py-1 px-[3px] text-gray-400 font-normal min-w-[22px]">
+                  {pt.day}
+                </th>
+              ))}
+              <th className="text-right py-1 pl-2 text-gray-500 font-medium min-w-[40px]" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const max = Math.max(...row.values, 1)
+              return (
+                <tr key={row.label}>
+                  <td className="py-1.5 pr-2 font-medium whitespace-nowrap sticky left-0 bg-white z-10" style={{ color: row.hue }}>{row.label}</td>
+                  {row.values.map((v, i) => (
+                    <td
+                      key={i}
+                      className="text-center py-1.5 px-[3px]"
+                      style={v > 0 ? { backgroundColor: row.hue + String(Math.min(Math.round(15 + (v / max) * 70), 85)).padStart(2, '0') } : undefined}
+                    >
+                      <span className={v > 0 ? 'text-gray-800 font-medium' : 'text-gray-300'}>{v}</span>
+                    </td>
+                  ))}
+                  <td className="text-right py-1.5 pl-2 font-semibold text-gray-600 whitespace-nowrap">{row.suffix}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 180 }}>
-        {yTicks.map((t) => {
-          const y = padY + plotH - (t / maxTotal) * plotH
-          return (
-            <g key={t}>
-              <line x1={padX} x2={w - padX} y1={y} y2={y} stroke="#E5E7EB" strokeWidth={1} />
-              <text x={padX - 6} y={y + 4} textAnchor="end" className="text-[10px]" fill="#9CA3AF">
-                {t}
-              </text>
-            </g>
-          )
-        })}
-        {/* DS 목표선 */}
-        {dsTotal > 0 && (
-          <line
-            x1={padX} x2={w - padX}
-            y1={padY + plotH - (dsTotal / maxTotal) * plotH}
-            y2={padY + plotH - (dsTotal / maxTotal) * plotH}
-            stroke="#F59E0B" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}
-          />
-        )}
-        {/* DX 목표선 */}
-        {dxTotal > 0 && dxTotal !== dsTotal && (
-          <line
-            x1={padX} x2={w - padX}
-            y1={padY + plotH - (dxTotal / maxTotal) * plotH}
-            y2={padY + plotH - (dxTotal / maxTotal) * plotH}
-            stroke="#3B82F6" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}
-          />
-        )}
-        {/* DS line */}
-        <polyline points={toPoints('dsCompleted')} fill="none" stroke="#F59E0B" strokeWidth={2} />
-        {/* DX line */}
-        <polyline points={toPoints('dxCompleted')} fill="none" stroke="#3B82F6" strokeWidth={2} />
-        {/* X축 라벨 */}
-        {data.map((pt, i) => {
-          if (pt.day === 1 || pt.day % 5 === 0 || pt.day === data.length) {
-            const x = padX + ((i + 0.5) / data.length) * plotW
-            return (
-              <text key={pt.day} x={x} y={h - 6} textAnchor="middle" className="text-[10px]" fill="#9CA3AF">
-                {pt.day}일
-              </text>
-            )
-          }
-          return null
-        })}
-      </svg>
     </div>
   )
 }
@@ -547,6 +391,16 @@ export default function AdminMetricsPage() {
               </div>
             )}
 
+            {/* Card: Daily Heatmap (spans 2 cols) */}
+            {data.dailyTrend.length > 0 && (
+              <div className="lg:col-span-2">
+                <DailyHeatmap data={data.dailyTrend} samsung={data.metrics.samsungSchedule} />
+              </div>
+            )}
+          </div>
+
+          {/* Bottom cards row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Card B: External Hire — monthly trend */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
               <h3 className="text-sm font-medium text-gray-700 mb-3">외부 채널 모집 현황</h3>
@@ -598,46 +452,26 @@ export default function AdminMetricsPage() {
               />
             </div>
 
-            {/* Card C: Coach Pool by Manager */}
+            {/* Card C: Coach Pool Average */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">매니저당 코치 pool</h3>
-              <div className="space-y-2">
-                {data.metrics.coachPoolByManager.managers.map((mgr) => (
-                  <div key={mgr.managerId} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-800">{mgr.managerName}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">{mgr.uniqueCoaches}명</span>
-                      {mgr.changeRate !== null && mgr.prevMonth !== null && (
-                        <span
-                          className={`text-xs ${
-                            mgr.uniqueCoaches - mgr.prevMonth > 0
-                              ? 'text-green-600'
-                              : mgr.uniqueCoaches - mgr.prevMonth < 0
-                                ? 'text-red-500'
-                                : 'text-gray-400'
-                          }`}
-                        >
-                          {mgr.uniqueCoaches - mgr.prevMonth > 0 ? '+' : ''}
-                          {mgr.uniqueCoaches - mgr.prevMonth}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {data.metrics.coachPoolByManager.managers.length > 0 && (
-                <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs text-gray-500">평균</span>
-                  <span className="text-sm font-semibold text-gray-700">
+              <h3 className="text-sm font-medium text-gray-700 mb-1">매니저당 평균 코치 pool</h3>
+              {data.metrics.coachPoolByManager.managers.length > 0 ? (
+                <>
+                  <p className="text-3xl font-bold text-gray-900">
                     {(
                       data.metrics.coachPoolByManager.managers.reduce(
                         (sum, m) => sum + m.uniqueCoaches,
                         0
                       ) / data.metrics.coachPoolByManager.managers.length
                     ).toFixed(1)}
-                    명
-                  </span>
-                </div>
+                    <span className="text-lg font-medium text-gray-500 ml-0.5">명</span>
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {data.metrics.coachPoolByManager.managers.length}명 매니저 · 총 {data.metrics.coachPoolByManager.managers.reduce((s, m) => s + m.uniqueCoaches, 0)}명 코치
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400 mt-2">데이터 없음</p>
               )}
             </div>
 
@@ -657,14 +491,6 @@ export default function AdminMetricsPage() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Daily Trend Charts */}
-          <div className="space-y-4">
-            {data.dailyTrend.length > 0 && <DailyChart data={data.dailyTrend} />}
-            {data.dailyTrend.length > 0 && data.metrics.samsungSchedule.length > 0 && (
-              <SamsungDailyChart data={data.dailyTrend} samsung={data.metrics.samsungSchedule} />
-            )}
           </div>
         </>
       )}
