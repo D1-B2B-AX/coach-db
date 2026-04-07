@@ -154,15 +154,14 @@ async function calcExternalHireHistory(currentYear: number, currentMonth: number
 }
 
 async function calcCoachPoolByManager(year: number, month: number) {
-  const { start, end } = monthRange(year, month)
+  const { end } = monthRange(year, month)
 
-  // Prisma groupBy _count doesn't do DISTINCT, so use raw for distinct count
+  // 누적: 해당 월 말까지 섭외한 적 있는 고유 코치 수
   const rawRows: Array<{ manager_id: string; cnt: bigint }> = await prisma.$queryRawUnsafe(
     `SELECT manager_id, COUNT(DISTINCT coach_id)::bigint AS cnt
      FROM scoutings
-     WHERE created_at >= $1 AND created_at < $2
+     WHERE created_at < $1
      GROUP BY manager_id`,
-    start,
     end,
   )
 
