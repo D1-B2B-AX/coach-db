@@ -109,11 +109,11 @@ export default function CoachListTable({
             </div>
           )}
         </div>
-        <TableHeader className="hidden sm:grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
+        <TableHeader className="hidden sm:grid grid-cols-[auto_104px_112px_108px_160px_minmax(48px,1fr)_56px_48px]">
           <div className="w-4" /><div>이름</div><div>근무유형</div><div>연락처</div><div>이메일</div><div>분야</div><div>누적 근무일</div><div>평가</div>
         </TableHeader>
         {Array.from({ length: 8 }).map((_, i) => (
-          <TableRow key={i} className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
+          <TableRow key={i} className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_104px_112px_108px_160px_minmax(48px,1fr)_56px_48px]">
             <Skeleton className="h-4 w-4" />
             <Skeleton className="h-4 w-12" />
             <Skeleton className="h-4 w-14" />
@@ -197,7 +197,7 @@ export default function CoachListTable({
         )}
       </div>
       {/* Table header */}
-      <TableHeader className="hidden sm:grid grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px]">
+      <TableHeader className="hidden sm:grid grid-cols-[auto_104px_112px_108px_160px_minmax(48px,1fr)_56px_48px]">
         <div className="w-4 flex items-center justify-center">
           <input
             type="checkbox"
@@ -225,7 +225,7 @@ export default function CoachListTable({
             <TableRow
               key={coach.id}
               onClick={() => router.push(`/coaches/${coach.id}`)}
-              className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_128px_112px_104px_168px_minmax(32px,1fr)_64px_48px] cursor-pointer hover:bg-gray-50"
+              className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_104px_112px_108px_160px_minmax(48px,1fr)_56px_48px] cursor-pointer hover:bg-gray-50"
               selected={isSelected}
             >
               {/* Checkbox */}
