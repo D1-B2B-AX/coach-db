@@ -376,6 +376,42 @@ export async function GET(request: NextRequest) {
       calcExternalHireHistory(year, month),
     ])
 
+  // 일정 제공 비율: before(발송 대상 중 삼전) → after(삼전 + 비삼전 입력완료)
+  const sentCount = sentCoachIds.length
+  const samsungSentCount = sentCount > 0
+    ? await prisma.coach.count({
+        where: {
+          id: { in: sentCoachIds },
+          status: 'active', deletedAt: null,
+          OR: [{ workType: { contains: '삼전 DS' } }, { workType: { contains: '삼전 DX' } }],
+        },
+      })
+    : 0
+  const nonSamsungCompleted = sentCount > 0
+    ? await prisma.scheduleAccessLog.count({
+        where: {
+          yearMonth,
+          lastEditedAt: { not: null },
+          coachId: { in: sentCoachIds },
+          coach: {
+            status: 'active', deletedAt: null,
+            NOT: {
+              OR: [{ workType: { contains: '삼전 DS' } }, { workType: { contains: '삼전 DX' } }],
+            },
+          },
+        },
+      })
+    : 0
+  const afterCount = samsungSentCount + nonSamsungCompleted
+  const scheduleProvision = {
+    sentCount,
+    samsungCount: samsungSentCount,
+    afterCount,
+    nonSamsungCompleted,
+    beforeRate: sentCount > 0 ? round1((samsungSentCount / sentCount) * 100) : null,
+    afterRate: sentCount > 0 ? round1((afterCount / sentCount) * 100) : null,
+  }
+
   // merge prevMonth into coachPoolByManager
   const prevPoolMap = new Map(poolPrev.map((p) => [p.managerId, p.uniqueCoaches]))
   const managersPool = poolCurr.map((m) => {
@@ -414,6 +450,7 @@ export async function GET(request: NextRequest) {
         prevMonth: respPrev.rate,
       },
       samsungSchedule,
+      scheduleProvision,
       externalHireHistory: extHistory,
     },
     dailyTrend,

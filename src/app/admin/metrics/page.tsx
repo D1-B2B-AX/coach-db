@@ -77,6 +77,14 @@ interface MetricsData {
     coachPoolByManager: CoachPoolByManager
     scoutingResponseRate: ScoutingResponseRate
     samsungSchedule: SamsungScheduleItem[]
+    scheduleProvision: {
+      sentCount: number
+      samsungCount: number
+      afterCount: number
+      nonSamsungCompleted: number
+      beforeRate: number | null
+      afterRate: number | null
+    }
     externalHireHistory: ExternalHireHistory
   }
   dailyTrend: DailyTrendPoint[]
@@ -357,6 +365,24 @@ export default function AdminMetricsPage() {
                   prev={data.metrics.scheduleInputRate.prevMonth}
                 />
               </div>
+            </div>
+
+            {/* Card A-1b: Schedule Provision Rate */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-medium text-gray-700 mb-1">일정 제공 비율</h3>
+              <p className="text-3xl font-bold text-gray-900">
+                {formatRate(data.metrics.scheduleProvision.afterRate)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {data.metrics.scheduleProvision.afterCount} / {data.metrics.scheduleProvision.sentCount}명
+              </p>
+              <div className="mt-2">
+                <DeltaBadge
+                  current={data.metrics.scheduleProvision.afterRate}
+                  prev={data.metrics.scheduleProvision.beforeRate}
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">삼전 {data.metrics.scheduleProvision.samsungCount}명 + 일반 {data.metrics.scheduleProvision.nonSamsungCompleted}명</p>
             </div>
 
             {/* Card A-2: Samsung DS/DX Schedule Rate */}
