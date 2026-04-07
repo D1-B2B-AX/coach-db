@@ -5,6 +5,16 @@ import { generateAccessToken } from '@/lib/coach-auth'
 import { toDateOnly } from '@/lib/date-utils'
 import { normalizeWorkTypeString } from '@/lib/work-type'
 
+export interface ApplicationDetail {
+  name: string
+  phone: string
+  email: string | null
+  affiliation: string | null
+  workType: string | null
+  fields: string[]
+  type: 'created' | 'updated'
+}
+
 export interface ApplicationSyncResult {
   totalRows: number
   created: number
@@ -12,12 +22,13 @@ export interface ApplicationSyncResult {
   skipped: number
   errors: number
   errorDetail: string[]
+  details: ApplicationDetail[]
 }
 
 const APPLICATION_SHEET_ID = '1xrkRqw3niREpZRIYuB6cEjOGm7Y45bEWkqP02vESR20'
 
 export async function syncApplications(): Promise<ApplicationSyncResult> {
-  const result: ApplicationSyncResult = { totalRows: 0, created: 0, updated: 0, skipped: 0, errors: 0, errorDetail: [] }
+  const result: ApplicationSyncResult = { totalRows: 0, created: 0, updated: 0, skipped: 0, errors: 0, errorDetail: [], details: [] }
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -92,6 +103,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
           skillRaw,
           portfolioUrl,
         })
+        result.details.push({ name, phone, email, affiliation, workType, fields: splitMulti(fieldRaw1), type: 'updated' })
         result.updated++
       } catch (err) {
         result.errors++
@@ -164,6 +176,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
       }
 
       pendingSet.add(key)
+      result.details.push({ name, phone, email, affiliation, workType, fields: fieldNames, type: 'created' })
       result.created++
     } catch (err) {
       result.errors++
