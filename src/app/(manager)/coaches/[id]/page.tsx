@@ -7,6 +7,15 @@ import { useSession } from "next-auth/react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { Skeleton, SkeletonCard } from "@/components/Skeleton"
+import Badge from "@/components/ui/Badge"
+
+const WORK_TYPE_TONE: Record<string, "purple" | "teal" | "amber" | "blue" | "gray"> = {
+  "실습코치": "purple",
+  "운영조교": "teal",
+  "삼전 DS": "amber",
+  "삼전 DX": "blue",
+  _default: "gray",
+}
 
 const ProfileTab = dynamic(() => import("@/components/coaches/detail/ProfileTab"))
 const ScheduleTab = dynamic(() => import("@/components/coaches/detail/ScheduleTab"))
@@ -245,7 +254,7 @@ function CoachDetailPageContent() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header — Line 1: 이름 [상태] 메모 */}
+      {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/coaches"
@@ -320,6 +329,13 @@ function CoachDetailPageContent() {
             </button>
           )}
       </div>
+      {coach.workType && (
+        <div className="mt-1.5 flex flex-wrap gap-1 pl-4">
+          {coach.workType.split(",").map(t => t.trim()).filter(Boolean).map(t => (
+            <Badge key={t} variant="category" tone={WORK_TYPE_TONE[t] || WORK_TYPE_TONE._default}>{t}</Badge>
+          ))}
+        </div>
+      )}
       {/* Tab bar + context actions */}
       <div className="mt-5 flex items-center justify-between border-b border-gray-200">
         <div className="flex gap-6">

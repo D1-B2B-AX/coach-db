@@ -158,16 +158,15 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
             <InfoItem label="연락처" value={coach.phone || "-"} />
             <InfoItem label="이메일" value={coach.email || "-"} />
           </div>
-          {/* Row 2: 생년월일 + 소속 */}
+          {/* Row 3: 생년월일 + 소속 */}
           <div className="flex flex-col sm:flex-row sm:gap-8">
             <InfoItem label="생년월일" value={formatDate(coach.birthDate) || "-"} />
             <InfoItem label="소속" value={coach.affiliation || "-"} />
           </div>
-          {/* Row 3: 파일 (full width) + 사번 복사 */}
+          {/* Row 4: 파일 */}
           <div className="flex items-center gap-2 py-1">
             <span className="shrink-0 w-14 text-sm text-gray-400">파일</span>
             <div className="flex flex-1 flex-wrap items-center gap-1.5">
-              {/* portfolioUrl fallback — only show if no documents exist for this coach */}
               {coach.portfolioUrl && docs.length === 0 && coach.portfolioUrl.split(",").map((url, i, arr) => {
                 const trimmed = url.trim()
                 if (!trimmed) return null
@@ -198,7 +197,7 @@ export default function ProfileTab({ coach, onCoachUpdate, isAdmin }: ProfileTab
                 </div>
               ))}
               {docs.length < 5 && (
-              <label className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASS.primary} px-3 py-1.5 text-sm gap-1.5`}>
+              <label className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASS.primary} px-2.5 py-0.5 text-xs gap-1`}>
                 <span>{uploading ? "업로드 중..." : "+ 추가"}</span>
                 <input
                   type="file"
