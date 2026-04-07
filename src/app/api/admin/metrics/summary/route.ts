@@ -86,11 +86,10 @@ async function calcScheduleInputRate(ym: string, sentCoachIds?: string[]) {
 }
 
 async function calcExternalHireRate(ym: string, year: number, month: number) {
-  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_kakao'] as const
+  const channelKeys = ['ext_slack', 'ext_albamon'] as const
   const channelLabels: Record<string, string> = {
+    ext_slack: '슬랙 등',
     ext_albamon: '알바몬',
-    ext_slack: '슬랙',
-    ext_kakao: '카톡방',
   }
 
   const snapshots = await prisma.metricSnapshot.findMany({
@@ -120,15 +119,15 @@ async function calcExternalHireRateSimple(ym: string, year: number, month: numbe
 }
 
 async function calcExternalHireHistory(currentYear: number, currentMonth: number) {
-  const channelKeys = ['ext_albamon', 'ext_slack', 'ext_kakao'] as const
+  const channelKeys = ['ext_slack', 'ext_albamon'] as const
   const channelLabels: Record<string, string> = {
+    ext_slack: '슬랙 등',
     ext_albamon: '알바몬',
-    ext_slack: '슬랙',
-    ext_kakao: '카톡방',
   }
 
+  // 10월부터 표시 (최대 7개월)
   const months: string[] = []
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 6; i >= 0; i--) {
     const d = new Date(currentYear, currentMonth - 1 - i, 1)
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }

@@ -490,7 +490,7 @@ export default function AdminMetricsPage() {
 
             {/* Card D: Scouting Response Rate */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">섭외 응답률</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">섭외 응답률 <span className="text-xs font-normal text-gray-400">(수락+거절)</span></h3>
               <p className="text-3xl font-bold text-gray-900">
                 {formatRate(data.metrics.scoutingResponseRate.rate)}
               </p>
