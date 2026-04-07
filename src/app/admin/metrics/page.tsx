@@ -27,6 +27,11 @@ interface ExternalHireRate extends MetricBase {
   scoutingTotal: number
 }
 
+interface ExternalHireHistory {
+  months: string[]
+  channels: { key: string; label: string; values: number[] }[]
+}
+
 interface CoachPoolManager {
   managerId: string
   managerName: string
@@ -71,6 +76,7 @@ interface MetricsData {
     coachPoolByManager: CoachPoolByManager
     scoutingResponseRate: ScoutingResponseRate
     samsungSchedule: SamsungScheduleItem[]
+    externalHireHistory: ExternalHireHistory
   }
   dailyTrend: DailyTrendPoint[]
 }
@@ -81,18 +87,6 @@ interface MetricsData {
 function formatRate(rate: number | null): string {
   if (rate === null || rate === undefined) return 'N/A'
   return `${rate.toFixed(1)}%`
-}
-
-function getRecentMonths(count: number): string[] {
-  const months: string[] = []
-  const now = new Date()
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    months.push(`${y}-${m}`)
-  }
-  return months
 }
 
 function getCurrentYearMonth(): string {
@@ -405,8 +399,7 @@ function ExternalHireForm({
 /*  Main Page                                                          */
 /* ------------------------------------------------------------------ */
 export default function AdminMetricsPage() {
-  const recentMonths = getRecentMonths(12)
-  const [yearMonth, setYearMonth] = useState(getCurrentYearMonth())
+  const yearMonth = getCurrentYearMonth()
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -436,17 +429,7 @@ export default function AdminMetricsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">지표 대시보드</h1>
-        <select
-          value={yearMonth}
-          onChange={(e) => setYearMonth(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {recentMonths.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+        <span className="text-sm text-gray-500">{yearMonth}</span>
       </div>
 
       {/* Loading / Error */}
@@ -524,28 +507,46 @@ export default function AdminMetricsPage() {
               </div>
             )}
 
-            {/* Card B: External Hire Rate */}
+            {/* Card B: External Hire — monthly trend */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">외부 구인 비율</h3>
-              <p className="text-3xl font-bold text-gray-900">
-                {formatRate(data.metrics.externalHireRate.rate)}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                {data.metrics.externalHireRate.externalTotal} / {data.metrics.externalHireRate.scoutingTotal} 건
-              </p>
-              <div className="mt-2">
-                <DeltaBadge
-                  current={data.metrics.externalHireRate.rate}
-                  prev={data.metrics.externalHireRate.prevMonth}
-                />
-              </div>
-              {data.metrics.externalHireRate.channels.length > 0 && (
-                <div className="mt-3 space-y-0.5">
-                  {data.metrics.externalHireRate.channels.map((ch) => (
-                    <p key={ch.key} className="text-xs text-gray-500">
-                      {ch.label}: {ch.count}건
-                    </p>
-                  ))}
+              <h3 className="text-sm font-medium text-gray-700 mb-3">외부 채널 모집 현황</h3>
+              {data.metrics.externalHireHistory.months.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-1.5 pr-2 text-gray-500 font-medium">채널</th>
+                        {data.metrics.externalHireHistory.months.map((m) => (
+                          <th key={m} className={`text-right py-1.5 px-1.5 font-medium ${m === yearMonth ? 'text-blue-600' : 'text-gray-500'}`}>
+                            {parseInt(m.split('-')[1])}월
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.metrics.externalHireHistory.channels.map((ch) => (
+                        <tr key={ch.key} className="border-b border-gray-50">
+                          <td className="py-1.5 pr-2 text-gray-700">{ch.label}</td>
+                          {ch.values.map((v, i) => (
+                            <td key={i} className={`text-right py-1.5 px-1.5 ${data.metrics.externalHireHistory.months[i] === yearMonth ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                              {v || <span className="text-gray-300">-</span>}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      <tr className="border-t border-gray-200">
+                        <td className="py-1.5 pr-2 text-gray-700 font-medium">합계</td>
+                        {data.metrics.externalHireHistory.months.map((m, mi) => {
+                          const sum = data.metrics.externalHireHistory.channels.reduce((s, ch) => s + ch.values[mi], 0)
+                          return (
+                            <td key={m} className={`text-right py-1.5 px-1.5 font-semibold ${m === yearMonth ? 'text-blue-600' : 'text-gray-700'}`}>
+                              {sum || <span className="text-gray-300">-</span>}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               )}
               <ExternalHireForm
