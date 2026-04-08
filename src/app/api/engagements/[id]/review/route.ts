@@ -13,7 +13,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: '본인이 담당한 이력만 평가할 수 있습니다' }, { status: 403 })
   }
 
-  const { rating, feedback, rehire } = await request.json()
+  let reqBody: Record<string, unknown>
+  try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { rating, feedback, rehire } = reqBody as { rating?: number | null; feedback?: string | null; rehire?: boolean | null }
 
   if (rating !== undefined && rating !== null && (typeof rating !== 'number' || rating < 1 || rating > 5)) {
     return NextResponse.json({ error: '별점은 1~5 사이여야 합니다' }, { status: 400 })

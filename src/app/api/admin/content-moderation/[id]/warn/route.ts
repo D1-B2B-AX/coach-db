@@ -26,8 +26,11 @@ export async function POST(
   }
 
   await params
-  const body = await request.json()
-  const { authorManagerId, warningMessage, contentType, sourceRecordId, sourceTable, targetLabel } = body
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { authorManagerId, warningMessage, contentType, sourceRecordId, sourceTable, targetLabel } = body as {
+    authorManagerId?: string; warningMessage?: string; contentType?: string; sourceRecordId?: string; sourceTable?: string; targetLabel?: string
+  }
 
   if (!authorManagerId) {
     return NextResponse.json(

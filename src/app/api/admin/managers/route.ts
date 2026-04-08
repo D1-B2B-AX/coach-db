@@ -24,7 +24,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  const { id, role } = (await request.json()) as { id: string; role: string }
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { id, role } = body as { id: string; role: string }
 
   if (!['admin', 'samsung_admin', 'user', 'blocked'].includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })

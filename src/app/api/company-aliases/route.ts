@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { companyName, alias } = (await request.json()) as {
+    let reqBody: Record<string, unknown>
+    try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+    const { companyName, alias } = reqBody as {
       companyName: string
       alias: string
     }

@@ -20,7 +20,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { name, startDate, endDate, description, workHours, location, hourlyRate, remarks } = (await request.json()) as {
+    let reqBody: Record<string, unknown>
+    try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+    const { name, startDate, endDate, description, workHours, location, hourlyRate, remarks } = reqBody as {
       name?: string
       startDate?: string | null
       endDate?: string | null
@@ -77,6 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         manager: { select: { id: true, name: true, email: true } },
       },
     })
+    // Sequential scouting cancellations — acceptable: rare operation, small N (<20 scoutings per course)
     if (activeScoutings.length > 0) {
       // confirmed 찜꽁의 EngagementSchedule soft-cancel (리셋 전)
       for (const s of activeScoutings.filter(x => x.status === 'confirmed')) {

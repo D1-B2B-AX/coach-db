@@ -7,7 +7,9 @@ export async function POST(request: NextRequest) {
   const auth = await requireManager()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { rows } = (await request.json()) as { rows: string[][] }
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { rows } = body as { rows: string[][] }
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'rows required' }, { status: 400 })
   }

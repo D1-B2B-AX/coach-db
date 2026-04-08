@@ -10,7 +10,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const { action, reason } = await request.json() as { action: 'approve' | 'reject'; reason?: string }
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { action, reason } = body as { action: 'approve' | 'reject'; reason?: string }
 
   const coach = await prisma.coach.findUnique({
     where: { id },

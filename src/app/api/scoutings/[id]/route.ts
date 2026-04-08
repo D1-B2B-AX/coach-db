@@ -14,7 +14,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const { status, courseName, hireStart, hireEnd, scheduleText } = (await request.json()) as {
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { status, courseName, hireStart, hireEnd, scheduleText } = body as {
     status: string; courseName?: string; hireStart?: string; hireEnd?: string; scheduleText?: string
   }
 
@@ -46,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: message }, { status: 409 })
   }
 
-  // Auto-sync courseName from course when confirming
+  // Initial update outside confirm transaction — acceptable: single manager per scouting, no concurrent edits
   const resolvedCourseName = scouting.course?.name ?? courseName
   const updated = await prisma.scouting.update({
     where: { id },
@@ -100,55 +102,57 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     })
   }
 
-  // 확정 시 engagement 자동 생성
+  // 확정 시 engagement 자동 생성 (transaction으로 원자성 보장)
   if (status === 'confirmed') {
     const dateStr = scouting.date.toISOString().slice(0, 10)
     const engCourseName = resolvedCourseName || scouting.courseName || ''
     const courseStartDate = scouting.course?.startDate ?? scouting.date
     const courseEndDate = scouting.course?.endDate ?? scouting.date
 
-    // 기존 engagement 찾기 (같은 코치 + 과정명)
-    let engagement = await prisma.engagement.findFirst({
-      where: {
-        coachId: scouting.coachId,
-        courseName: engCourseName,
-        startDate: courseStartDate,
-        endDate: courseEndDate,
-      },
-    })
-
-    if (!engagement) {
-      engagement = await prisma.engagement.create({
-        data: {
+    await prisma.$transaction(async (tx) => {
+      // 기존 engagement 찾기 (같은 코치 + 과정명)
+      let engagement = await tx.engagement.findFirst({
+        where: {
           coachId: scouting.coachId,
           courseName: engCourseName,
-          status: 'scheduled',
           startDate: courseStartDate,
           endDate: courseEndDate,
-          startTime: hireStart ?? scouting.hireStart,
-          endTime: hireEnd ?? scouting.hireEnd,
-          location: scouting.course?.location ?? null,
-          workType: scouting.coach.workType ?? null,
-          hiredBy: auth.manager.name,
         },
       })
-    }
 
-    // engagementSchedule 추가 (중복 체크)
-    const existingSchedule = await prisma.engagementSchedule.findFirst({
-      where: { engagementId: engagement.id, coachId: scouting.coachId, date: scouting.date },
-    })
-    if (!existingSchedule && scouting.hireStart && scouting.hireEnd) {
-      await prisma.engagementSchedule.create({
-        data: {
-          engagementId: engagement.id,
-          coachId: scouting.coachId,
-          date: scouting.date,
-          startTime: hireStart ?? scouting.hireStart,
-          endTime: hireEnd ?? scouting.hireEnd,
-        },
+      if (!engagement) {
+        engagement = await tx.engagement.create({
+          data: {
+            coachId: scouting.coachId,
+            courseName: engCourseName,
+            status: 'scheduled',
+            startDate: courseStartDate,
+            endDate: courseEndDate,
+            startTime: hireStart ?? scouting.hireStart,
+            endTime: hireEnd ?? scouting.hireEnd,
+            location: scouting.course?.location ?? null,
+            workType: scouting.coach.workType ?? null,
+            hiredBy: auth.manager.name,
+          },
+        })
+      }
+
+      // engagementSchedule 추가 (중복 체크)
+      const existingSchedule = await tx.engagementSchedule.findFirst({
+        where: { engagementId: engagement.id, coachId: scouting.coachId, date: scouting.date },
       })
-    }
+      if (!existingSchedule && scouting.hireStart && scouting.hireEnd) {
+        await tx.engagementSchedule.create({
+          data: {
+            engagementId: engagement.id,
+            coachId: scouting.coachId,
+            date: scouting.date,
+            startTime: hireStart ?? scouting.hireStart,
+            endTime: hireEnd ?? scouting.hireEnd,
+          },
+        })
+      }
+    })
   }
 
   // 확정 시 코치 정보를 응답에 포함 (클립보드 복사용)

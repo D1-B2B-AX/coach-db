@@ -15,17 +15,19 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const body = (await request.json()) as { companyName?: string; alias?: string }
+    let body: Record<string, unknown>
+    try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+    const { companyName, alias } = body as { companyName?: string; alias?: string }
 
-    if (!body.alias && !body.companyName) {
+    if (!alias && !companyName) {
       return NextResponse.json({ error: 'alias or companyName required' }, { status: 400 })
     }
 
     const updated = await prisma.companyAlias.update({
       where: { id },
       data: {
-        ...(body.companyName !== undefined && { companyName: body.companyName }),
-        ...(body.alias !== undefined && { alias: body.alias }),
+        ...(companyName !== undefined && { companyName }),
+        ...(alias !== undefined && { alias }),
       },
     })
 

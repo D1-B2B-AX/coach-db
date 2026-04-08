@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {}
     if (coachId) where.coachId = coachId
+    // managerId param accepted for API consistency but always resolved to auth user for security
     if (managerId) where.managerId = auth.manager.id
     if (status) where.status = status
     if (date && endDate) {
@@ -65,7 +66,9 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { coachId, date, note, courseDescription, message, courseId, courseName, hireStart, hireEnd, mode } = (await request.json()) as {
+    let reqBody: Record<string, unknown>
+    try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+    const { coachId, date, note, courseDescription, message, courseId, courseName, hireStart, hireEnd, mode } = reqBody as {
       coachId: string
       date: string
       note?: string

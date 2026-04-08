@@ -7,7 +7,9 @@ export async function POST(request: NextRequest) {
   const auth = await requireManager()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { endpoint, keys } = (await request.json()) as {
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { endpoint, keys } = body as {
     endpoint: string
     keys: { p256dh: string; auth: string }
   }
@@ -39,7 +41,9 @@ export async function DELETE(request: NextRequest) {
   const auth = await requireManager()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { endpoint } = (await request.json()) as { endpoint: string }
+  let delBody: Record<string, unknown>
+  try { delBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { endpoint } = delBody as { endpoint: string }
   if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
 
   await prisma.pushSubscription.deleteMany({

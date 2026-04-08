@@ -65,7 +65,9 @@ export async function POST(request: NextRequest) {
     const auth = await requireManager()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { name, startDate, endDate, description, workHours, location, hourlyRate } = (await request.json()) as {
+    let reqBody: Record<string, unknown>
+    try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+    const { name, startDate, endDate, description, workHours, location, hourlyRate } = reqBody as {
       name: string
       startDate?: string
       endDate?: string

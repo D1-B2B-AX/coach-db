@@ -23,7 +23,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   logAccess(request, { type: 'coach', id: coach.id, name: coach.name })
 
   const { id } = await params
-  const { action } = (await request.json()) as { action: string }
+  let reqBody: Record<string, unknown>
+  try { reqBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { action } = reqBody as { action: string }
 
   if (action !== 'accept' && action !== 'reject') {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

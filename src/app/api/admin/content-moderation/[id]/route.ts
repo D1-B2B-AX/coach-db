@@ -20,8 +20,9 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const body = await request.json()
-  const { sourceTable, text, rating } = body
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { sourceTable, text, rating } = body as { sourceTable?: string; text?: string; rating?: number }
 
   if (sourceTable === 'audit_logs') {
     return NextResponse.json({ error: 'audit_log는 수정할 수 없습니다' }, { status: 400 })
@@ -105,8 +106,9 @@ export async function DELETE(
   }
 
   const { id } = await params
-  const body = await request.json()
-  const { sourceTable } = body
+  let delBody: Record<string, unknown>
+  try { delBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { sourceTable } = delBody as { sourceTable?: string }
 
   if (sourceTable === 'audit_logs') {
     return NextResponse.json({ error: 'audit_log는 수정할 수 없습니다' }, { status: 400 })

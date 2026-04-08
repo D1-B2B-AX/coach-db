@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { sendSlack } from '@/lib/slack'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
 
   // 시크릿 검증
   if (body.secret !== process.env.SYNC_API_SECRET) {
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   const name = String(body.name || '').trim()
-  const phone = normalizePhone(body.phone)
+  const phone = normalizePhone(body.phone as string | null)
   const email = String(body.email || '').trim() || null
   const affiliation = String(body.affiliation || '').trim() || null
   const workType = String(body.workType || '').trim() || null

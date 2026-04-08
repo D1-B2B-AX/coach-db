@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
   const { yearMonth, channels } = body as {
     yearMonth: string
     channels: Record<string, number>
