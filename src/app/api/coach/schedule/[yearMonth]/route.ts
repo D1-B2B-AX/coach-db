@@ -223,7 +223,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // Use transaction: delete existing schedules for this month, insert new ones, update access log
+  // Use transaction: delete existing schedules for this month, insert new ones, update access log.
+  // Race condition note: concurrent save vs poll — the delete+create is atomic within
+  // this transaction. A concurrent GET may see stale data momentarily under read-committed
+  // isolation, which is acceptable for this use case (schedule polling).
   const result = await prisma.$transaction(async (tx) => {
     // Delete all existing schedules for this coach + month
     await tx.coachSchedule.deleteMany({
@@ -265,7 +268,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   })
 
   // 스케줄 백업 (비동기 — 응답 블로킹 안 함)
-  backupSchedules().catch(() => {})
+  backupSchedules().catch((e) => console.error('[backup] Schedule backup failed:', e.message))
 
   return NextResponse.json({ saved: true, count: result })
 }

@@ -86,8 +86,8 @@ export async function createNotification(
       coachId: recipientCoachId,
       payload: { title, body, data: { clickUrl: data.clickUrl, type: trigger.type } },
     })
-  } catch {
-    // Push 미설정 또는 실패 — 무시 (DB 알림은 이미 저장됨)
+  } catch (e: unknown) {
+    console.error('[push] Send failed:', (e as Error).message)
   }
 
   // Email 발송 (best-effort)

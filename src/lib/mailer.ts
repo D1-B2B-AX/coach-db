@@ -1,15 +1,6 @@
-import nodemailer from 'nodemailer'
-
-const GMAIL_USER = process.env.GMAIL_USER
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD
-
-const transporter =
-  GMAIL_USER && GMAIL_APP_PASSWORD
-    ? nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-      })
-    : null
+const BREVO_API_KEY = process.env.BREVO_API_KEY
+const SENDER_EMAIL = 'help_b2b@day1company.co.kr'
+const SENDER_NAME = '코치관리'
 
 interface SendMailParams {
   to: string
@@ -19,18 +10,42 @@ interface SendMailParams {
 }
 
 export async function sendMail({ to, subject, body, replyTo }: SendMailParams) {
-  if (!transporter) {
-    console.warn('[mailer] GMAIL_USER/GMAIL_APP_PASSWORD not set, skipping email')
+  if (!BREVO_API_KEY) {
+    console.warn('[mailer] BREVO_API_KEY not set, skipping email')
     return
   }
 
-  await transporter.sendMail({
-    from: `"코치관리" <${GMAIL_USER}>`,
-    to,
-    replyTo,
+  const payload: Record<string, unknown> = {
+    sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+    to: [{ email: to }],
     subject,
-    html: body,
-  })
+    htmlContent: body,
+  }
+  if (replyTo) {
+    payload.replyTo = { email: replyTo }
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  let res: Response
+  try {
+    res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`[mailer] Brevo API error ${res.status}: ${err}`)
+  }
 }
 
 const BASE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://coach.day1company.co.kr'

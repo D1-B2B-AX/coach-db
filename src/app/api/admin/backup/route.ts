@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10)
 
-  // Export all tables
+  // Export all tables — no pagination needed: dataset is small (~100 coaches, ~300 engagements)
   const [coaches, engagements, engagementSchedules, coachSchedules, coachFields, coachCurriculums, coachDocuments, scheduleAccessLogs] = await Promise.all([
     prisma.coach.findMany(),
     prisma.engagement.findMany(),

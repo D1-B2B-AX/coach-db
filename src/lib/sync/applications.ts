@@ -43,7 +43,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
   // 구글 스프레드시트는 export로 다운로드 (네이티브 시트는 alt:media 불가)
   const res = await drive.files.export(
     { fileId: APPLICATION_SHEET_ID, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-    { responseType: 'arraybuffer' },
+    { responseType: 'arraybuffer', timeout: 30000 },
   )
   const workbook = XLSX.read(Buffer.from(res.data as ArrayBuffer))
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -65,6 +65,7 @@ export async function syncApplications(): Promise<ApplicationSyncResult> {
   })
   const pendingSet = new Set(pendingCoaches.map(c => `${c.name}|${normalizePhone(c.phone)}`))
 
+  // N+1 queries per row — acceptable: cron-only, small dataset (~100 rows), no user-facing latency
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
     const timestampRaw = row[0] // A열: 타임스탬프

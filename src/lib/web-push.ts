@@ -46,7 +46,7 @@ async function sendPush(
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number })?.statusCode
     if (statusCode === 410 || statusCode === 404) {
-      await prisma.pushSubscription.delete({ where: { id: subscription.id } }).catch(() => {})
+      await prisma.pushSubscription.delete({ where: { id: subscription.id } }).catch((e) => console.error('[web-push] Subscription cleanup failed:', e.message))
     }
   }
 }

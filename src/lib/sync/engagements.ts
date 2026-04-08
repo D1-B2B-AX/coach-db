@@ -288,7 +288,7 @@ export async function syncEngagements(): Promise<SyncResult> {
   // 1. Download file
   const res = await drive.files.get(
     { fileId, alt: 'media' },
-    { responseType: 'arraybuffer' }
+    { responseType: 'arraybuffer', timeout: 30000 }
   )
   const workbook = XLSX.read(Buffer.from(res.data as ArrayBuffer))
   const sheet = workbook.Sheets['조교실습코치_일반계약요청']
@@ -443,6 +443,8 @@ export async function syncEngagements(): Promise<SyncResult> {
   }
 
   // 4. Insert into DB (skip duplicates)
+  // NOTE: N+1 queries here are acceptable — this is a cron sync, not user-facing.
+  // Optimization to batch inserts is low priority given the small dataset size.
   for (const eng of engagements) {
     // Check for duplicate (same coach + course + startDate)
     const existing = await prisma.engagement.findFirst({

@@ -33,7 +33,7 @@ export async function fetchSheetData(): Promise<SheetRow[]> {
       fileId: process.env.GOOGLE_SHEET_ID!,
       alt: "media",
     },
-    { responseType: "arraybuffer" }
+    { responseType: "arraybuffer", timeout: 30000 }
   );
 
   const workbook = XLSX.read(response.data as ArrayBuffer, { type: "array" });
@@ -95,7 +95,7 @@ export async function appendToContractSheet(rows: string[][]) {
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values: rows },
-  })
+  }, { timeout: 30000 })
 
   const updatedRange = res.data.updates?.updatedRange ?? ""
   const rangeMatch = updatedRange.match(/!A(\d+):/)
@@ -154,8 +154,17 @@ export function groupByCoach(rows: SheetRow[]): GroupedCoach[] {
     }
   }
 
-  // 2차: 이름 + 연락처/이메일이 같으면 동일인으로 병합
+  // 2차: 이름 + 연락처/이메일이 같으면 동일인으로 병합 (Map-based O(n))
   const coaches = Array.from(map.values());
+
+  // Build lookup maps by name→coaches for efficient matching
+  const byName = new Map<string, GroupedCoach[]>();
+  for (const coach of coaches) {
+    const arr = byName.get(coach.name) || [];
+    arr.push(coach);
+    byName.set(coach.name, arr);
+  }
+
   const merged: GroupedCoach[] = [];
   const used = new Set<string>();
 
@@ -163,10 +172,10 @@ export function groupByCoach(rows: SheetRow[]): GroupedCoach[] {
     if (used.has(coach.employee_id)) continue;
 
     const base = { ...coach };
+    const candidates = byName.get(base.name) || [];
 
-    for (const other of coaches) {
+    for (const other of candidates) {
       if (other.employee_id === coach.employee_id || used.has(other.employee_id)) continue;
-      if (base.name !== other.name) continue;
 
       const samePhone = base.phone && other.phone && base.phone === other.phone;
       const sameEmail = base.email && other.email && base.email === other.email;

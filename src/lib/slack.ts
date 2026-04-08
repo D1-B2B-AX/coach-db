@@ -6,11 +6,19 @@ export async function sendSlack(text: string) {
     return
   }
 
-  const res = await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+  let res: Response
+  try {
+    res = await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!res.ok) {
     console.error('[slack] Webhook failed:', res.status, await res.text())
