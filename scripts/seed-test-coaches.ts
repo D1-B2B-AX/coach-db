@@ -116,8 +116,30 @@ const TEST_COACHES = [
   },
 ]
 
+const TEST_MANAGER_EMAIL = 'test-qa@day1company.co.kr'
+const TEST_MANAGER_NAME = 'QA테스트매니저'
+
 async function main() {
-  console.log('Seeding 3 test coaches for March 2026...\n')
+  console.log('Seeding test manager + 3 test coaches...\n')
+
+  // ─── 테스트 매니저 (QA용) ───
+  const existing = await prisma.manager.findUnique({ where: { email: TEST_MANAGER_EMAIL } })
+  if (existing) {
+    console.log(`  Test manager already exists: ${existing.email} (${existing.id})`)
+  } else {
+    const mgr = await prisma.manager.create({
+      data: {
+        email: TEST_MANAGER_EMAIL,
+        name: TEST_MANAGER_NAME,
+        googleId: `test-qa-${Date.now()}`,
+        role: 'admin',
+      },
+    })
+    console.log(`  Created test manager: ${mgr.email} (${mgr.id}) role=admin`)
+  }
+  console.log()
+
+  // ─── 테스트 코치 정리 + 생성 ───
 
   // 이전 이름 포함 정리
   const oldNames = ['테스트_김풀타임', '테스트_이파트', '테스트_박저녁', '김풀타임', '이파트', '박저녁']
@@ -197,6 +219,16 @@ async function main() {
     console.log()
   }
 
+  // ─── QA용 요약 출력 ───
+  console.log('=== QA Test Credentials ===')
+  console.log(`Manager email: ${TEST_MANAGER_EMAIL}`)
+  const testCoaches = await prisma.coach.findMany({
+    where: { name: { in: TEST_COACHES.map(c => c.name) } },
+    select: { name: true, accessToken: true },
+  })
+  for (const c of testCoaches) {
+    console.log(`Coach "${c.name}" token: ${c.accessToken}`)
+  }
   console.log('Done!')
 }
 
