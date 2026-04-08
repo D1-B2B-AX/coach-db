@@ -86,8 +86,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   // Regenerate EngagementSchedule if date/time fields changed
   if (startDate !== undefined || endDate !== undefined || startTime !== undefined || endTime !== undefined) {
-    await prisma.engagementSchedule.deleteMany({ where: { engagementId: id } })
-
     const updated = await prisma.engagement.findUnique({
       where: { id },
       select: { startDate: true, endDate: true, startTime: true, endTime: true, coachId: true },
@@ -97,7 +95,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const end = updated.endDate
       const scheduleData: { engagementId: string; coachId: string; date: Date; startTime: string; endTime: string }[] = []
       const cursor = new Date(start)
-      while (cursor <= end) {
+      let safety = 0
+      while (cursor <= end && safety < 366) {
+        safety++
         const dow = cursor.getUTCDay()
         if (dow >= 1 && dow <= 5) {
           scheduleData.push({
@@ -110,9 +110,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
         cursor.setUTCDate(cursor.getUTCDate() + 1)
       }
-      if (scheduleData.length > 0) {
-        await prisma.engagementSchedule.createMany({ data: scheduleData })
-      }
+      await prisma.$transaction([
+        prisma.engagementSchedule.deleteMany({ where: { engagementId: id } }),
+        ...(scheduleData.length > 0 ? [prisma.engagementSchedule.createMany({ data: scheduleData })] : []),
+      ])
     }
   }
 

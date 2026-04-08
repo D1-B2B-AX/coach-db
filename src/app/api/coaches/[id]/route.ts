@@ -106,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   // Build update data — only include fields that were provided
   const updateData: Record<string, unknown> = {}
-  if (name !== undefined) updateData.name = name.trim()
+  if (name !== undefined) updateData.name = name.trim().replace(/<[^>]*>/g, '')
   if (birthDate !== undefined) updateData.birthDate = birthDate ? toDateOnly(birthDate) : null
   if (phone !== undefined) updateData.phone = phone
   if (email !== undefined) updateData.email = email
@@ -118,29 +118,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   if (selfNote !== undefined) updateData.selfNote = selfNote
   if (managerNote !== undefined) updateData.managerNote = managerNote
 
-  // Resolve field/curriculum IDs outside transaction to reduce transaction duration
-  const fieldIds: string[] = []
-  if (fields !== undefined && Array.isArray(fields)) {
-    for (const fieldName of fields) {
-      const trimmed = fieldName.trim()
-      if (!trimmed) continue
-      const rec = await prisma.field.upsert({ where: { name: trimmed }, create: { name: trimmed }, update: {} })
-      fieldIds.push(rec.id)
-    }
-  }
-
-  const curriculumIds: string[] = []
-  if (curriculums !== undefined && Array.isArray(curriculums)) {
-    for (const currName of curriculums) {
-      const trimmed = currName.trim()
-      if (!trimmed) continue
-      const rec = await prisma.curriculum.upsert({ where: { name: trimmed }, create: { name: trimmed }, update: {} })
-      curriculumIds.push(rec.id)
-    }
-  }
-
   const coach = await prisma.$transaction(async (tx) => {
     await tx.coach.update({ where: { id }, data: updateData })
+
+    // Resolve field/curriculum IDs inside transaction for atomicity
+    const fieldIds: string[] = []
+    if (fields !== undefined && Array.isArray(fields)) {
+      for (const fieldName of fields) {
+        const trimmed = fieldName.trim()
+        if (!trimmed) continue
+        const rec = await tx.field.upsert({ where: { name: trimmed }, create: { name: trimmed }, update: {} })
+        fieldIds.push(rec.id)
+      }
+    }
+
+    const curriculumIds: string[] = []
+    if (curriculums !== undefined && Array.isArray(curriculums)) {
+      for (const currName of curriculums) {
+        const trimmed = currName.trim()
+        if (!trimmed) continue
+        const rec = await tx.curriculum.upsert({ where: { name: trimmed }, create: { name: trimmed }, update: {} })
+        curriculumIds.push(rec.id)
+      }
+    }
 
     if (fields !== undefined) {
       await tx.coachField.deleteMany({ where: { coachId: id } })
@@ -206,7 +206,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ error: 'Request body with confirmName is required' }, { status: 400 })
   }
 
   const { confirmName } = body as { confirmName?: string }

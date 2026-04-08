@@ -97,44 +97,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'rating must be an integer between 1 and 5' }, { status: 400 })
   }
 
-  const engagement = await prisma.engagement.create({
-    data: {
-      coachId: id,
-      courseName: courseName.trim(),
-      status: (status as 'scheduled' | 'in_progress' | 'completed' | 'cancelled') ?? 'scheduled',
-      startDate: new Date(startDate + 'T12:00:00Z'),
-      endDate: new Date(endDate + 'T12:00:00Z'),
-      startTime: startTime ?? null,
-      endTime: endTime ?? null,
-      location: location ?? null,
-      rating: rating ?? null,
-      feedback: feedback ?? null,
-      rehire: rehire ?? null,
-      hiredBy: hiredBy ?? null,
-    },
-  })
-
-  // Auto-generate EngagementSchedule records for weekdays (Mon-Fri)
-  const start = new Date(startDate + 'T12:00:00Z')
-  const end = new Date(endDate + 'T12:00:00Z')
-  const scheduleData: { engagementId: string; coachId: string; date: Date; startTime: string; endTime: string }[] = []
-  const cursor = new Date(start)
-  while (cursor <= end) {
-    const dow = cursor.getUTCDay()
-    if (dow >= 1 && dow <= 5) {
-      scheduleData.push({
-        engagementId: engagement.id,
+  const engagement = await prisma.$transaction(async (tx) => {
+    const created = await tx.engagement.create({
+      data: {
         coachId: id,
-        date: new Date(cursor),
-        startTime: startTime || '09:00',
-        endTime: endTime || '18:00',
-      })
+        courseName: courseName.trim(),
+        status: (status as 'scheduled' | 'in_progress' | 'completed' | 'cancelled') ?? 'scheduled',
+        startDate: new Date(startDate + 'T12:00:00Z'),
+        endDate: new Date(endDate + 'T12:00:00Z'),
+        startTime: startTime ?? null,
+        endTime: endTime ?? null,
+        location: location ?? null,
+        rating: rating ?? null,
+        feedback: feedback ?? null,
+        rehire: rehire ?? null,
+        hiredBy: hiredBy ?? null,
+      },
+    })
+
+    // Auto-generate EngagementSchedule records for weekdays (Mon-Fri)
+    const start = new Date(startDate + 'T12:00:00Z')
+    const end = new Date(endDate + 'T12:00:00Z')
+    const scheduleData: { engagementId: string; coachId: string; date: Date; startTime: string; endTime: string }[] = []
+    const cursor = new Date(start)
+    let safety = 0
+    while (cursor <= end && safety < 366) {
+      const dow = cursor.getUTCDay()
+      if (dow >= 1 && dow <= 5) {
+        scheduleData.push({
+          engagementId: created.id,
+          coachId: id,
+          date: new Date(cursor),
+          startTime: startTime || '09:00',
+          endTime: endTime || '18:00',
+        })
+      }
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+      safety++
     }
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
-  }
-  if (scheduleData.length > 0) {
-    await prisma.engagementSchedule.createMany({ data: scheduleData })
-  }
+    if (scheduleData.length > 0) {
+      await tx.engagementSchedule.createMany({ data: scheduleData })
+    }
+
+    return created
+  })
 
   return NextResponse.json(engagement, { status: 201 })
 }

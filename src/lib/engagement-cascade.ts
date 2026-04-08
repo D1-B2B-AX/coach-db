@@ -13,40 +13,42 @@ export async function cancelEngagementScheduleForScouting(
   const courseStartDate = course?.startDate ?? scouting.date
   const courseEndDate = course?.endDate ?? scouting.date
 
-  const engagement = await prisma.engagement.findFirst({
-    where: {
-      coachId: scouting.coachId,
-      courseName: engCourseName,
-      startDate: courseStartDate,
-      endDate: courseEndDate,
-    },
-  })
-
-  if (!engagement) return
-
-  // 3-tuple로 EngagementSchedule soft-cancel
-  await prisma.engagementSchedule.updateMany({
-    where: {
-      engagementId: engagement.id,
-      coachId: scouting.coachId,
-      date: scouting.date,
-      cancelledAt: null,
-    },
-    data: { cancelledAt: new Date() },
-  })
-
-  // 활성 스케줄 수 확인 → 0건이면 Engagement도 cancelled
-  const activeCount = await prisma.engagementSchedule.count({
-    where: {
-      engagementId: engagement.id,
-      cancelledAt: null,
-    },
-  })
-
-  if (activeCount === 0) {
-    await prisma.engagement.update({
-      where: { id: engagement.id },
-      data: { status: 'cancelled' },
+  await prisma.$transaction(async (tx) => {
+    const engagement = await tx.engagement.findFirst({
+      where: {
+        coachId: scouting.coachId,
+        courseName: engCourseName,
+        startDate: courseStartDate,
+        endDate: courseEndDate,
+      },
     })
-  }
+
+    if (!engagement) return
+
+    // 3-tuple로 EngagementSchedule soft-cancel
+    await tx.engagementSchedule.updateMany({
+      where: {
+        engagementId: engagement.id,
+        coachId: scouting.coachId,
+        date: scouting.date,
+        cancelledAt: null,
+      },
+      data: { cancelledAt: new Date() },
+    })
+
+    // 활성 스케줄 수 확인 → 0건이면 Engagement도 cancelled
+    const activeCount = await tx.engagementSchedule.count({
+      where: {
+        engagementId: engagement.id,
+        cancelledAt: null,
+      },
+    })
+
+    if (activeCount === 0) {
+      await tx.engagement.update({
+        where: { id: engagement.id },
+        data: { status: 'cancelled' },
+      })
+    }
+  })
 }

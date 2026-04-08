@@ -21,14 +21,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
   }
 
-  // Delete file from R2
-  const key = getKeyFromUrl(document.fileUrl)
-  await deleteFile(key)
-
-  // Delete DB record
+  // Delete DB record first, then R2 (if R2 fails, file is orphaned but DB is consistent)
   await prisma.coachDocument.delete({
     where: { id },
   })
+
+  const key = getKeyFromUrl(document.fileUrl)
+  await deleteFile(key)
 
   return new NextResponse(null, { status: 204 })
 }
