@@ -52,8 +52,9 @@ export async function PUT(request: NextRequest) {
 
   logAccess(request, { type: 'coach', id: coach.id, name: coach.name })
 
-  const body = await request.json()
-  const { phone, email, affiliation, availabilityDetail, extraRequest, status, statusNote, returnDate, fields, curriculums } = body as {
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { phone, email, affiliation, availabilityDetail, extraRequest, status, statusNote, returnDate, selfNote, fields, curriculums } = body as {
     phone?: string | null
     email?: string | null
     affiliation?: string | null
@@ -62,8 +63,13 @@ export async function PUT(request: NextRequest) {
     status?: string
     statusNote?: string | null
     returnDate?: string | null
+    selfNote?: string | null
     fields?: string[]
     curriculums?: string[]
+  }
+
+  if (selfNote !== undefined && typeof selfNote !== 'string') {
+    return NextResponse.json({ error: 'selfNote must be a string' }, { status: 400 })
   }
 
   const updateData: Record<string, unknown> = {}
@@ -83,7 +89,7 @@ export async function PUT(request: NextRequest) {
     updateData.selfNote = [existing?.selfNote, entry].filter(Boolean).join("\n")
   }
 
-  // Resolve field/curriculum IDs outside transaction
+  // Resolve field/curriculum IDs outside transaction — acceptable: idempotent upserts, single-user editing per coach
   const fieldIds: string[] = []
   if (fields !== undefined && Array.isArray(fields)) {
     for (const name of fields) {

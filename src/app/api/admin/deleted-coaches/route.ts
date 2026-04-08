@@ -34,15 +34,23 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  const { id } = (await request.json()) as { id: string }
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { id } = body as { id: string }
 
-  const coach = await prisma.coach.update({
-    where: { id },
-    data: { deletedAt: null, deletedBy: null },
-    select: { id: true, name: true },
-  })
-
-  return NextResponse.json(coach)
+  try {
+    const coach = await prisma.coach.update({
+      where: { id },
+      data: { deletedAt: null, deletedBy: null },
+      select: { id: true, name: true },
+    })
+    return NextResponse.json(coach)
+  } catch (e: unknown) {
+    if (typeof e === 'object' && e !== null && 'code' in e && (e as { code: string }).code === 'P2025') {
+      return NextResponse.json({ error: '해당 코치를 찾을 수 없습니다' }, { status: 404 })
+    }
+    throw e
+  }
 }
 
 // DELETE /api/admin/deleted-coaches — permanently delete a coach
@@ -52,7 +60,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  const { id } = (await request.json()) as { id: string }
+  let delBody: Record<string, unknown>
+  try { delBody = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
+  const { id } = delBody as { id: string }
 
   // Only allow permanent delete of already soft-deleted coaches
   const coach = await prisma.coach.findUnique({

@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Generate R2 key
   const key = `coaches/${id}/${randomUUID()}-${file.name}`
 
-  // Upload to R2
+  // Upload to R2 first — if DB save fails, orphan R2 file is acceptable (no sensitive data, no cost impact)
   const fileUrl = await uploadFile(key, buffer, file.type || 'application/octet-stream')
 
   // Save metadata in DB

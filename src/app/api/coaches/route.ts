@@ -197,12 +197,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
 
+  const sanitizedName = name.trim().replace(/<[^>]*>/g, '')
+  if (sanitizedName.length > 50) {
+    return NextResponse.json({ error: 'name is too long (max 50 characters)' }, { status: 400 })
+  }
+
   const accessToken = generateAccessToken()
 
   const coach = await prisma.$transaction(async (tx) => {
     const created = await tx.coach.create({
       data: {
-        name: name.trim(),
+        name: sanitizedName,
         birthDate: birthDate ? toDateOnly(birthDate) : undefined,
         phone: phone || undefined,
         email: email || undefined,
