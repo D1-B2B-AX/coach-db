@@ -212,6 +212,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [bulkRemark, setBulkRemark] = useState("")
   const [bulkMessage, setBulkMessage] = useState("")
   const [bulkSending, setBulkSending] = useState(false)
+  const bulkSendingRef = useRef(false)
   const [bulkError, setBulkError] = useState("")
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -254,6 +255,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
       const qs = params.toString() ? `?${params}` : ""
       const res = await fetch(`/api/schedules/${yearMonth}${qs}`)
+      if (res.status === 401) { window.location.href = '/login'; return }
       if (res.ok) {
         const data = await res.json()
         setMonthData(data.days || {})
@@ -270,6 +272,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     setStatusLoading(true)
     try {
       const res = await fetch(`/api/schedules/${yearMonth}/status`)
+      if (res.status === 401) { window.location.href = '/login'; return }
       if (res.ok) {
         const data = await res.json()
         setStatusData(data)
@@ -308,6 +311,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
         fetch(`/api/schedules/${ym}/${day}${qs}`),
         fetch(`/api/scoutings?${scoutParams}`),
       ])
+      if (coachRes.status === 401 || scoutRes.status === 401) { window.location.href = '/login'; return }
       if (coachRes.ok) {
         const data = await coachRes.json()
         setCoaches(data.coaches || [])
@@ -342,6 +346,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const fetchCourses = useCallback(async () => {
     try {
       const res = await fetch("/api/courses")
+      if (res.status === 401) { window.location.href = '/login'; return }
       if (res.ok) {
         const data = await res.json()
         setCourses((data.courses || []).map((c: { id: string; name: string; startDate: string | null; endDate: string | null; description: string | null; workHours: string | null }) => ({
@@ -358,13 +363,26 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     fetchCourses()
   }, [fetchMonthData, fetchStatusData, fetchCourses])
 
-  // 30-second polling for month data
+  // 30-second polling for month data (paused when tab is hidden)
   useEffect(() => {
-    pollingRef.current = setInterval(() => {
-      fetchMonthData()
-    }, 30_000)
-    return () => {
+    function startPolling() {
       if (pollingRef.current) clearInterval(pollingRef.current)
+      pollingRef.current = setInterval(() => {
+        fetchMonthData()
+      }, 30_000)
+    }
+    function stopPolling() {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+    }
+    function handleVisibility() {
+      if (document.hidden) stopPolling()
+      else { fetchMonthData(); startPolling() }
+    }
+    startPolling()
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [fetchMonthData])
 
@@ -534,11 +552,13 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   // 팝업 입력값으로 여러 코치를 선택된 날짜 범위에 일괄 컨택
   async function submitBulkScout() {
     if (bulkCoachIds.length === 0 || !selectedStart) return
+    if (bulkSendingRef.current) return
     const courseName = bulkCourseName.trim()
     if (!courseName) {
       setBulkError("과정명을 입력해주세요.")
       return
     }
+    bulkSendingRef.current = true
     // Parse workHours to extract per-date times
     const selectedCourse = courses.find(c => c.id === selectedCourseId)
     const workHoursMap = new Map<string, { start: string; end: string }>()
@@ -604,6 +624,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       setBulkError("전송 중 오류가 발생했습니다.")
     } finally {
       setBulkSending(false)
+      bulkSendingRef.current = false
     }
   }
 

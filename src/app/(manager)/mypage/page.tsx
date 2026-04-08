@@ -116,8 +116,13 @@ function MyPageContent() {
     fetchScoutings()
     fetchCourses()
     fetchEngagementHistory()
-    const interval = setInterval(() => fetchScoutings(true), 30000)
-    return () => clearInterval(interval)
+    let interval: ReturnType<typeof setInterval> | null = setInterval(() => fetchScoutings(true), 30000)
+    function handleVisibility() {
+      if (document.hidden) { if (interval) { clearInterval(interval); interval = null } }
+      else { fetchScoutings(true); interval = setInterval(() => fetchScoutings(true), 30000) }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => { if (interval) clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility) }
   }, [fetchScoutings, fetchCourses, fetchEngagementHistory])
 
   // Course CRUD handlers
@@ -195,13 +200,18 @@ function MyPageContent() {
           s.date.slice(0, 10) === found.date.slice(0, 10) &&
           s.courseId === found.courseId
         )
-        for (const sib of siblings) {
-          fetch(`/api/scoutings/${sib.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "cancelled" }),
-          })
-        }
+        const siblingResults = await Promise.allSettled(
+          siblings.map(sib =>
+            fetch(`/api/scoutings/${sib.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "cancelled" }),
+            })
+          )
+        )
+        siblingResults.forEach((r, i) => {
+          if (r.status === "rejected") console.error(`[mypage] sibling cancel failed for ${siblings[i].id}:`, r.reason)
+        })
         if (siblings.length > 0) {
           setScoutings(prev => prev.map(s =>
             siblings.some(sib => sib.id === s.id) ? { ...s, status: "cancelled" } : s

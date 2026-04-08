@@ -258,8 +258,18 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     const label = targetStatus === "confirmed" ? "확정" : "취소"
     const names = [...new Set(items.map(s => s.coach.name))].join(", ")
     if (!confirm(`${names} (${items.length}건)을 모두 ${label}하시겠습니까?`)) return
+    let successCount = 0
+    let failCount = 0
     for (const s of items) {
-      await handleAction(s.id, targetStatus)
+      try {
+        await handleAction(s.id, targetStatus)
+        successCount++
+      } catch {
+        failCount++
+      }
+    }
+    if (failCount > 0) {
+      alert(`${successCount}건 성공, ${failCount}건 실패`)
     }
     if (targetStatus === "confirmed") {
       const confirmed = items.map(s => ({ ...s, status: "confirmed" }))

@@ -95,6 +95,7 @@ function CoachDetailPageContent() {
 
   const [coach, setCoach] = useState<CoachDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "profile"
   )
@@ -111,6 +112,7 @@ function CoachDetailPageContent() {
 
   const fetchCoach = useCallback(async () => {
     setLoading(true)
+    setFetchError(false)
     try {
       const res = await fetch(`/api/coaches/${coachId}`)
       if (res.ok) {
@@ -118,9 +120,11 @@ function CoachDetailPageContent() {
         setCoach(data)
       } else if (res.status === 404) {
         router.push("/coaches")
+      } else {
+        setFetchError(true)
       }
     } catch {
-      // silently fail
+      setFetchError(true)
     } finally {
       setLoading(false)
     }
@@ -247,7 +251,16 @@ function CoachDetailPageContent() {
   if (!coach) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="py-12 text-center text-sm text-gray-400">코치를 찾을 수 없습니다</div>
+        <div className="py-12 text-center text-sm text-gray-400">
+          {fetchError ? (
+            <>
+              네트워크 오류가 발생했습니다.{" "}
+              <button onClick={fetchCoach} className="text-[#1976D2] hover:underline cursor-pointer">다시 시도</button>
+            </>
+          ) : (
+            "코치를 찾을 수 없습니다"
+          )}
+        </div>
       </div>
     )
   }
@@ -272,13 +285,24 @@ function CoachDetailPageContent() {
             return (
               <>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (isActive) {
                       handleStatusChange("inactive")
                     } else {
-                      handleStatusChange("active")
-                      // 활동중으로 전환 시 복귀 예정일 초기화
-                      handleReturnDateSave(null)
+                      // 활동중으로 전환 시 status + returnDate를 단일 API 호출로 처리
+                      setSavingStatus(true)
+                      try {
+                        const res = await fetch(`/api/coaches/${coachId}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "active", returnDate: null }),
+                        })
+                        if (res.ok) {
+                          setCoach((prev) => prev ? { ...prev, status: "active", returnDate: null } : prev)
+                        }
+                      } catch (err) { console.error("Failed to update status:", err) } finally {
+                        setSavingStatus(false)
+                      }
                     }
                   }}
                   disabled={savingStatus}
