@@ -2,50 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 
-const YM_RE = /^\d{4}-(?:0[1-9]|1[0-2])$/
-const CHANNEL_KEYS = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
-
+// POST /api/admin/metrics/external-hire
 export async function POST(request: NextRequest) {
   const auth = await requireManager()
-  if (!auth || auth.manager.role !== 'admin') {
-    return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  let body: { yearMonth: string; channels: Record<string, number> }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  let body: Record<string, unknown>
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }) }
-  const { yearMonth, channels } = body as {
-    yearMonth: string
-    channels: Record<string, number>
+  const { yearMonth, channels } = body
+  if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
+    return NextResponse.json({ error: 'yearMonth must be YYYY-MM format' }, { status: 400 })
   }
-
-  if (!yearMonth || !YM_RE.test(yearMonth)) {
-    return NextResponse.json({ error: 'yearMonth (YYYY-MM) is required' }, { status: 400 })
-  }
-
   if (!channels || typeof channels !== 'object') {
-    return NextResponse.json({ error: 'channels object is required' }, { status: 400 })
+    return NextResponse.json({ error: 'channels must be an object' }, { status: 400 })
   }
 
-  // Validate all channel keys are present and values are numbers
-  for (const key of CHANNEL_KEYS) {
-    if (typeof channels[key] !== 'number' || channels[key] < 0) {
-      return NextResponse.json(
-        { error: `channels.${key} must be a non-negative number` },
-        { status: 400 },
-      )
-    }
-  }
+  const allowedKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other']
+  const entries = Object.entries(channels).filter(([key]) => allowedKeys.includes(key))
 
-  // Upsert 4 records
-  await Promise.all(
-    CHANNEL_KEYS.map((key) =>
+  await prisma.$transaction(
+    entries.map(([key, value]) =>
       prisma.metricSnapshot.upsert({
         where: { yearMonth_metricKey: { yearMonth, metricKey: key } },
-        create: { yearMonth, metricKey: key, value: channels[key] },
-        update: { value: channels[key] },
+        update: { value: Math.max(0, Math.round(value)) },
+        create: { yearMonth, metricKey: key, value: Math.max(0, Math.round(value)) },
       }),
     ),
   )
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, updated: entries.length })
 }

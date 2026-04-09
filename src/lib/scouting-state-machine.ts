@@ -73,6 +73,12 @@ const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
     clickUrlPattern: '/coach?token={accessToken}',
   },
   // rejected는 최종 상태 — 전이 없음
+  'confirmed->confirmed': {
+    type: 'engagement_confirmed',
+    recipientRole: 'coach',
+    messageTemplate: '{date} 투입이 수정되었습니다 ({courseName})',
+    clickUrlPattern: '/coach?token={accessToken}',
+  },
   'confirmed->cancelled': {
     type: 'engagement_cancelled',
     recipientRole: 'coach',

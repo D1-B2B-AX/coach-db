@@ -110,8 +110,11 @@ describe('getNotificationTrigger', () => {
     expect(getNotificationTrigger('cancelled', 'scouting')).toBeNull()
   })
 
-  it('confirmed -> confirmed returns null (수정 재확정, 알림 불필요)', () => {
-    expect(getNotificationTrigger('confirmed', 'confirmed')).toBeNull()
+  it('confirmed -> confirmed returns engagement_confirmed for coach (수정 재확정)', () => {
+    const trigger = getNotificationTrigger('confirmed', 'confirmed')
+    expect(trigger).not.toBeNull()
+    expect(trigger!.type).toBe('engagement_confirmed')
+    expect(trigger!.recipientRole).toBe('coach')
   })
 })
 
