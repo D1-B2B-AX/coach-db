@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { SessionProvider } from '@/components/SessionProvider'
+import Header from '@/components/Header'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -21,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <SessionProvider>
       <div className="min-h-screen bg-gray-50">
+        <Header />
         <main>{children}</main>
       </div>
     </SessionProvider>

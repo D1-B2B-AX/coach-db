@@ -68,6 +68,20 @@ interface DailyTrendPoint {
   inputRate: number | null
 }
 
+interface TrendPoint {
+  yearMonth: string
+  scheduleInputRate: number | null
+  externalHireRate: number | null
+  avgCoachPool: number | null
+  scoutingResponseRate: number | null
+}
+
+interface WeeklyTrendPoint {
+  weekLabel: string
+  completedCount: number
+  scheduleInputRate: number | null
+}
+
 interface MetricsData {
   yearMonth: string
   isCurrentMonth: boolean
@@ -88,6 +102,8 @@ interface MetricsData {
     externalHireHistory: ExternalHireHistory
   }
   dailyTrend: DailyTrendPoint[]
+  trend: TrendPoint[]
+  weeklyTrend?: WeeklyTrendPoint[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -353,6 +369,162 @@ function ExternalHireForm({
         >
           취소
         </button>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Trend Line Chart (SVG, last 6 months, 4 metrics)                   */
+/* ------------------------------------------------------------------ */
+const TREND_COLORS: Record<string, string> = {
+  scheduleInputRate: '#3B82F6',
+  externalHireRate: '#F59E0B',
+  avgCoachPool: '#10B981',
+  scoutingResponseRate: '#8B5CF6',
+}
+const TREND_LABELS: Record<string, string> = {
+  scheduleInputRate: '일정 입력률',
+  externalHireRate: '외부 구인 비율',
+  avgCoachPool: '평균 코치 pool',
+  scoutingResponseRate: '섭외 응답률',
+}
+const TREND_KEYS = ['scheduleInputRate', 'externalHireRate', 'avgCoachPool', 'scoutingResponseRate'] as const
+
+function TrendChart({ trend }: { trend: TrendPoint[] }) {
+  if (!trend || trend.length === 0) return null
+
+  const W = 560
+  const H = 200
+  const PAD_L = 40
+  const PAD_R = 16
+  const PAD_T = 16
+  const PAD_B = 32
+  const chartW = W - PAD_L - PAD_R
+  const chartH = H - PAD_T - PAD_B
+
+  // Collect all non-null values to find y range
+  const allVals: number[] = []
+  for (const pt of trend) {
+    for (const k of TREND_KEYS) {
+      const v = pt[k]
+      if (v !== null && v !== undefined) allVals.push(v)
+    }
+  }
+  const yMin = 0
+  const yMax = allVals.length > 0 ? Math.max(Math.ceil(Math.max(...allVals) / 10) * 10, 10) : 100
+
+  function toX(i: number) {
+    return PAD_L + (trend.length > 1 ? (i / (trend.length - 1)) * chartW : chartW / 2)
+  }
+  function toY(v: number) {
+    return PAD_T + chartH - ((v - yMin) / (yMax - yMin)) * chartH
+  }
+
+  // Build polylines for each metric
+  const lines: Array<{ key: string; path: string; points: Array<{ x: number; y: number; val: number }> }> = []
+  for (const k of TREND_KEYS) {
+    const pts: Array<{ x: number; y: number; val: number }> = []
+    trend.forEach((pt, i) => {
+      const v = pt[k]
+      if (v !== null && v !== undefined) {
+        pts.push({ x: toX(i), y: toY(v), val: v })
+      }
+    })
+    if (pts.length > 0) {
+      const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+      lines.push({ key: k, path, points: pts })
+    }
+  }
+
+  // Y-axis grid lines
+  const yTicks: number[] = []
+  const step = yMax <= 20 ? 5 : yMax <= 50 ? 10 : 20
+  for (let v = yMin; v <= yMax; v += step) yTicks.push(v)
+
+  return (
+    <div className={CARD}>
+      <h3 className="text-sm font-semibold text-gray-800 mb-4">추이 차트 (최근 6개월)</h3>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 mb-3">
+        {TREND_KEYS.map((k) => (
+          <div key={k} className="flex items-center gap-1.5 text-xs text-gray-600">
+            <span className="inline-block w-3 h-[3px] rounded-full" style={{ backgroundColor: TREND_COLORS[k] }} />
+            {TREND_LABELS[k]}
+          </div>
+        ))}
+      </div>
+
+      {/* SVG Chart */}
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[560px]" preserveAspectRatio="xMidYMid meet">
+          {/* Grid lines */}
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line x1={PAD_L} y1={toY(v)} x2={W - PAD_R} y2={toY(v)} stroke="#E5E7EB" strokeWidth="1" />
+              <text x={PAD_L - 6} y={toY(v) + 3} textAnchor="end" className="text-[10px] fill-gray-400">{v}</text>
+            </g>
+          ))}
+
+          {/* X-axis labels */}
+          {trend.map((pt, i) => (
+            <text key={pt.yearMonth} x={toX(i)} y={H - 6} textAnchor="middle" className="text-[10px] fill-gray-500">
+              {parseInt(pt.yearMonth.split('-')[1])}월
+            </text>
+          ))}
+
+          {/* Lines + dots */}
+          {lines.map(({ key, path, points }) => (
+            <g key={key}>
+              <path d={path} fill="none" stroke={TREND_COLORS[key]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              {points.map((p, i) => (
+                <g key={i}>
+                  <circle cx={p.x} cy={p.y} r="3.5" fill="white" stroke={TREND_COLORS[key]} strokeWidth="2" />
+                  <text x={p.x} y={p.y - 8} textAnchor="middle" className="text-[9px] font-medium" fill={TREND_COLORS[key]}>
+                    {p.val.toFixed(1)}
+                  </text>
+                </g>
+              ))}
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Weekly Trend Mini Chart (SVG bar chart, current month only)        */
+/* ------------------------------------------------------------------ */
+function WeeklyTrendMiniChart({ weeklyTrend }: { weeklyTrend: WeeklyTrendPoint[] }) {
+  if (!weeklyTrend || weeklyTrend.length === 0) return null
+
+  const maxRate = Math.max(...weeklyTrend.map((w) => w.scheduleInputRate ?? 0), 1)
+  const barMaxH = 48
+
+  return (
+    <div className={CARD}>
+      <h3 className="text-sm font-semibold text-gray-800 mb-1">주간 입력률 추이</h3>
+      <p className="text-xs text-gray-400 mb-4">현재 월 주 단위 집계</p>
+      <div className="flex items-end gap-3">
+        {weeklyTrend.map((w) => {
+          const rate = w.scheduleInputRate ?? 0
+          const h = maxRate > 0 ? Math.max((rate / maxRate) * barMaxH, 2) : 2
+          return (
+            <div key={w.weekLabel} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+              <span className="text-[10px] font-medium text-gray-700 tabular-nums">
+                {rate.toFixed(1)}%
+              </span>
+              <div
+                className="w-full max-w-[40px] rounded-t-sm bg-blue-400 transition-all"
+                style={{ height: `${h}px` }}
+              />
+              <span className="text-[9px] text-gray-400 truncate w-full text-center">{w.weekLabel}</span>
+              <span className="text-[9px] text-gray-400 tabular-nums">{w.completedCount}건</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -690,6 +862,32 @@ export default function AdminMetricsPage() {
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/*  Zone 5: Trend Chart + Weekly Trend                           */}
+          {/*  6-month line chart (4 metrics overlaid)                     */}
+          {/*  + weekly mini chart (current month only)                    */}
+          {/* ============================================================ */}
+          <div className="mt-10">
+            <p className="text-xs font-medium text-gray-400 tracking-wider uppercase mb-4">
+              추이
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="lg:col-span-2">
+                <TrendChart trend={data.trend} />
+              </div>
+              <div>
+                {data.weeklyTrend && data.weeklyTrend.length > 0 ? (
+                  <WeeklyTrendMiniChart weeklyTrend={data.weeklyTrend} />
+                ) : (
+                  <div className={CARD}>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-1">주간 입력률 추이</h3>
+                    <p className="text-xs text-gray-400 mt-2">현재 월에서만 표시됩니다</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>

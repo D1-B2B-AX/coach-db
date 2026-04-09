@@ -86,10 +86,12 @@ async function calcScheduleInputRate(ym: string, sentCoachIds?: string[]) {
 }
 
 async function calcExternalHireRate(ym: string, year: number, month: number) {
-  const channelKeys = ['ext_slack', 'ext_albamon'] as const
+  const channelKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
   const channelLabels: Record<string, string> = {
-    ext_slack: '슬랙 등',
+    ext_open_chat: '오픈채팅방',
+    ext_slack: '슬랙',
     ext_albamon: '알바몬',
+    ext_other: '기타',
   }
 
   const snapshots = await prisma.metricSnapshot.findMany({
@@ -119,10 +121,12 @@ async function calcExternalHireRateSimple(ym: string, year: number, month: numbe
 }
 
 async function calcExternalHireHistory(currentYear: number, currentMonth: number) {
-  const channelKeys = ['ext_slack', 'ext_albamon'] as const
+  const channelKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
   const channelLabels: Record<string, string> = {
-    ext_slack: '슬랙 등',
+    ext_open_chat: '오픈채팅방',
+    ext_slack: '슬랙',
     ext_albamon: '알바몬',
+    ext_other: '기타',
   }
 
   // 10월부터 표시 (최대 7개월)
@@ -337,6 +341,89 @@ async function calcSamsungScheduleRate(ym: string, sentCoachIds?: string[]) {
   }))
 }
 
+// --- trend (last 6 months) ---
+
+async function calcTrend(currentYear: number, currentMonth: number) {
+  const months: Array<{ ym: string; year: number; month: number }> = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(currentYear, currentMonth - 1 - i, 1)
+    const y = d.getFullYear()
+    const m = d.getMonth() + 1
+    months.push({ ym: ymStr(y, m), year: y, month: m })
+  }
+
+  const results = await Promise.all(
+    months.map(async ({ ym, year: y, month: m }) => {
+      const [sched, ext, pool, resp] = await Promise.all([
+        calcScheduleInputRate(ym),
+        calcExternalHireRateSimple(ym, y, m),
+        calcCoachPoolByManager(y, m),
+        calcScoutingResponseRate(y, m),
+      ])
+      const avgPool =
+        pool.length > 0
+          ? round1(pool.reduce((s, p) => s + p.uniqueCoaches, 0) / pool.length)
+          : null
+      return {
+        yearMonth: ym,
+        scheduleInputRate: sched.rate,
+        externalHireRate: ext,
+        avgCoachPool: avgPool,
+        scoutingResponseRate: resp.rate,
+      }
+    }),
+  )
+  return results
+}
+
+// --- weeklyTrend (current month only) ---
+
+async function calcWeeklyTrend(year: number, month: number, ym: string) {
+  const now = new Date()
+  const lastDayOfMonth = new Date(year, month, 0).getDate()
+  const lastDay = Math.min(now.getDate(), lastDayOfMonth)
+
+  const total = await prisma.coach.count({
+    where: { status: 'active', deletedAt: null },
+  })
+
+  // Get daily completed counts from ScheduleAccessLog
+  const dailyRaw = await prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
+    `SELECT TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+     FROM schedule_access_logs
+     WHERE year_month = $1 AND last_edited_at IS NOT NULL
+     GROUP BY 1`,
+    ym,
+  )
+  const dailyMap = new Map(dailyRaw.map((r) => [r.d, Number(r.cnt)]))
+
+  // Split into weeks (Mon-Sun)
+  const weeks: Array<{ weekLabel: string; completedCount: number; scheduleInputRate: number | null }> = []
+  let weekStart = 1
+  while (weekStart <= lastDay) {
+    const startDate = new Date(year, month - 1, weekStart)
+    const dayOfWeek = startDate.getDay()
+    // Calculate end of week (Sunday) or end of month
+    const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
+    const weekEnd = Math.min(weekStart + daysUntilSunday, lastDay)
+
+    let count = 0
+    for (let d = weekStart; d <= weekEnd; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      count += dailyMap.get(dateStr) ?? 0
+    }
+
+    weeks.push({
+      weekLabel: `${month}/${weekStart}~${weekEnd}`,
+      completedCount: count,
+      scheduleInputRate: total > 0 ? round1((count / total) * 100) : null,
+    })
+
+    weekStart = weekEnd + 1
+  }
+  return weeks
+}
+
 // --- route ---
 
 export async function GET(request: NextRequest) {
@@ -361,7 +448,7 @@ export async function GET(request: NextRequest) {
   const sentCoachIds = await fetchSentCoachIds()
 
   // --- current month metrics ---
-  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule, extHistory] =
+  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule, extHistory, trend, weeklyTrend] =
     await Promise.all([
       calcScheduleInputRate(yearMonth, sentCoachIds),
       calcScheduleInputRate(prevYMStr),
@@ -374,6 +461,8 @@ export async function GET(request: NextRequest) {
       calcDailyTrend(year, month, yearMonth, isCurrentMonth, sentCoachIds),
       calcSamsungScheduleRate(yearMonth, sentCoachIds),
       calcExternalHireHistory(year, month),
+      calcTrend(year, month),
+      isCurrentMonth ? calcWeeklyTrend(year, month, yearMonth) : Promise.resolve(undefined),
     ])
 
   // 일정 제공 비율: before(발송 대상 중 삼전) → after(삼전 + 비삼전 입력완료)
@@ -454,5 +543,7 @@ export async function GET(request: NextRequest) {
       externalHireHistory: extHistory,
     },
     dailyTrend,
+    trend,
+    ...(weeklyTrend ? { weeklyTrend } : {}),
   })
 }

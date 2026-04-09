@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import Badge from "@/components/ui/Badge"
+import ConfirmModal from "./ConfirmModal"
 import {
   Course,
   Scouting,
@@ -31,12 +32,14 @@ function CoachPopover({
   copiedId,
   onAction,
   onShowContract,
+  onOpenConfirmModal,
 }: {
   scouting: Scouting
   updating: string | null
   copiedId: string | null
   onAction: (id: string, status: string) => Promise<void>
   onShowContract: (items: Scouting[]) => void
+  onOpenConfirmModal: (scouting: Scouting) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -97,18 +100,27 @@ function CoachPopover({
 
           {s.status === "accepted" && (
             <button
-              onClick={async () => {
-                if (confirm("확정하시겠습니까?")) {
-                  setOpen(false)
-                  await onAction(s.id, "confirmed")
-                  const confirmed = [{ ...s, status: "confirmed" }]
-                  onShowContract(confirmed)
-                }
+              onClick={() => {
+                setOpen(false)
+                onOpenConfirmModal(s)
               }}
               disabled={isUpdating}
               className="flex w-full items-center px-3 py-1.5 text-xs text-[#1976D2] font-medium rounded-lg hover:bg-[#E3F2FD] transition-colors disabled:opacity-50 cursor-pointer"
             >
               확정하기
+            </button>
+          )}
+
+          {s.status === "confirmed" && (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onOpenConfirmModal(s)
+              }}
+              disabled={isUpdating}
+              className="flex w-full items-center px-3 py-1.5 text-xs text-[#1976D2] font-medium rounded-lg hover:bg-[#E3F2FD] transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              수정
             </button>
           )}
 
@@ -168,6 +180,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
   const [updating, setUpdating] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [contractPreview, setContractPreview] = useState<{ scoutings: Scouting[]; rows: string[][] } | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<Scouting | null>(null)
 
   const counts = useMemo(() => ({
     all: scoutings.length,
@@ -245,12 +258,26 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
     })
   }
 
-  async function handleAction(id: string, status: string) {
+  async function handleAction(id: string, status: string, extra?: Record<string, string>) {
     setUpdating(id)
     try {
-      await onStatusChange(id, status)
+      await onStatusChange(id, status, extra)
     } finally {
       setUpdating(null)
+    }
+  }
+
+  async function handleConfirmModalSubmit(extra: Record<string, string>) {
+    if (!confirmTarget) return
+    const id = confirmTarget.id
+    setUpdating(id)
+    try {
+      await onStatusChange(id, "confirmed", extra)
+      const confirmed = [{ ...confirmTarget, status: "confirmed", ...extra }]
+      setContractPreview({ scoutings: confirmed, rows: buildContractRows(confirmed) })
+    } finally {
+      setUpdating(null)
+      setConfirmTarget(null)
     }
   }
 
@@ -422,6 +449,7 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
                                       copiedId={copiedId}
                                       onAction={handleAction}
                                       onShowContract={(items) => setContractPreview({ scoutings: items, rows: buildContractRows(items) })}
+                                      onOpenConfirmModal={(target) => setConfirmTarget(target)}
                                     />
                                   ))}
                                 </div>
@@ -438,6 +466,23 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
           })
         )}
       </div>
+
+      {/* ConfirmModal — 확정/수정 상세입력 */}
+      {confirmTarget && (
+        <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold text-[#333]">{confirmTarget.coach.name}</span>
+            <span className="text-xs text-gray-400">{confirmTarget.status === "confirmed" ? "확정 수정" : "확정하기"}</span>
+          </div>
+          <ConfirmModal
+            scouting={confirmTarget}
+            scoutings={scoutings}
+            updating={updating === confirmTarget.id}
+            onConfirm={handleConfirmModalSubmit}
+            onClose={() => setConfirmTarget(null)}
+          />
+        </div>
+      )}
 
       {/* 계약 작성 미리보기 모달 */}
       {contractPreview && (
@@ -499,6 +544,11 @@ export default function ScoutingTab({ courses, scoutings, onStatusChange, onRefr
           </div>
         </div>
       )}
+
+      {/* 일련의 과정 — placeholder */}
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-8 text-center">
+        <p className="text-sm font-medium text-gray-300">일련의 과정 — 준비 중</p>
+      </div>
     </div>
   )
 }

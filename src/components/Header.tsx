@@ -67,9 +67,15 @@ function HeaderContent() {
         roles: ["admin", "samsung_admin"] as const,
       },
       {
+        href: "/admin/metrics",
+        label: "지표",
+        active: pathname === "/admin/metrics",
+        roles: ["admin"] as const,
+      },
+      {
         href: "/admin",
         label: "관리자페이지",
-        active: pathname.startsWith("/admin"),
+        active: pathname === "/admin",
         roles: ["admin"] as const,
       },
     ]
