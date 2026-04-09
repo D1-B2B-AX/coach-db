@@ -9,6 +9,7 @@ import ScheduleSummary, { cleanCourseName } from "@/components/coach/ScheduleSum
 import SaveButton from "@/components/coach/SaveButton"
 import CoachProfileEdit from "@/components/coach/CoachProfileEdit"
 import ScoutingAlerts from "@/components/coach/ScoutingAlerts"
+import { usePushSubscription } from "@/hooks/usePushSubscription"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -257,6 +258,10 @@ function CoachScheduleContent() {
 
   // Editing state — working copy that only modifies the "available" slots
   const [editingSlots, setEditingSlots] = useState<Map<string, Set<string>>>(new Map())
+
+  // Push subscription (iOS A2HS detection)
+  const { isIosSafari } = usePushSubscription(token ? `/api/coach/push/subscribe?token=${token}` : '')
+  const [a2hsDismissed, setA2hsDismissed] = useState(false)
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -823,6 +828,21 @@ function CoachScheduleContent() {
           onProfile={isViewer ? undefined : () => setShowProfile(true)}
         />
       </div>
+      {isIosSafari && !isViewer && !a2hsDismissed && (
+        <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] mt-2 rounded-xl bg-[#E3F2FD] border border-[#90CAF9] px-4 py-2.5 relative">
+          <button
+            onClick={() => setA2hsDismissed(true)}
+            className="absolute top-1.5 right-2 text-[#1565C0]/60 hover:text-[#1565C0] text-sm leading-none"
+            type="button"
+          >
+            &times;
+          </button>
+          <p className="text-xs font-semibold text-[#1565C0] pr-4">알림을 받으려면 홈 화면에 추가해주세요</p>
+          <p className="text-[10px] text-[#1565C0]/70 mt-1">
+            Safari 하단 공유 버튼 <span className="inline-block align-text-bottom">&#x2B06;&#xFE0E;</span> &rarr; &lsquo;홈 화면에 추가&rsquo;를 눌러주세요
+          </p>
+        </div>
+      )}
       <div className="flex w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] flex-col items-center gap-4 -mt-3">
         {/* Main container */}
         <div className="w-full rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">

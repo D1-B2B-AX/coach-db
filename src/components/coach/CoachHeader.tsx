@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import CoachNotificationBell from "@/components/coach/CoachNotificationBell"
 
 const OPEN_SCOUTING_ALERTS_EVENT = "coach:open-scouting-alerts"
 const SCOUTING_ALERTS_COUNT_EVENT = "coach:scouting-alerts-count"
@@ -24,7 +25,7 @@ export default function CoachHeader({
     if (!token) return
     try {
       const res = await fetch(
-        `/api/coach/notifications/unread-count?token=${token}&type=scouting_request&pendingOnly=true`
+        `/api/coach/notifications/unread-count?token=${token}&type=scouting_request,scouting_request_modified&pendingOnly=true`
       )
       if (res.ok) setUnreadCount((await res.json()).count)
     } catch { /* ignore */ }
@@ -95,6 +96,9 @@ export default function CoachHeader({
                 </span>
               )}
             </button>
+          )}
+          {token && (
+            <CoachNotificationBell token={token} />
           )}
           {onProfile && (
             <button

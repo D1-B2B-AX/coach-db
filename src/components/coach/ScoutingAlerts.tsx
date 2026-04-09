@@ -59,6 +59,7 @@ export default function ScoutingAlerts({ token, readOnly, onAction }: { token: s
   const [forcedVisible, setForcedVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [groupBy, setGroupBy] = useState<'course' | 'date'>('course')
   const [modalTarget, setModalTarget] = useState<{
     date: string
     hireStart?: string | null
@@ -84,14 +85,14 @@ export default function ScoutingAlerts({ token, readOnly, onAction }: { token: s
     setLoadError(false)
     try {
       const res = await fetch(
-        `/api/coach/notifications?token=${token}&type=scouting_request&pendingOnly=true`,
+        `/api/coach/notifications?token=${token}&type=scouting_request,scouting_request_modified&pendingOnly=true`,
         { cache: "no-store" }
       )
       if (res.ok) {
         const data = await res.json()
         setAlerts(
           (data.notifications || []).filter(
-            (n: ScoutingNotification) => n.type === "scouting_request"
+            (n: ScoutingNotification) => n.type === "scouting_request" || n.type === "scouting_request_modified"
           )
         )
       } else {
@@ -217,6 +218,22 @@ export default function ScoutingAlerts({ token, readOnly, onAction }: { token: s
           <span className="rounded-full bg-[#EAF2FD] px-2.5 py-0.5 text-[11px] font-semibold text-[#1976D2]">
             {pendingAlerts.length}건
           </span>
+          {pendingAlerts.length > 0 && (
+            <div className="ml-auto flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setGroupBy('course')}
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${groupBy === 'course' ? 'bg-[#1976D2] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                과정별
+              </button>
+              <button
+                onClick={() => setGroupBy('date')}
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${groupBy === 'date' ? 'bg-[#1976D2] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                날짜별
+              </button>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           {loading && pendingAlerts.length === 0 && (
@@ -235,122 +252,207 @@ export default function ScoutingAlerts({ token, readOnly, onAction }: { token: s
             </div>
           )}
           {(() => {
-            // 전체 pendingAlerts로 과정별 그룹핑 (정확한 카운트)
-            const grouped = new Map<string, ScoutingNotification[]>()
-            for (const a of pendingAlerts) {
-              const key = a.enriched?.courseName || a.data?.courseName || "과정명 없음"
-              if (!grouped.has(key)) grouped.set(key, [])
-              grouped.get(key)!.push(a)
-            }
-            // 각 그룹 내 날짜순 정렬
-            for (const [, items] of grouped) {
-              items.sort((a, b) => (a.data?.date ?? "").localeCompare(b.data?.date ?? ""))
-            }
-            // 미확장 시 그룹별로 limit 적용
             const groupLimit = expanded ? Infinity : limit
-            return [...grouped.entries()].map(([courseName, items]) => {
-              // 그룹 대표 정보 (같은 과정이면 동일)
-              const rep = items.find((a) => a.enriched)?.enriched
-              const courseDesc = rep?.courseDescription ?? null
-              const message = rep?.message ?? null
-              const location = rep?.location ?? null
-              const hourlyRate = rep?.hourlyRate ?? null
-              const courseRemarks = rep?.remarks ?? null
-              const managerName = rep?.managerName ?? items[0]?.data?.managerName ?? null
-              return (
-              <div key={courseName} className="space-y-1.5 rounded-xl border-l-[3px] border-l-[#1976D2] bg-[#F5F8FC] pl-3.5 pr-3 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-semibold text-[#333]">{courseName}</span>
-                  <span className="text-[10px] text-gray-400">{items.length}건</span>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {!readOnly && <button
-                      onClick={() => handleBulkAction(items, "accept")}
-                      disabled={bulkActing}
-                      className="cursor-pointer rounded-full bg-[#1976D2] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1565C0] disabled:opacity-50"
-                    >
-                      {bulkActing ? "..." : "전부 수락"}
-                    </button>}
-                    {!readOnly && <button
-                      onClick={() => handleBulkAction(items, "reject")}
-                      disabled={bulkActing}
-                      className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      전부 거절
-                    </button>}
-                  </div>
-                </div>
-                {(location || hourlyRate || managerName || courseRemarks) && (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#555]">
-                    {managerName && <span>{managerName.trim()} 매니저</span>}
-                    {location && <span>{location}</span>}
-                    {hourlyRate && <span>시급 {hourlyRate.toLocaleString()}원</span>}
-                    {courseRemarks && <span>비고: {courseRemarks}</span>}
-                  </div>
-                )}
-                {(courseDesc || message) && (
-                  <div className="rounded-xl border border-[#E7EDF3] bg-[#F8FAFC] px-4 py-2.5 space-y-1">
-                    {courseDesc && (
-                      <p className="text-[12px] leading-relaxed text-[#374151]">
-                        <span className="text-[#999]">과정설명</span>
-                        <span className="ml-1.5">{courseDesc}</span>
-                      </p>
-                    )}
-                    {message && (
-                      <p className="text-[12px] leading-relaxed text-[#374151]">
-                        <span className="text-[#999]">전하는 말</span>
-                        <span className="ml-1.5">{message}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-                {items.slice(0, groupLimit).map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"
-                    onClick={() => {
-                      setModalTarget({
-                        date: a.data?.date ?? "",
-                        hireStart: a.data?.hireStart ?? null,
-                        hireEnd: a.data?.hireEnd ?? null,
-                        managerEmail: a.data?.managerEmail ?? null,
-                        courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
-                        courseDescription: a.enriched?.courseDescription ?? null,
-                        message: a.enriched?.message ?? null,
-                        remarks: a.enriched?.remarks ?? null,
-                        managerName: a.enriched?.managerName ?? a.data?.managerName ?? null,
-                      })
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#EAF2FD] px-2.5 py-1 text-[11px] font-semibold text-[#1976D2]">
-                          {formatAlertDate(a.data?.date ?? "")}
-                          {" "}
-                          {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
-                        </span>
-                      </div>
-                      {!readOnly && <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
-                          disabled={acting === a.id}
-                          className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
-                        >
-                          {acting === a.id ? "..." : "수락"}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
-                          disabled={acting === a.id}
-                          className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
-                        >
-                          거절
-                        </button>
-                      </div>}
+
+            if (groupBy === 'course') {
+              // 과정별 그룹핑
+              const grouped = new Map<string, ScoutingNotification[]>()
+              for (const a of pendingAlerts) {
+                const key = a.enriched?.courseName || a.data?.courseName || "과정명 없음"
+                if (!grouped.has(key)) grouped.set(key, [])
+                grouped.get(key)!.push(a)
+              }
+              for (const [, items] of grouped) {
+                items.sort((a, b) => (a.data?.date ?? "").localeCompare(b.data?.date ?? ""))
+              }
+              return [...grouped.entries()].map(([courseName, items]) => {
+                const rep = items.find((a) => a.enriched)?.enriched
+                const courseDesc = rep?.courseDescription ?? null
+                const message = rep?.message ?? null
+                const location = rep?.location ?? null
+                const hourlyRate = rep?.hourlyRate ?? null
+                const courseRemarks = rep?.remarks ?? null
+                const managerName = rep?.managerName ?? items[0]?.data?.managerName ?? null
+                return (
+                <div key={courseName} className="space-y-1.5 rounded-xl border-l-[3px] border-l-[#1976D2] bg-[#F5F8FC] pl-3.5 pr-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-semibold text-[#333]">{courseName}</span>
+                    <span className="text-[10px] text-gray-400">{items.length}건</span>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {!readOnly && <button
+                        onClick={() => handleBulkAction(items, "accept")}
+                        disabled={bulkActing}
+                        className="cursor-pointer rounded-full bg-[#1976D2] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1565C0] disabled:opacity-50"
+                      >
+                        {bulkActing ? "..." : "전부 수락"}
+                      </button>}
+                      {!readOnly && <button
+                        onClick={() => handleBulkAction(items, "reject")}
+                        disabled={bulkActing}
+                        className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        전부 거절
+                      </button>}
                     </div>
                   </div>
-                ))}
-              </div>
-              )
-            })
+                  {(location || hourlyRate || managerName || courseRemarks) && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#555]">
+                      {managerName && <span>{managerName.trim()} 매니저</span>}
+                      {location && <span>{location}</span>}
+                      {hourlyRate && <span>시급 {hourlyRate.toLocaleString()}원</span>}
+                      {courseRemarks && <span>비고: {courseRemarks}</span>}
+                    </div>
+                  )}
+                  {(courseDesc || message) && (
+                    <div className="rounded-xl border border-[#E7EDF3] bg-[#F8FAFC] px-4 py-2.5 space-y-1">
+                      {courseDesc && (
+                        <p className="text-[12px] leading-relaxed text-[#374151]">
+                          <span className="text-[#999]">과정설명</span>
+                          <span className="ml-1.5">{courseDesc}</span>
+                        </p>
+                      )}
+                      {message && (
+                        <p className="text-[12px] leading-relaxed text-[#374151]">
+                          <span className="text-[#999]">전하는 말</span>
+                          <span className="ml-1.5">{message}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {items.slice(0, groupLimit).map((a) => (
+                    <div
+                      key={a.id}
+                      className="rounded-xl border border-[#E7EDF3] bg-[#FBFCFD] px-4 py-3 cursor-pointer transition-colors hover:border-[#D6E4F5]"
+                      onClick={() => {
+                        setModalTarget({
+                          date: a.data?.date ?? "",
+                          hireStart: a.data?.hireStart ?? null,
+                          hireEnd: a.data?.hireEnd ?? null,
+                          managerEmail: a.data?.managerEmail ?? null,
+                          courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
+                          courseDescription: a.enriched?.courseDescription ?? null,
+                          message: a.enriched?.message ?? null,
+                          remarks: a.enriched?.remarks ?? null,
+                          managerName: a.enriched?.managerName ?? a.data?.managerName ?? null,
+                        })
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#EAF2FD] px-2.5 py-1 text-[11px] font-semibold text-[#1976D2]">
+                            {formatAlertDate(a.data?.date ?? "")}
+                            {" "}
+                            {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
+                          </span>
+                        </div>
+                        {!readOnly && <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
+                            disabled={acting === a.id}
+                            className="cursor-pointer rounded-full bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1565C0] disabled:opacity-50"
+                          >
+                            {acting === a.id ? "..." : "수락"}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
+                            disabled={acting === a.id}
+                            className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                          >
+                            거절
+                          </button>
+                        </div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                )
+              })
+            } else {
+              // 날짜별 그룹핑
+              const grouped = new Map<string, ScoutingNotification[]>()
+              for (const a of pendingAlerts) {
+                const key = a.data?.date ?? "날짜 없음"
+                if (!grouped.has(key)) grouped.set(key, [])
+                grouped.get(key)!.push(a)
+              }
+              // 날짜 오름차순 정렬
+              const sortedEntries = [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b))
+              return sortedEntries.map(([dateKey, items]) => {
+                return (
+                <div key={dateKey} className="space-y-1.5 rounded-xl border-l-[3px] border-l-[#43A047] bg-[#F5FAF5] pl-3.5 pr-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-semibold text-[#333]">{formatAlertDate(dateKey)}</span>
+                    <span className="text-[10px] text-gray-400">{items.length}건</span>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {!readOnly && <button
+                        onClick={() => handleBulkAction(items, "accept")}
+                        disabled={bulkActing}
+                        className="cursor-pointer rounded-full bg-[#43A047] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#388E3C] disabled:opacity-50"
+                      >
+                        {bulkActing ? "..." : "전부 수락"}
+                      </button>}
+                      {!readOnly && <button
+                        onClick={() => handleBulkAction(items, "reject")}
+                        disabled={bulkActing}
+                        className="cursor-pointer rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        전부 거절
+                      </button>}
+                    </div>
+                  </div>
+                  {items.slice(0, groupLimit).map((a) => {
+                    const courseName = a.enriched?.courseName ?? a.data?.courseName ?? "과정명 없음"
+                    const managerName = a.enriched?.managerName ?? a.data?.managerName ?? null
+                    return (
+                    <div
+                      key={a.id}
+                      className="rounded-xl border border-[#E0EDE0] bg-[#FBFDFB] px-4 py-3 cursor-pointer transition-colors hover:border-[#C5DCC5]"
+                      onClick={() => {
+                        setModalTarget({
+                          date: a.data?.date ?? "",
+                          hireStart: a.data?.hireStart ?? null,
+                          hireEnd: a.data?.hireEnd ?? null,
+                          managerEmail: a.data?.managerEmail ?? null,
+                          courseName: a.enriched?.courseName ?? a.data?.courseName ?? null,
+                          courseDescription: a.enriched?.courseDescription ?? null,
+                          message: a.enriched?.message ?? null,
+                          remarks: a.enriched?.remarks ?? null,
+                          managerName: a.enriched?.managerName ?? a.data?.managerName ?? null,
+                        })
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <span className="text-[13px] font-medium text-[#333] truncate">{courseName}</span>
+                          {managerName && <span className="text-[11px] text-gray-400">{managerName.trim()} 매니저</span>}
+                          <span className="rounded-full bg-[#E8F5E9] px-2 py-0.5 text-[10px] font-medium text-[#43A047]">
+                            {formatAlertTime(a.data?.hireStart ?? null, a.data?.hireEnd ?? null)}
+                          </span>
+                        </div>
+                        {!readOnly && <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleAction(a, "accept") }}
+                            disabled={acting === a.id}
+                            className="cursor-pointer rounded-full bg-[#43A047] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#388E3C] disabled:opacity-50"
+                          >
+                            {acting === a.id ? "..." : "수락"}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleAction(a, "reject") }}
+                            disabled={acting === a.id}
+                            className="cursor-pointer rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                          >
+                            거절
+                          </button>
+                        </div>}
+                      </div>
+                    </div>
+                    )
+                  })}
+                </div>
+                )
+              })
+            }
           })()}
           {hasMore && !expanded && (
             <button

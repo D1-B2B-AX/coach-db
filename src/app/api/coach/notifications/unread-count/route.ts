@@ -11,13 +11,14 @@ export async function GET(request: NextRequest) {
 
   const pendingOnly = request.nextUrl.searchParams.get('pendingOnly') === 'true'
   const type = request.nextUrl.searchParams.get('type')
+  const types = type ? type.split(',').map(t => t.trim()).filter(Boolean) : null
 
   const count = await prisma.notification.count({
     where: {
       coachId: coach.id,
       readAt: null,
       ...(pendingOnly && { expiredAt: null }),
-      ...(type && { type }),
+      ...(types && (types.length === 1 ? { type: types[0] } : { type: { in: types } })),
     },
   })
 

@@ -16,13 +16,14 @@ export async function GET(request: NextRequest) {
   const unreadOnly = request.nextUrl.searchParams.get('unreadOnly') === 'true'
   const pendingOnly = request.nextUrl.searchParams.get('pendingOnly') === 'true'
   const type = request.nextUrl.searchParams.get('type')
+  const types = type ? type.split(',').map(t => t.trim()).filter(Boolean) : null
 
   const notifications = await prisma.notification.findMany({
     where: {
       coachId: coach.id,
       ...(unreadOnly && { readAt: null }),
       ...(pendingOnly && { readAt: null, expiredAt: null }),
-      ...(type && { type }),
+      ...(types && (types.length === 1 ? { type: types[0] } : { type: { in: types } })),
     },
     orderBy: [{ readAt: 'asc' }, { createdAt: 'desc' }],
     take: pendingOnly ? 100 : 50,
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   // Collect scoutingIds from scouting_request notifications (batch fetch)
   const scoutingIds: string[] = []
   for (const n of notifications) {
-    if (n.type === 'scouting_request') {
+    if (n.type === 'scouting_request' || n.type === 'scouting_request_modified') {
       const data = n.data as Record<string, unknown> | null
       if (data && data.scoutingId && typeof data.scoutingId === 'string') {
         scoutingIds.push(data.scoutingId)
