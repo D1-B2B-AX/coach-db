@@ -43,6 +43,16 @@ function formatDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
 
+function parseYearMonthParam(yearMonth: string | null): { year: number; month: number } | null {
+  if (!yearMonth) return null
+  const match = yearMonth.match(/^(\d{4})-(\d{2})$/)
+  if (!match) return null
+  const year = parseInt(match[1], 10)
+  const monthIndex = parseInt(match[2], 10) - 1
+  if (Number.isNaN(year) || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return null
+  return { year, month: monthIndex }
+}
+
 function buildDateSet(start: string, end: string) {
   const dates = new Set<string>()
   const cursor = new Date(`${start}T12:00:00Z`)
@@ -214,6 +224,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [bulkSending, setBulkSending] = useState(false)
   const bulkSendingRef = useRef(false)
   const [bulkError, setBulkError] = useState("")
+  const yearMonth = formatYearMonth(currentYear, currentMonth)
 
   // ── Restore filters from URL on mount & sync changes back ──
   const isFirstFilterSync = useRef(true)
@@ -221,10 +232,26 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     if (isFirstFilterSync.current) {
       isFirstFilterSync.current = false
       const params = new URLSearchParams(window.location.search)
+      const restoredYearMonth = parseYearMonthParam(params.get("yearMonth"))
+      if (restoredYearMonth) {
+        setCurrentYear(restoredYearMonth.year)
+        setCurrentMonth(restoredYearMonth.month)
+      }
+      if (params.has("selectedStart")) setSelectedStart(params.get("selectedStart"))
+      if (params.has("selectedEnd")) setSelectedEnd(params.get("selectedEnd"))
+      if (params.has("selectedDates")) {
+        setSelectedDates(new Set(params.get("selectedDates")!.split(",").filter(Boolean)))
+      }
+      if (params.has("courseId")) setSelectedCourseId(params.get("courseId"))
       if (params.has("timeFilter")) {
         const v = params.get("timeFilter")!
         setTimeFilter(v)
-        setTimeFilterSource(v === "all" ? "default" : "manual")
+        const sourceParam = params.get("timeFilterSource")
+        if (sourceParam === "course-auto" || sourceParam === "manual" || sourceParam === "default") {
+          setTimeFilterSource(sourceParam)
+        } else {
+          setTimeFilterSource(v === "all" ? "default" : "manual")
+        }
       }
       if (params.has("fieldFilter")) setFieldFilter(params.get("fieldFilter")!)
       if (params.has("ratingFilter")) setRatingFilter(params.get("ratingFilter")!)
@@ -233,18 +260,34 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       return
     }
     const params = new URLSearchParams()
+    params.set("yearMonth", yearMonth)
+    if (selectedStart) params.set("selectedStart", selectedStart)
+    if (selectedEnd) params.set("selectedEnd", selectedEnd)
+    if (selectedDates.size > 0) params.set("selectedDates", [...selectedDates].sort().join(","))
+    if (selectedCourseId) params.set("courseId", selectedCourseId)
     if (timeFilter !== "all") params.set("timeFilter", timeFilter)
+    if (timeFilterSource !== "default") params.set("timeFilterSource", timeFilterSource)
     if (fieldFilter !== "all") params.set("fieldFilter", fieldFilter)
     if (ratingFilter !== "all") params.set("ratingFilter", ratingFilter)
     if (statusFilter !== "all") params.set("statusFilter", statusFilter)
     if (engagementFilter !== "all") params.set("engagementFilter", engagementFilter)
     const qs = params.toString()
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
-  }, [timeFilter, fieldFilter, ratingFilter, statusFilter, engagementFilter])
+  }, [
+    yearMonth,
+    selectedStart,
+    selectedEnd,
+    selectedDates,
+    selectedCourseId,
+    timeFilter,
+    timeFilterSource,
+    fieldFilter,
+    ratingFilter,
+    statusFilter,
+    engagementFilter,
+  ])
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const yearMonth = formatYearMonth(currentYear, currentMonth)
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === selectedCourseId) ?? null,
     [courses, selectedCourseId]

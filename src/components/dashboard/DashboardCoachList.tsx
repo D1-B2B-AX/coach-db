@@ -146,6 +146,12 @@ export default function DashboardCoachList({
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
+  function handleCoachClick(coachId: string) {
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    const params = new URLSearchParams({ returnTo })
+    router.push(`/coaches/${coachId}?${params.toString()}`)
+  }
+
   const allFields = useMemo(() => {
     const set = new Set<string>()
     for (const c of coaches) for (const f of c.fields) set.add(f)
@@ -347,7 +353,7 @@ export default function DashboardCoachList({
               return (
                 <div
                   key={coach.id}
-                  onClick={() => router.push(`/coaches/${coach.id}`)}
+                  onClick={() => handleCoachClick(coach.id)}
                   className={`px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedIds.has(coach.id) ? "bg-blue-50/40" : ""}`}
                 >
                   {/* 1줄: 체크박스 + 이름 + 분야 태그 + 평점 */}

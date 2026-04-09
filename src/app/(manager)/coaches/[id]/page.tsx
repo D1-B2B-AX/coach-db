@@ -73,6 +73,26 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   pending: { label: "대기", className: "bg-[#E3F2FD] text-[#1565C0]" },
 }
 
+function getSafeReturnTo(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null
+  return value
+}
+
+function buildCoachDetailHref(coachId: string, tab: TabKey, returnTo?: string | null): string {
+  const params = new URLSearchParams()
+  if (tab !== "profile") params.set("tab", tab)
+  if (returnTo) params.set("returnTo", returnTo)
+  const query = params.toString()
+  return query ? `/coaches/${coachId}?${query}` : `/coaches/${coachId}`
+}
+
+function buildCoachEditHref(coachId: string, returnTo?: string | null): string {
+  const params = new URLSearchParams()
+  if (returnTo) params.set("returnTo", returnTo)
+  const query = params.toString()
+  return query ? `/coaches/${coachId}/edit?${query}` : `/coaches/${coachId}/edit`
+}
+
 export default function CoachDetailPage() {
   return (
     <Suspense fallback={<CoachDetailPageSkeleton />}>
@@ -91,6 +111,8 @@ function CoachDetailPageContent() {
   const managerName = session?.user?.name || ""
 
   const tabFromUrl = searchParams.get("tab") as TabKey | null
+  const returnTo = getSafeReturnTo(searchParams.get("returnTo"))
+  const backHref = returnTo || "/coaches"
   const validTabs: TabKey[] = ["profile", "schedule", "engagement"]
 
   const [coach, setCoach] = useState<CoachDetail | null>(null)
@@ -119,7 +141,7 @@ function CoachDetailPageContent() {
         const data = await res.json()
         setCoach(data)
       } else if (res.status === 404) {
-        router.push("/coaches")
+        router.push(backHref)
       } else {
         setFetchError(true)
       }
@@ -128,7 +150,7 @@ function CoachDetailPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [coachId, router])
+  }, [backHref, coachId, router])
 
   useEffect(() => {
     fetchCoach()
@@ -152,7 +174,7 @@ function CoachDetailPageContent() {
         body: JSON.stringify({ confirmName: confirmEmail.trim() }),
       })
       if (res.ok) {
-        router.push("/coaches")
+        router.push(backHref)
       } else {
         const data = await res.json()
         setDeleteError(data.error || "삭제에 실패했습니다.")
@@ -270,7 +292,7 @@ function CoachDetailPageContent() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/coaches"
+            href={backHref}
             className="shrink-0 text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             &larr;
@@ -368,7 +390,7 @@ function CoachDetailPageContent() {
               key={tab.key}
               onClick={() => {
                 setActiveTab(tab.key)
-                window.history.replaceState(null, "", `?tab=${tab.key}`)
+                window.history.replaceState(null, "", buildCoachDetailHref(coachId, tab.key, returnTo))
               }}
               className={`cursor-pointer border-b-2 pb-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.key
@@ -384,7 +406,7 @@ function CoachDetailPageContent() {
           {activeTab === "profile" && (
             <>
               <Link
-                href={`/coaches/${coachId}/edit`}
+                href={buildCoachEditHref(coachId, returnTo)}
                 className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
               >
                 수정

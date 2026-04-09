@@ -90,6 +90,12 @@ export default function CoachListTable({
 }: CoachListTableProps) {
   const router = useRouter()
 
+  function handleRowClick(coachId: string) {
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    const params = new URLSearchParams({ returnTo })
+    router.push(`/coaches/${coachId}?${params.toString()}`)
+  }
+
   if (loading) {
     return (
       <Table>
@@ -224,7 +230,7 @@ export default function CoachListTable({
           return (
             <TableRow
               key={coach.id}
-              onClick={() => router.push(`/coaches/${coach.id}`)}
+              onClick={() => handleRowClick(coach.id)}
               className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_104px_112px_108px_160px_minmax(48px,1fr)_56px_48px] cursor-pointer hover:bg-gray-50"
               selected={isSelected}
             >

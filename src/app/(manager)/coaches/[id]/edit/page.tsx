@@ -1,16 +1,32 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import CoachForm from "@/components/coaches/CoachForm"
 import type { CoachDetail, CoachFormData } from "@/components/coaches/CoachForm"
 import { Skeleton, SkeletonCard } from "@/components/Skeleton"
 
+function getSafeReturnTo(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null
+  return value
+}
+
+function buildCoachDetailHref(coachId: string, returnTo?: string | null): string {
+  const params = new URLSearchParams()
+  if (returnTo) params.set("returnTo", returnTo)
+  const query = params.toString()
+  return query ? `/coaches/${coachId}?${query}` : `/coaches/${coachId}`
+}
+
 export default function EditCoachPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const coachId = params.id as string
+  const returnTo = getSafeReturnTo(searchParams.get("returnTo"))
+  const detailHref = buildCoachDetailHref(coachId, returnTo)
+  const backHref = returnTo || "/coaches"
 
   const [coach, setCoach] = useState<CoachDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,7 +78,7 @@ export default function EditCoachPage() {
 
   async function handleSubmit(data: CoachFormData) {
     if (coach && !hasChanges(coach, data)) {
-      router.push(`/coaches/${coachId}`)
+      router.push(detailHref)
       return
     }
 
@@ -79,7 +95,7 @@ export default function EditCoachPage() {
         throw new Error(body.error || "수정에 실패했습니다.")
       }
 
-      router.push(`/coaches/${coachId}`)
+      router.push(detailHref)
     } finally {
       setSubmitting(false)
     }
@@ -122,7 +138,7 @@ export default function EditCoachPage() {
         <div className="py-12 text-center">
           <p className="text-sm text-gray-400">{fetchError || "코치를 찾을 수 없습니다."}</p>
           <Link
-            href="/coaches"
+            href={backHref}
             className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800"
           >
             목록으로 돌아가기
@@ -138,7 +154,7 @@ export default function EditCoachPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href={`/coaches/${coachId}`}
+            href={detailHref}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             &larr;
