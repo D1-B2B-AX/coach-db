@@ -340,17 +340,6 @@ model Notification {
   @@map("notifications")
 }
 
-// ─── 회사명 매핑 ───
-
-model CompanyAlias {
-  id          String   @id @default(uuid())
-  companyName String   @unique @map("company_name") @db.VarChar(100)
-  alias       String   @db.VarChar(50)
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  @@map("company_aliases")
-}
-
 // ─── Push 구독 ───
 
 model PushSubscription {

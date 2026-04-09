@@ -2,7 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { logAccess } from '@/lib/access-log'
-import { formatScoutingDisplay } from '@/lib/company-alias'
+
+function formatScoutingDisplay(params: {
+  date: string
+  managerName: string
+  managerEmail?: string | null
+  courseName: string | null
+  hireStart?: string | null
+  hireEnd?: string | null
+}): string {
+  const { date, managerName, managerEmail, hireStart, hireEnd } = params
+  const courseName = params.courseName?.trim() || null
+
+  const [, mo, day] = date.split('-')
+  const dateStr = `${parseInt(mo, 10)}/${parseInt(day, 10)}`
+  const timeStr = hireStart && hireEnd ? ` ${hireStart}~${hireEnd}` : ''
+  const managerLabel = managerEmail
+    ? `${managerName}매니저 (${managerEmail})`
+    : `${managerName}매니저`
+  const base = `${dateStr}${timeStr} 찜꽁 (${managerLabel})`
+
+  if (!courseName) return base
+  return `${dateStr}${timeStr} 찜꽁 — ${courseName} (${managerLabel})`
+}
 
 // GET /api/coach/notifications — 코치 알림 목록
 export async function GET(request: NextRequest) {
@@ -88,8 +110,6 @@ export async function GET(request: NextRequest) {
       managerName,
       managerEmail,
       courseName,
-      companyAlias: null,
-      restCourseName: null,
       hireStart,
       hireEnd,
     })
