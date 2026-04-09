@@ -54,6 +54,35 @@ export default function CoachesPage() {
     }
   }, [search, compositionEnd])
 
+  // ── Restore filters from URL on mount & sync changes back ──
+  const isFirstFilterSync = useRef(true)
+  useEffect(() => {
+    if (isFirstFilterSync.current) {
+      isFirstFilterSync.current = false
+      const params = new URLSearchParams(window.location.search)
+      if (params.has("search")) {
+        const v = params.get("search")!
+        setSearch(v)
+        setDebouncedSearch(v)
+      }
+      if (params.has("status")) setStatusFilter(params.get("status")!)
+      if (params.has("fields")) setFieldFilter(new Set(params.get("fields")!.split(",").filter(Boolean)))
+      if (params.has("workTypes")) setWorkTypeFilter(new Set(params.get("workTypes")!.split(",").filter(Boolean)))
+      if (params.has("sort1")) setSort1(params.get("sort1")!)
+      if (params.has("sort2")) setSort2(params.get("sort2")!)
+      return
+    }
+    const params = new URLSearchParams()
+    if (debouncedSearch) params.set("search", debouncedSearch)
+    if (statusFilter) params.set("status", statusFilter)
+    if (fieldFilter.size > 0) params.set("fields", [...fieldFilter].join(","))
+    if (workTypeFilter.size > 0) params.set("workTypes", [...workTypeFilter].join(","))
+    if (sort1 !== "workDays") params.set("sort1", sort1)
+    if (sort2 !== "rating") params.set("sort2", sort2)
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [debouncedSearch, statusFilter, fieldFilter, workTypeFilter, sort1, sort2])
+
   // Fetch master fields on mount
   useEffect(() => {
     async function fetchFields() {

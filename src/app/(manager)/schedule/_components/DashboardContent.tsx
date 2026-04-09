@@ -215,6 +215,33 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const bulkSendingRef = useRef(false)
   const [bulkError, setBulkError] = useState("")
 
+  // ── Restore filters from URL on mount & sync changes back ──
+  const isFirstFilterSync = useRef(true)
+  useEffect(() => {
+    if (isFirstFilterSync.current) {
+      isFirstFilterSync.current = false
+      const params = new URLSearchParams(window.location.search)
+      if (params.has("timeFilter")) {
+        const v = params.get("timeFilter")!
+        setTimeFilter(v)
+        setTimeFilterSource(v === "all" ? "default" : "manual")
+      }
+      if (params.has("fieldFilter")) setFieldFilter(params.get("fieldFilter")!)
+      if (params.has("ratingFilter")) setRatingFilter(params.get("ratingFilter")!)
+      if (params.has("statusFilter")) setStatusFilter(params.get("statusFilter")!)
+      if (params.has("engagementFilter")) setEngagementFilter(params.get("engagementFilter")!)
+      return
+    }
+    const params = new URLSearchParams()
+    if (timeFilter !== "all") params.set("timeFilter", timeFilter)
+    if (fieldFilter !== "all") params.set("fieldFilter", fieldFilter)
+    if (ratingFilter !== "all") params.set("ratingFilter", ratingFilter)
+    if (statusFilter !== "all") params.set("statusFilter", statusFilter)
+    if (engagementFilter !== "all") params.set("engagementFilter", engagementFilter)
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [timeFilter, fieldFilter, ratingFilter, statusFilter, engagementFilter])
+
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const yearMonth = formatYearMonth(currentYear, currentMonth)
