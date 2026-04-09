@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { generateAccessToken } from '@/lib/coach-auth'
 import { toDateOnly } from '@/lib/date-utils'
+import { getCoachSamsungExclusionWhere } from '@/lib/samsung-config'
 import type { Prisma } from '@/generated/prisma/client'
 
 // GET /api/coaches — list coaches with filtering
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
   const where: Prisma.CoachWhereInput = {
     deletedAt: null,
     status: { not: 'pending' },
+    ...getCoachSamsungExclusionWhere(),
   }
 
   // Search across name, phone, email

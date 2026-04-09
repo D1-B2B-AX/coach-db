@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { getCoachSamsungExclusionWhere } from '@/lib/samsung-config'
 import * as XLSX from 'xlsx'
 
 // POST /api/coaches/export — export selected coaches as xlsx
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     where: {
       id: { in: coachIds },
       deletedAt: null,
+      ...getCoachSamsungExclusionWhere(),
     },
     orderBy: { name: 'asc' },
   })

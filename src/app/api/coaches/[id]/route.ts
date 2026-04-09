@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
 import { toDateOnly } from '@/lib/date-utils'
 import { logChanges } from '@/lib/audit'
+import { isSamsungCoachHidden } from '@/lib/samsung-config'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   })
 
   if (!coach) {
+    return NextResponse.json({ error: 'Coach not found' }, { status: 404 })
+  }
+
+  // 삼전 DS/DX 코치는 현재 달 기준으로 직접 접근도 차단
+  if (isSamsungCoachHidden(coach.workType)) {
     return NextResponse.json({ error: 'Coach not found' }, { status: 404 })
   }
 
