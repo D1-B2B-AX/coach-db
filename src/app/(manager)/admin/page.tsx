@@ -1220,7 +1220,7 @@ function CoachManagementTab() {
                 <span
                   onClick={(e) => { e.stopPropagation(); window.open(`${getLink(c.id)}&viewer=manager`, '_blank') }}
                   className="text-xs text-[#1976D2] cursor-pointer hover:text-[#1565C0] transition-colors shrink-0"
-                >들어가기</span>
+                >관리자 입장</span>
               )}
             </span>
           </div>
