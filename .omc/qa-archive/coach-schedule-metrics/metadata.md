@@ -1,0 +1,16 @@
+- task-slug: coach-schedule-metrics
+- qa-date: 2026-04-09
+- final-verdict: CONDITIONAL PASS → PASS (resolved)
+- resolution-date: 2026-04-09
+- chain-verdict: PASS
+- independent-verdict: PARTIAL
+- divergence: 불일치
+- plan-dir: .omc/plans/coach-schedule-metrics/
+- resolved-findings:
+  - #1 CRITICAL: external-hire API 부재 → 2026-04-09 신규 생성 (이번 세션)
+  - #2 MAJOR: 추이 차트 미구현 → 이전 세션에서 TrendChart 구현 완료
+  - #3 MAJOR: weeklyTrend 미구현 → 이전 세션에서 WeeklyTrendMiniChart 구현 완료
+  - #4 MINOR: 네비게이션 링크 없음 → 이전 세션에서 Header에 /admin/metrics 추가
+- unresolved-findings:
+  - #5 INFO: 과잉 산출물 (삼전 현황, 일정 제공 비율) — 사용자 의도 확인 필요
+- 사후 발견 여부: 있음 — MISSED-2026-04-09-001 참조

@@ -1,0 +1,8 @@
+- task-slug: scouting-defense-logic
+- qa-date: 2026-04-09
+- final-verdict: PASS
+- chain-verdict: PASS
+- independent-verdict: PASS
+- divergence: 일치 (MINOR: confirmed→confirmed 알림 문서-코드 불일치 — 체인 미감지, 독립 감지)
+- plan-dir: .omc/plans/scouting-defense-logic/
+- 사후 발견 여부: 미확인
