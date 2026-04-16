@@ -116,12 +116,21 @@ function GroupCard({ group }: { group: EngagementGroup }) {
 }
 
 export default function EngagementHistorySection({ engagements }: Props) {
-  const groups = useMemo(() => groupEngagements(engagements), [engagements])
+  const upcoming = useMemo(
+    () => engagements.filter(e => e.status === "scheduled" || e.status === "in_progress"),
+    [engagements]
+  )
+  const past = useMemo(
+    () => engagements.filter(e => e.status === "completed" || e.status === "cancelled"),
+    [engagements]
+  )
+  const upcomingGroups = useMemo(() => groupEngagements(upcoming), [upcoming])
+  const pastGroups = useMemo(() => groupEngagements(past), [past])
 
-  if (groups.length === 0) {
+  if (upcomingGroups.length === 0 && pastGroups.length === 0) {
     return (
       <div className="mt-6">
-        <h3 className="text-sm font-semibold text-gray-500 mb-3">지난 과정</h3>
+        <h3 className="text-sm font-semibold text-gray-500 mb-3">투입 이력</h3>
         <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-8 text-center text-sm text-gray-400">
           아직 투입 이력이 없습니다
         </div>
@@ -130,13 +139,27 @@ export default function EngagementHistorySection({ engagements }: Props) {
   }
 
   return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-gray-500 mb-3">지난 과정</h3>
-      <div className="space-y-2">
-        {groups.map((g) => (
-          <GroupCard key={g.courseName} group={g} />
-        ))}
-      </div>
-    </div>
+    <>
+      {upcomingGroups.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-3">예정/진행 과정</h3>
+          <div className="space-y-2">
+            {upcomingGroups.map((g) => (
+              <GroupCard key={g.courseName} group={g} />
+            ))}
+          </div>
+        </div>
+      )}
+      {pastGroups.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-3">지난 과정</h3>
+          <div className="space-y-2">
+            {pastGroups.map((g) => (
+              <GroupCard key={g.courseName} group={g} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
