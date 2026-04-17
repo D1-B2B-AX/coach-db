@@ -9,6 +9,9 @@ export interface EngagementHistory {
   startTime: string | null
   endTime: string | null
   location: string | null
+  hourlyRate: number | null
+  description: string | null
+  remarks: string | null
   rating: number | null
   feedback: string | null
   rehire: boolean | null
@@ -26,6 +29,65 @@ export interface EngagementGroup {
   courseName: string
   engagements: EngagementHistory[]
   period: string
+}
+
+// 코치+과정명 단위 묶음 (투입 이력 UI에서 한 행으로 합쳐 보여줌)
+export interface CoachCourseGroup {
+  key: string // coachId + courseName
+  coach: EngagementHistory['coach']
+  courseName: string
+  engagements: EngagementHistory[]
+  startDate: string // 가장 이른 시작
+  endDate: string   // 가장 늦은 종료
+  status: string    // 진행 > 예정 > 완료 > 취소 우선순위
+  reviewableId: string | null // 완료 중 가장 이른 engagement (별점 저장 대상)
+  location: string | null
+  hourlyRate: number | null
+  description: string | null
+  remarks: string | null
+}
+
+const ENGAGEMENT_STATUS_PRIORITY: Record<string, number> = {
+  in_progress: 0,
+  scheduled: 1,
+  completed: 2,
+  cancelled: 3,
+}
+
+export function groupByCoachCourse(list: EngagementHistory[]): CoachCourseGroup[] {
+  const map = new Map<string, EngagementHistory[]>()
+  for (const e of list) {
+    const key = `${e.coach.id}::${e.courseName}`
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(e)
+  }
+  return [...map.entries()].map(([key, engagements]) => {
+    const sorted = [...engagements].sort((a, b) => a.startDate.localeCompare(b.startDate))
+    const startDate = sorted[0].startDate
+    const endDate = sorted.reduce((latest, e) => e.endDate > latest ? e.endDate : latest, sorted[0].endDate)
+    const status = sorted.reduce((acc, e) => {
+      const p = ENGAGEMENT_STATUS_PRIORITY[e.status] ?? 99
+      const accP = ENGAGEMENT_STATUS_PRIORITY[acc] ?? 99
+      return p < accP ? e.status : acc
+    }, sorted[0].status)
+    const firstCompleted = sorted.find(e => e.status === 'completed') || null
+    // 공통 필드: 가장 최근 업데이트 가정 — 우선 첫 engagement의 값을 대표값으로 사용
+    const rep = sorted[0]
+    return {
+      key,
+      coach: rep.coach,
+      courseName: rep.courseName,
+      engagements: sorted,
+      startDate,
+      endDate,
+      status,
+      reviewableId: firstCompleted?.id || null,
+      location: rep.location,
+      hourlyRate: rep.hourlyRate,
+      description: rep.description,
+      remarks: rep.remarks,
+    }
+  })
 }
 
 export interface Scouting {

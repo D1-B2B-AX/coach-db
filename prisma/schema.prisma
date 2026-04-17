@@ -72,6 +72,7 @@ model Manager {
   courses           Course[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
+  courseEditLogs    CourseEditLog[]
 
   @@map("managers")
 }
@@ -128,9 +129,24 @@ model Course {
 
   manager   Manager   @relation(fields: [managerId], references: [id], onDelete: Cascade)
   scoutings Scouting[]
+  editLogs  CourseEditLog[]
 
   @@index([managerId])
   @@map("courses")
+}
+
+model CourseEditLog {
+  id        String   @id @default(uuid())
+  courseId  String   @map("course_id")
+  editedBy  String   @map("edited_by")
+  editedAt  DateTime @default(now()) @map("edited_at")
+  changes   Json
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  manager Manager @relation(fields: [editedBy], references: [id], onDelete: Restrict)
+
+  @@index([courseId, editedAt])
+  @@map("course_edit_logs")
 }
 
 // ─── 마스터 테이블 ───
@@ -211,13 +227,15 @@ model Engagement {
   endDate    DateTime         @map("end_date") @db.Date
   startTime  String?          @map("start_time") @db.VarChar(5)
   endTime    String?          @map("end_time") @db.VarChar(5)
-  location   String?          @db.VarChar(200)
-  rating     Int?             @db.SmallInt
-  feedback   String?          @db.Text
-  rehire     Boolean?
-  hourlyRate Int?             @map("hourly_rate")
-  workType   String?          @map("work_type") @db.VarChar(200)
-  hiredBy    String?          @map("hired_by") @db.VarChar(50)
+  location    String?          @db.VarChar(200)
+  rating      Int?             @db.SmallInt
+  feedback    String?          @db.Text
+  rehire      Boolean?
+  hourlyRate  Int?             @map("hourly_rate")
+  workType    String?          @map("work_type") @db.VarChar(200)
+  hiredBy     String?          @map("hired_by") @db.VarChar(50)
+  description String?          @db.Text
+  remarks     String?          @db.Text
   createdAt  DateTime         @default(now()) @map("created_at")
   coach      Coach            @relation(fields: [coachId], references: [id], onDelete: Cascade)
   engagementSchedules EngagementSchedule[]

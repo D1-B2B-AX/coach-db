@@ -60,6 +60,12 @@ const TRIGGER_MAP: Record<string, NotificationTrigger | null> = {
     clickUrlPattern: '/mypage',
   },
   'scouting->cancelled': null, // 알림 비생성 (대신 기존 T1 만료)
+  'accepted->accepted': {
+    type: 'scouting_request_modified',
+    recipientRole: 'coach',
+    messageTemplate: '{managerLabel}가 {date} 섭외를 수정했습니다',
+    clickUrlPattern: '/coach?token={accessToken}',
+  },
   'accepted->confirmed': {
     type: 'engagement_confirmed',
     recipientRole: 'coach',

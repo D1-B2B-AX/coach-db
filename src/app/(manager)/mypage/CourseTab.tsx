@@ -4,6 +4,78 @@ import React, { useState, useRef, useMemo, useEffect } from "react"
 import { isHoliday } from "@/lib/holidays"
 import { Course, DeletedCourse, Scouting, STATUS_CONFIG, formatPeriod, getStatusCounts, DAY_NAMES, parseTimeRange, calcBreakAndTotal, formatScheduleLine } from "./utils"
 
+function ScoutingList({ scoutings }: { scoutings: Scouting[] }) {
+  // 확정된 코치만 표시
+  const byCoach = new Map<string, { coach: Scouting['coach']; items: Scouting[] }>()
+  for (const s of scoutings) {
+    if (s.status !== "confirmed") continue
+    const key = s.coachId
+    if (!byCoach.has(key)) byCoach.set(key, { coach: s.coach, items: [] })
+    byCoach.get(key)!.items.push(s)
+  }
+  const groups = [...byCoach.values()]
+    .map(g => ({ ...g, items: g.items.sort((a, b) => (a.date || "").localeCompare(b.date || "")) }))
+    .sort((a, b) => a.coach.name.localeCompare(b.coach.name))
+
+  if (groups.length === 0) return null
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+      {groups.map(g => {
+        const firstDate = g.items[0].date?.slice(5, 10) || ""
+        const lastDate = g.items[g.items.length - 1].date?.slice(5, 10) || ""
+        const period = firstDate === lastDate ? firstDate : `${firstDate} ~ ${lastDate}`
+        return (
+          <div key={g.coach.id} className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-[#1976D2]">{g.coach.name}</span>
+              <span className="text-[11px] text-gray-400">{period}</span>
+              {g.items.length > 1 && <span className="text-[10px] text-gray-400">({g.items.length}회차)</span>}
+            </div>
+            <div className="mt-1 space-y-0.5">
+              {g.items.map(s => (
+                <div key={s.id} className="flex items-center gap-2 text-[11px] text-gray-600">
+                  <span className="w-12 shrink-0">{s.date?.slice(5, 10)}</span>
+                  {s.hireStart && s.hireEnd && <span className="text-gray-400">{s.hireStart}~{s.hireEnd}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function CourseInfoView({ course }: { course: Course }) {
+  const hasAny = course.location || course.hourlyRate || course.description || course.remarks || course.workHours
+  if (!hasAny) return null
+  return (
+    <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+      {course.workHours && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="mb-1 text-[10px] font-medium text-gray-400">근무시간</div>
+          <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-[#333]">{course.workHours}</pre>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        {course.location && (
+          <div><span className="text-gray-400">장소: </span><span className="text-[#333]">{course.location}</span></div>
+        )}
+        {course.hourlyRate !== null && course.hourlyRate !== undefined && (
+          <div><span className="text-gray-400">시급: </span><span className="text-[#333]">{course.hourlyRate.toLocaleString()}원</span></div>
+        )}
+      </div>
+      {course.description && (
+        <div className="text-[11px]"><span className="text-gray-400">내용: </span><span className="text-[#333] whitespace-pre-wrap">{course.description}</span></div>
+      )}
+      {course.remarks && (
+        <div className="text-[11px]"><span className="text-gray-400">비고: </span><span className="text-[#333]">{course.remarks}</span></div>
+      )}
+    </div>
+  )
+}
+
 interface CourseTabProps {
   courses: Course[]
   deletedCourses: DeletedCourse[]
@@ -22,11 +94,10 @@ function formatWorkLine(dateStr: string, startTime: string, endTime: string): st
 }
 
 // Inline edit form for a course card
-function CourseEditForm({ course, saving, hasAcceptedScoutings, hasConfirmedScoutings, onSave, onCancel }: {
+function CourseEditForm({ course, saving, hasAcceptedScoutings, onSave, onCancel }: {
   course: Course
   saving: boolean
   hasAcceptedScoutings?: boolean
-  hasConfirmedScoutings?: boolean
   onSave: (data: Partial<Course>) => void
   onCancel: () => void
 }) {
@@ -141,10 +212,7 @@ function CourseEditForm({ course, saving, hasAcceptedScoutings, hasConfirmedScou
       alert("시급은 0 이상의 숫자로 입력해주세요.")
       return
     }
-    const resetMsg = hasConfirmedScoutings
-      ? "확정이 취소되고,\n다시 요청 알림이 갑니다. 계속하시겠습니까?"
-      : "찜꽁 수락이 취소되고\n다시 요청 알림이 갑니다. 계속하시겠습니까?"
-    if (hasAcceptedScoutings && !confirm(resetMsg)) {
+    if (hasAcceptedScoutings && !confirm("수정 내용이 코치에게 알림으로 전달됩니다.\n계속하시겠습니까?")) {
       return
     }
     onSave({
@@ -274,6 +342,7 @@ export default function CourseTab({ courses, deletedCourses, scoutings, onCourse
   const [newStart, setNewStart] = useState("")
   const [newEnd, setNewEnd] = useState("")
   const [creating, setCreating] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -333,23 +402,44 @@ export default function CourseTab({ courses, deletedCourses, scoutings, onCourse
       ) : (
         sorted.map(course => {
           const courseScoutings = scoutings.filter(s => s.courseId === course.id)
+          const isExpanded = expandedId === course.id
           const isEditing = editId === course.id
           const hasConfirmed = courseScoutings.some(s => s.status === "confirmed")
           const hasAcceptedOrConfirmed = courseScoutings.some(s => s.status === "accepted" || s.status === "confirmed")
+
+          function toggleExpand() {
+            if (isExpanded) {
+              setExpandedId(null)
+              setEditId(null)
+            } else {
+              setExpandedId(course.id)
+              if (!hasConfirmed) setEditId(course.id) // 확정 아닌 과정은 펼치면 바로 편집 모드
+            }
+          }
+
           return (
             <div key={course.id} className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 px-5 py-3">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setEditId(isEditing ? null : course.id)}>
+              <div className="flex items-center gap-3 cursor-pointer" onClick={toggleExpand}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs text-gray-400 transition-transform ${isEditing ? "rotate-90" : ""}`}>▶</span>
+                    <span className={`text-xs text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
                     <span className="font-semibold text-sm text-[#333] truncate">{course.name}</span>
                     <span className="text-[11px] text-gray-400 shrink-0">{formatPeriod(course.startDate, course.endDate)}</span>
+                    {hasConfirmed && (
+                      <span className="rounded-full bg-[#E3F2FD] px-1.5 py-0.5 text-[10px] font-medium text-[#1976D2]">확정</span>
+                    )}
                   </div>
                   {courseScoutings.length > 0 && (
                     <div className="mt-0.5 ml-5 text-[11px] text-gray-400">섭외 {courseScoutings.length}건</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {hasConfirmed && isExpanded && (
+                    <button onClick={() => setEditId(isEditing ? null : course.id)}
+                      className="cursor-pointer rounded-lg px-2.5 py-1 text-[11px] text-[#1976D2] hover:bg-[#E3F2FD] transition-colors">
+                      {isEditing ? "편집 닫기" : "수정"}
+                    </button>
+                  )}
                   <button onClick={async () => {
                     const msg = hasConfirmed
                       ? "확정된 섭외가 취소됩니다.\n이 과정을 삭제하시겠습니까?"
@@ -362,14 +452,19 @@ export default function CourseTab({ courses, deletedCourses, scoutings, onCourse
                   </button>
                 </div>
               </div>
+              {isExpanded && courseScoutings.length > 0 && (
+                <ScoutingList scoutings={courseScoutings} />
+              )}
+              {isExpanded && !isEditing && hasConfirmed && (
+                <CourseInfoView course={course} />
+              )}
               {isEditing && (
                 <CourseEditForm
                   course={course}
                   saving={saving}
                   hasAcceptedScoutings={hasAcceptedOrConfirmed}
-                  hasConfirmedScoutings={hasConfirmed}
                   onSave={(data) => handleSave(course.id, data)}
-                  onCancel={() => setEditId(null)}
+                  onCancel={() => { setEditId(null); if (!hasConfirmed) setExpandedId(null) }}
                 />
               )}
             </div>
