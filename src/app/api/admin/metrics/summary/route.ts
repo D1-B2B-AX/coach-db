@@ -24,6 +24,20 @@ function monthRange(year: number, month: number) {
   return { start: new Date(year, month - 1, 1), end: new Date(year, month, 1) }
 }
 
+// KST(UTC+9) 기준 월 경계. timestamptz 컬럼 비교에 사용.
+function monthRangeKst(year: number, month: number) {
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1, -9, 0, 0)),
+    end: new Date(Date.UTC(year, month, 1, -9, 0, 0)),
+  }
+}
+
+// KST 기준 현재 연/월/일.
+function kstToday() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000)
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() }
+}
+
 function round1(v: number): number {
   return Math.round(v * 10) / 10
 }
@@ -106,7 +120,7 @@ async function calcExternalHireRate(ym: string, year: number, month: number) {
   }))
   const externalTotal = channels.reduce((s: number, c) => s + c.count, 0)
 
-  const { start, end } = monthRange(year, month)
+  const { start, end } = monthRangeKst(year, month)
   const scoutingTotal = await prisma.scouting.count({
     where: { createdAt: { gte: start, lt: end } },
   })
@@ -157,7 +171,7 @@ async function calcExternalHireHistory(currentYear: number, currentMonth: number
 }
 
 async function calcCoachPoolByManager(year: number, month: number) {
-  const { end } = monthRange(year, month)
+  const { end } = monthRangeKst(year, month)
 
   // 누적: 해당 월 말까지 섭외한 적 있는 고유 코치 수
   const rawRows: Array<{ manager_id: string; cnt: bigint }> = await prisma.$queryRawUnsafe(
@@ -186,7 +200,7 @@ async function calcCoachPoolByManager(year: number, month: number) {
 }
 
 async function calcScoutingResponseRate(year: number, month: number) {
-  const { start, end } = monthRange(year, month)
+  const { start, end } = monthRangeKst(year, month)
   const requested = await prisma.scouting.count({
     where: { createdAt: { gte: start, lt: end } },
   })
@@ -201,10 +215,10 @@ async function calcScoutingResponseRate(year: number, month: number) {
 }
 
 async function calcDailyTrend(year: number, month: number, ym: string, isCurrentMonth: boolean, sentCoachIds?: string[]) {
-  const { start, end } = monthRange(year, month)
+  const { start: kstStart, end: kstEnd } = monthRangeKst(year, month)
   const lastDayOfMonth = new Date(year, month, 0).getDate()
-  const today = new Date()
-  const lastDay = isCurrentMonth ? Math.min(today.getDate(), lastDayOfMonth) : lastDayOfMonth
+  const kst = kstToday()
+  const lastDay = isCurrentMonth ? Math.min(kst.day, lastDayOfMonth) : lastDayOfMonth
 
   // 삼전 DS/DX 코치 ID 조회
   const samsungCoaches = await prisma.coach.findMany({
@@ -224,29 +238,39 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   if (sentCoachIds && sentCoachIds.length > 0) totalCoachWhere.id = { in: sentCoachIds }
   const totalCoaches = await prisma.coach.count({ where: totalCoachWhere })
 
-  const [schedRaw, scoutRaw, allCompletionRaw] = await Promise.all([
+  const [schedRaw, anyMonthSchedRaw, scoutRaw, allCompletionRaw] = await Promise.all([
+    // "이번 달 입력": 해당 year_month 스케줄만
     prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
-      `SELECT TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+      `SELECT TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
        FROM schedule_access_logs
        WHERE year_month = $1 AND last_edited_at IS NOT NULL
        GROUP BY 1`,
       ym,
     ),
+    // "전체 입력": 해당 달력월에 수행된 모든 year_month의 저장 이벤트
     prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
-      `SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+      `SELECT TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+       FROM schedule_access_logs
+       WHERE last_edited_at >= $1 AND last_edited_at < $2
+       GROUP BY 1`,
+      kstStart,
+      kstEnd,
+    ),
+    prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
+      `SELECT TO_CHAR(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
        FROM scoutings
        WHERE created_at >= $1 AND created_at < $2
        GROUP BY 1`,
-      start,
-      end,
+      kstStart,
+      kstEnd,
     ),
-    // 코치별 입력 완료 날짜 (삼전 분류 + 전체 누적용)
+    // 코치별 입력 완료 날짜 (삼전 분류 + 전체 누적용) — year_month 기준
     prisma.$queryRawUnsafe<Array<{ coach_id: string; d: string }>>(
       sentCoachIds && sentCoachIds.length > 0
-        ? `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
+        ? `SELECT coach_id, TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d
            FROM schedule_access_logs
            WHERE year_month = $1 AND last_edited_at IS NOT NULL AND coach_id = ANY($2::text[])`
-        : `SELECT coach_id, TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d
+        : `SELECT coach_id, TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d
            FROM schedule_access_logs
            WHERE year_month = $1 AND last_edited_at IS NOT NULL`,
       ym,
@@ -255,6 +279,7 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   ])
 
   const schedMap = new Map(schedRaw.map((r) => [r.d, Number(r.cnt)]))
+  const anyMonthMap = new Map(anyMonthSchedRaw.map((r) => [r.d, Number(r.cnt)]))
   const scoutMap = new Map(scoutRaw.map((r) => [r.d, Number(r.cnt)]))
 
   // 일별 누적 완료 수 계산 (전체 + 삼전 DS/DX)
@@ -271,7 +296,9 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   let dsCum = 0
   let dxCum = 0
   const days: Array<{
-    date: string; day: number; scheduleEdits: number; scoutingsCreated: number
+    date: string; day: number
+    scheduleEdits: number; anyMonthEdits: number
+    scoutingsCreated: number
     dsCompleted: number; dxCompleted: number
     inputRate: number | null
   }> = []
@@ -284,6 +311,7 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
       date: dateStr,
       day: d,
       scheduleEdits: schedMap.get(dateStr) ?? 0,
+      anyMonthEdits: anyMonthMap.get(dateStr) ?? 0,
       scoutingsCreated: scoutMap.get(dateStr) ?? 0,
       dsCompleted: dsCum,
       dxCompleted: dxCum,
@@ -379,17 +407,17 @@ async function calcTrend(currentYear: number, currentMonth: number) {
 // --- weeklyTrend (current month only) ---
 
 async function calcWeeklyTrend(year: number, month: number, ym: string) {
-  const now = new Date()
+  const kst = kstToday()
   const lastDayOfMonth = new Date(year, month, 0).getDate()
-  const lastDay = Math.min(now.getDate(), lastDayOfMonth)
+  const lastDay = Math.min(kst.day, lastDayOfMonth)
 
   const total = await prisma.coach.count({
     where: { status: 'active', deletedAt: null },
   })
 
-  // Get daily completed counts from ScheduleAccessLog
+  // Get daily completed counts from ScheduleAccessLog (KST 기준)
   const dailyRaw = await prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
-    `SELECT TO_CHAR(last_edited_at, 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
+    `SELECT TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
      FROM schedule_access_logs
      WHERE year_month = $1 AND last_edited_at IS NOT NULL
      GROUP BY 1`,
@@ -441,8 +469,8 @@ export async function GET(request: NextRequest) {
   const prev = prevYM(year, month)
   const prevYMStr = ymStr(prev.year, prev.month)
 
-  const now = new Date()
-  const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month
+  const kstNow = kstToday()
+  const isCurrentMonth = kstNow.year === year && kstNow.month === month
 
   // --- fetch sent coach IDs from link sheet ---
   const sentCoachIds = await fetchSentCoachIds()

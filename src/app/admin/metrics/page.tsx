@@ -62,6 +62,7 @@ interface DailyTrendPoint {
   date: string
   day: number
   scheduleEdits: number
+  anyMonthEdits: number
   scoutingsCreated: number
   dsCompleted: number
   dxCompleted: number
@@ -221,11 +222,12 @@ interface HeatmapRow {
 }
 
 function DailyHeatmap({ data: rawData, samsung }: { data: DailyTrendPoint[]; samsung?: SamsungScheduleItem[] }) {
-  const data = rawData.filter((d) => d.day >= 3)
+  const data = rawData
   if (!data.length) return null
 
   const rows: HeatmapRow[] = [
-    { label: '전체 입력', hue: '#3B82F6', values: data.map((d) => d.scheduleEdits), suffix: `합 ${data.reduce((s, d) => s + d.scheduleEdits, 0)}` },
+    { label: '이번 달 입력', hue: '#3B82F6', values: data.map((d) => d.scheduleEdits), suffix: `합 ${data.reduce((s, d) => s + d.scheduleEdits, 0)}` },
+    { label: '전체 입력', hue: '#6366F1', values: data.map((d) => d.anyMonthEdits), suffix: `합 ${data.reduce((s, d) => s + d.anyMonthEdits, 0)}` },
   ]
 
   if (samsung && samsung.length > 0) {
