@@ -24,6 +24,9 @@ interface DashboardCalendarProps {
   onTimeFilterChange: (filter: string) => void
   timeFilterBadgeLabel?: string | null
   timeFilterHelper?: string | null
+  onStartDateChange?: (dateStr: string) => void
+  onEndDateChange?: (dateStr: string) => void
+  onWeekdaysOnly?: () => void
 }
 
 const TIME_PRESETS = [
@@ -54,6 +57,9 @@ export default function DashboardCalendar({
   onTimeFilterChange,
   timeFilterBadgeLabel,
   timeFilterHelper,
+  onStartDateChange,
+  onEndDateChange,
+  onWeekdaysOnly,
 }: DashboardCalendarProps) {
   const firstDay = new Date(year, month, 1)
   // Sunday = 0
@@ -75,8 +81,54 @@ export default function DashboardCalendar({
     return ordered.length > 0 ? ordered.join(",") : "all"
   }
 
+  const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]
+
+  function formatSelectedLabel(): string | null {
+    if (!selectedStart) return null
+    const fmt = (d: string) => {
+      const date = new Date(d + "T00:00:00")
+      return `${date.getMonth() + 1}/${date.getDate()} (${DAY_NAMES[date.getDay()]})`
+    }
+    if (selectedEnd) return `${fmt(selectedStart)} ~ ${fmt(selectedEnd)}`
+    return fmt(selectedStart)
+  }
+
+  const selectedLabel = formatSelectedLabel()
+
   return (
     <div className={`min-w-0 ${SURFACE_CARD_CLASS} p-4 sm:p-5`}>
+      {/* Date range picker */}
+      <div className="mb-4 space-y-2">
+        <p className="text-[11px] text-gray-400">조회할 날짜를 선택하세요. 달력에서 날짜를 클릭하거나 기간을 지정할 수 있습니다.</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={selectedStart ?? ""}
+            onChange={(e) => onStartDateChange?.(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-[#333] focus:border-blue-400 focus:outline-none"
+          />
+          <span className="text-xs text-gray-400 shrink-0">~</span>
+          <input
+            type="date"
+            value={selectedEnd ?? ""}
+            min={selectedStart ?? undefined}
+            onChange={(e) => onEndDateChange?.(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-[#333] focus:border-blue-400 focus:outline-none"
+          />
+          <button
+            onClick={onWeekdaysOnly}
+            className="cursor-pointer shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-[#1565C0] transition-colors"
+          >
+            평일
+          </button>
+        </div>
+        {selectedLabel && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-[#1565C0]">{selectedLabel}</span>
+          </div>
+        )}
+      </div>
+
       {/* Time filter — multi-select preset buttons */}
       <div className="mb-4 space-y-2">
         {(timeFilterHelper || timeFilterBadgeLabel) && (

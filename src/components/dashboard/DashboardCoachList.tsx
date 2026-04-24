@@ -244,7 +244,7 @@ export default function DashboardCoachList({
       <Table className="space-y-0">
         {courses && onCourseChange && (
           <div className={`border-b ${TABLE_DIVIDER_COLOR} px-5 py-2.5 flex items-center justify-between gap-2`}>
-            <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
+            <span className="text-[11px] text-gray-400">조회할 날짜를 선택하세요</span>
             <div className="flex items-center gap-1.5 shrink-0">
               <select
                 value={selectedCourseId ?? ""}

@@ -6,6 +6,7 @@ import DashboardCalendar from "@/components/dashboard/DashboardCalendar"
 import DashboardCoachList from "@/components/dashboard/DashboardCoachList"
 import Toast from "@/components/Toast"
 import type { CourseOption } from "@/components/CourseSelector"
+import { isOff } from "@/lib/holidays"
 
 type DashboardVariant = "general" | "samsung"
 
@@ -487,34 +488,89 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleSelectDate(dateStr: string) {
-    if (selectedCourseId && selectedStart && selectedEnd) {
-      if (dateStr >= selectedStart && dateStr <= selectedEnd) {
-        setSelectedDates((prev) => {
-          const next = new Set(prev)
-          if (next.has(dateStr)) next.delete(dateStr)
-          else next.add(dateStr)
-          return next
-        })
-        return
-      }
+    if (dateStr === selectedStart && !selectedEnd) {
+      setSelectedStart(null)
+      return
+    }
+    setSelectedStart(dateStr)
+    setSelectedEnd(null)
+    setSelectedDates(new Set())
+    if (selectedCourseId) {
       setSelectedCourseId(null)
-      setSelectedDates(new Set())
       if (timeFilterSource === "course-auto") {
         setTimeFilter("all")
         setTimeFilterSource("default")
       }
     }
-    // 이미 선택된 날짜를 다시 누르면 선택 해제
-    if (dateStr === selectedStart && !selectedEnd) {
-      setSelectedStart(null)
-      return
+  }
+
+  function handleStartDateChange(dateStr: string) {
+    setSelectedStart(dateStr || null)
+    if (dateStr) {
+      const d = new Date(dateStr + "T12:00:00Z")
+      setCurrentYear(d.getUTCFullYear())
+      setCurrentMonth(d.getUTCMonth())
     }
-    // 시작일이 있고 종료일이 없으면 → 범위 종료 설정
-    if (selectedStart && !selectedEnd && dateStr > selectedStart) {
-      setSelectedEnd(dateStr)
+    setSelectedDates(new Set())
+    if (selectedCourseId) {
+      setSelectedCourseId(null)
+      if (timeFilterSource === "course-auto") {
+        setTimeFilter("all")
+        setTimeFilterSource("default")
+      }
+    }
+  }
+
+  function handleEndDateChange(dateStr: string) {
+    setSelectedEnd(dateStr || null)
+    setSelectedDates(new Set())
+    if (selectedCourseId) {
+      setSelectedCourseId(null)
+      if (timeFilterSource === "course-auto") {
+        setTimeFilter("all")
+        setTimeFilterSource("default")
+      }
+    }
+  }
+
+  function handleWeekdaysOnly() {
+    const todayStr = formatDate(new Date())
+    let rangeStart: string
+    let rangeEnd: string
+
+    if (selectedStart && selectedEnd) {
+      rangeStart = selectedStart < todayStr ? todayStr : selectedStart
+      rangeEnd = selectedEnd
     } else {
-      setSelectedStart(dateStr)
-      setSelectedEnd(null)
+      const firstDay = new Date(currentYear, currentMonth, 1)
+      const lastDay = new Date(currentYear, currentMonth + 1, 0)
+      rangeStart = formatDate(firstDay) < todayStr ? todayStr : formatDate(firstDay)
+      rangeEnd = formatDate(lastDay)
+      setSelectedStart(rangeStart)
+      setSelectedEnd(rangeEnd)
+    }
+
+    if (rangeStart > rangeEnd) return
+
+    const weekdays = new Set<string>()
+    const cursor = new Date(rangeStart + "T12:00:00Z")
+    const limit = new Date(rangeEnd + "T12:00:00Z")
+    while (cursor <= limit) {
+      const dateStr = cursor.toISOString().slice(0, 10)
+      const dow = cursor.getUTCDay()
+      if (!isOff(dateStr, dow)) {
+        weekdays.add(dateStr)
+      }
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+
+    setSelectedDates(weekdays)
+    if (selectedCourseId) {
+      setSelectedCourseId(null)
+      if (timeFilterSource === "course-auto") {
+        setTimeFilter("all")
+        setTimeFilterSource("default")
+      }
     }
   }
 
@@ -698,32 +754,8 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     }
   }
 
-  const [noCoursesDismissed, setNoCoursesDismissed] = useState(false)
-
   return (
     <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
-      {/* No courses prompt */}
-      {courses.length === 0 && !noCoursesDismissed && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-[#BBDEFB] bg-[#E3F2FD] px-4 py-3">
-          <div className="text-sm text-[#1565C0]">
-            과정이 아직 없습니다. 나의 과정에서 과정을 먼저 만들어주세요.
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href="/mypage?tab=courses"
-              className="rounded-lg bg-[#1976D2] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1565C0] transition-colors"
-            >
-              나의 과정로 이동
-            </a>
-            <button
-              onClick={() => setNoCoursesDismissed(true)}
-              className="cursor-pointer text-xs text-[#90CAF9] hover:text-[#1565C0] transition-colors"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
       {/* Main content: calendar + coach list */}
       <div className="grid min-w-0 gap-5 md:grid-cols-[340px_1fr] lg:grid-cols-[380px_1fr]">
         <DashboardCalendar
@@ -731,7 +763,7 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           month={currentMonth}
           selectedStart={selectedStart}
           selectedEnd={selectedEnd}
-          selectedDates={selectedCourseId ? selectedDates : undefined}
+          selectedDates={selectedDates.size > 0 ? selectedDates : undefined}
           monthData={monthData}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
@@ -746,6 +778,9 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onTimeFilterChange={handleTimeFilterChange}
           timeFilterBadgeLabel={timeFilterBadgeLabel}
           timeFilterHelper={timeFilterHelper}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+          onWeekdaysOnly={handleWeekdaysOnly}
         />
         <DashboardCoachList
           selectedDate={selectedStart}
