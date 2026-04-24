@@ -488,13 +488,21 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   }
 
   function handleSelectDate(dateStr: string) {
-    if (dateStr === selectedStart && !selectedEnd) {
+    const next = new Set(selectedDates)
+    if (next.has(dateStr)) next.delete(dateStr)
+    else next.add(dateStr)
+
+    setSelectedDates(next)
+
+    if (next.size === 0) {
       setSelectedStart(null)
-      return
+      setSelectedEnd(null)
+    } else {
+      const sorted = [...next].sort()
+      setSelectedStart(sorted[0])
+      setSelectedEnd(sorted.length > 1 ? sorted[sorted.length - 1] : null)
     }
-    setSelectedStart(dateStr)
-    setSelectedEnd(null)
-    setSelectedDates(new Set())
+
     if (selectedCourseId) {
       setSelectedCourseId(null)
       if (timeFilterSource === "course-auto") {

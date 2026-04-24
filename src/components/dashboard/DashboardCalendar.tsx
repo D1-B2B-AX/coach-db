@@ -84,11 +84,16 @@ export default function DashboardCalendar({
   const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]
 
   function formatSelectedLabel(): string | null {
-    if (!selectedStart) return null
     const fmt = (d: string) => {
       const date = new Date(d + "T00:00:00")
       return `${date.getMonth() + 1}/${date.getDate()} (${DAY_NAMES[date.getDay()]})`
     }
+    if (selectedDates && selectedDates.size > 0) {
+      const sorted = [...selectedDates].sort()
+      if (sorted.length <= 3) return sorted.map(fmt).join(", ")
+      return `${fmt(sorted[0])} 외 ${sorted.length - 1}일`
+    }
+    if (!selectedStart) return null
     if (selectedEnd) return `${fmt(selectedStart)} ~ ${fmt(selectedEnd)}`
     return fmt(selectedStart)
   }
