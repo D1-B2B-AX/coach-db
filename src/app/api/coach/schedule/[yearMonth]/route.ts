@@ -42,7 +42,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   })
 
   // Fetch schedules, engagements, engagement_schedules in parallel
-  const [schedules, engagements, engagementSchedules, accessLog, scoutings] = await Promise.all([
+  const [schedules, engagements, engagementSchedules, accessLog] = await Promise.all([
     prisma.coachSchedule.findMany({
       where: {
         coachId: coach.id,
@@ -90,20 +90,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
       select: { lastEditedAt: true },
     }),
-    prisma.scouting.findMany({
-      where: {
-        coachId: coach.id,
-        date: { gte: startDate, lte: endDate },
-        status: "scouting",
-      },
-      select: {
-        date: true,
-        courseName: true,
-        hireStart: true,
-        hireEnd: true,
-        manager: { select: { name: true } },
-      },
-    }),
   ])
 
   // Upsert access log (set accessedAt on first access)
@@ -147,13 +133,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       status: es.engagement.status,
     })),
     lastSavedAt: accessLog?.lastEditedAt?.toISOString() ?? null,
-    scoutings: scoutings.map((s) => ({
-      date: s.date.toISOString().split('T')[0],
-      managerName: s.manager.name,
-      courseName: s.courseName ?? null,
-      hireStart: s.hireStart ?? null,
-      hireEnd: s.hireEnd ?? null,
-    })),
   })
 }
 

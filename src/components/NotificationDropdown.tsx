@@ -8,7 +8,7 @@ interface Notification {
   type: string
   title: string
   body: string
-  data: { clickUrl?: string; scoutingId?: string } | null
+  data: { clickUrl?: string } | null
   readAt: string | null
   expired: boolean
   createdAt: string

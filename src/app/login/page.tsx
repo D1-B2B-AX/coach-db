@@ -30,7 +30,7 @@ function LoginContent() {
 
         <button
           onClick={handleLogin}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          className="w-full cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path

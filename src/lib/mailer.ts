@@ -70,19 +70,6 @@ export function buildEmail(
   const link = `<a href="${BASE_URL}${data.clickUrl}" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#1976D2;color:#fff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">확인하기</a>`
 
   switch (type) {
-    case 'scouting_request':
-      return {
-        subject: `[섭외 요청] ${data.managerName}매니저 — ${data.date}`,
-        body: wrap(`
-          <h2 style="font-size:18px;margin:0 0 12px">섭외 요청이 도착했습니다</h2>
-          <p style="font-size:14px;line-height:1.6;margin:0">
-            <strong>${data.managerName}</strong>매니저가 <strong>${data.date}</strong> 일정으로 섭외를 요청했습니다.
-          </p>
-          ${link}
-        `),
-        replyTo: data.managerEmail,
-      }
-
     case 'engagement_confirmed':
       return {
         subject: `[투입 확정] ${data.date} ${data.courseName || ''}`,
@@ -102,30 +89,6 @@ export function buildEmail(
           <h2 style="font-size:18px;margin:0 0 12px">투입이 취소되었습니다</h2>
           <p style="font-size:14px;line-height:1.6;margin:0">
             <strong>${data.date}</strong> 투입 일정이 취소되었습니다.
-          </p>
-          ${link}
-        `),
-      }
-
-    case 'coach_accepted':
-      return {
-        subject: `[코치 수락] ${data.coachName} — ${data.date}`,
-        body: wrap(`
-          <h2 style="font-size:18px;margin:0 0 12px">코치가 섭외를 수락했습니다</h2>
-          <p style="font-size:14px;line-height:1.6;margin:0">
-            <strong>${data.coachName}</strong>님이 <strong>${data.date}</strong> 섭외를 수락했습니다.
-          </p>
-          ${link}
-        `),
-      }
-
-    case 'coach_rejected':
-      return {
-        subject: `[코치 거절] ${data.coachName} — ${data.date}`,
-        body: wrap(`
-          <h2 style="font-size:18px;margin:0 0 12px">코치가 섭외를 거절했습니다</h2>
-          <p style="font-size:14px;line-height:1.6;margin:0">
-            <strong>${data.coachName}</strong>님이 <strong>${data.date}</strong> 섭외를 거절했습니다.
           </p>
           ${link}
         `),

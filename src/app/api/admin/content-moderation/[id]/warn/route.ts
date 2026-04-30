@@ -46,9 +46,6 @@ export async function POST(
     )
   }
 
-  // prisma.notification.create() 직접 호출
-  // createNotification() 미사용: NotificationTrigger는 scouting 전용이며
-  // scoutingId, clickUrl 등 scouting 전용 필드가 필수.
   // Push/Email 미발송: 경고는 긴급 통보가 아닌 주의 환기이므로 인앱 알림만으로 충분.
   const notification = await prisma.notification.create({
     data: {

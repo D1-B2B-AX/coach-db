@@ -3,8 +3,6 @@
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/Skeleton"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
 import type { CourseOption } from "@/components/CourseSelector"
 import { Table, TableEmpty } from "@/components/ui/Table"
 import {
@@ -49,8 +47,6 @@ interface DashboardCoachListProps {
   onStatusFilterChange: (filter: string) => void
   engagementFilter: string
   onEngagementFilterChange: (filter: string) => void
-  scoutingManagers?: Record<string, string>
-  onBulkScout?: (coachIds: string[]) => void
   courses?: CourseOption[]
   selectedCourseId?: string | null
   onCourseChange?: (courseId: string | null) => void
@@ -136,8 +132,6 @@ export default function DashboardCoachList({
   onRatingFilterChange,
   engagementFilter,
   onEngagementFilterChange,
-  scoutingManagers,
-  onBulkScout,
   courses,
   selectedCourseId,
   onCourseChange,
@@ -273,19 +267,9 @@ export default function DashboardCoachList({
       <div className={`border-b ${TABLE_DIVIDER_COLOR} px-4 py-3 sm:px-5`}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            {selectedDate
-              ? selectedIds.size > 0 && onBulkScout && (
-                <Button
-                  onClick={() => onBulkScout([...selectedIds])}
-                  variant={selectedCourseId ? "primaryOutline" : "secondary"}
-                  size="sm"
-                  className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
-                >
-                  찜꽁 ({selectedIds.size})
-                </Button>
-              )
-              : <span className="text-[11px] text-gray-400">날짜를 선택하거나 과정을 선택하세요</span>
-            }
+            {selectedIds.size > 0 && (
+              <span className="text-[11px] text-[#1976D2] font-medium shrink-0">{selectedIds.size}명 선택됨</span>
+            )}
           </div>
           {courses && onCourseChange && (
             <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
@@ -349,7 +333,6 @@ export default function DashboardCoachList({
                 ? latest.courseName.replace(/\[부가세\s*별도\]\s*/g, "").replace(/\(B2B\)\s*/g, "").replace(/_/g, " ").trim()
                 : null
               const courseLabel = latest ? (latest.endDate >= today ? "참여예정과정" : "참여과정") : "참여과정"
-              const managerLabel = scoutingManagers?.[coach.id]
               return (
                 <div
                   key={coach.id}
@@ -367,11 +350,6 @@ export default function DashboardCoachList({
                       />
                     </div>
                     <span className="text-[13px] font-semibold text-[#222]">{coach.name}</span>
-                    {managerLabel && (
-                      <Badge variant="status" tone="orange" className="shrink-0">
-                        {`찜꽁 · ${managerLabel}`}
-                      </Badge>
-                    )}
                     {coach.fields.length > 0 && (
                       <div className="flex items-center gap-1">
                         {coach.fields.map(f => (

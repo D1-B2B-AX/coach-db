@@ -99,41 +99,6 @@ async function calcScheduleInputRate(ym: string, sentCoachIds?: string[]) {
   return { completed, total, rate }
 }
 
-async function calcExternalHireRate(ym: string, year: number, month: number) {
-  const channelKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
-  const channelLabels: Record<string, string> = {
-    ext_open_chat: '오픈채팅방',
-    ext_slack: '슬랙',
-    ext_albamon: '알바몬',
-    ext_other: '기타',
-  }
-
-  const snapshots = await prisma.metricSnapshot.findMany({
-    where: { yearMonth: ym, metricKey: { startsWith: 'ext_' } },
-  })
-  const valMap = new Map<string, number>(snapshots.map((s) => [s.metricKey, s.value]))
-
-  const channels = channelKeys.map((key) => ({
-    key,
-    label: channelLabels[key],
-    count: valMap.get(key) ?? 0,
-  }))
-  const externalTotal = channels.reduce((s: number, c) => s + c.count, 0)
-
-  const { start, end } = monthRangeKst(year, month)
-  const scoutingTotal = await prisma.scouting.count({
-    where: { createdAt: { gte: start, lt: end } },
-  })
-
-  const rate = scoutingTotal > 0 ? round1((externalTotal / scoutingTotal) * 100) : null
-  return { channels, externalTotal, scoutingTotal, rate }
-}
-
-async function calcExternalHireRateSimple(ym: string, year: number, month: number) {
-  const r = await calcExternalHireRate(ym, year, month)
-  return r.rate
-}
-
 async function calcExternalHireHistory(currentYear: number, currentMonth: number) {
   const channelKeys = ['ext_open_chat', 'ext_slack', 'ext_albamon', 'ext_other'] as const
   const channelLabels: Record<string, string> = {
@@ -170,50 +135,6 @@ async function calcExternalHireHistory(currentYear: number, currentMonth: number
   }
 }
 
-async function calcCoachPoolByManager(year: number, month: number) {
-  const { end } = monthRangeKst(year, month)
-
-  // 누적: 해당 월 말까지 섭외한 적 있는 고유 코치 수
-  const rawRows: Array<{ manager_id: string; cnt: bigint }> = await prisma.$queryRawUnsafe(
-    `SELECT manager_id, COUNT(DISTINCT coach_id)::bigint AS cnt
-     FROM scoutings
-     WHERE created_at < $1
-     GROUP BY manager_id`,
-    end,
-  )
-
-  const managerIds = rawRows.map((r) => r.manager_id)
-  const managers =
-    managerIds.length > 0
-      ? await prisma.manager.findMany({
-          where: { id: { in: managerIds } },
-          select: { id: true, name: true },
-        })
-      : []
-  const nameMap = new Map(managers.map((m) => [m.id, m.name]))
-
-  return rawRows.map((r) => ({
-    managerId: r.manager_id,
-    managerName: nameMap.get(r.manager_id) ?? '(알 수 없음)',
-    uniqueCoaches: Number(r.cnt),
-  }))
-}
-
-async function calcScoutingResponseRate(year: number, month: number) {
-  const { start, end } = monthRangeKst(year, month)
-  const requested = await prisma.scouting.count({
-    where: { createdAt: { gte: start, lt: end } },
-  })
-  const responded = await prisma.scouting.count({
-    where: {
-      createdAt: { gte: start, lt: end },
-      status: { in: ['accepted', 'rejected'] },
-    },
-  })
-  const rate = requested > 0 ? round1((responded / requested) * 100) : null
-  return { requested, responded, rate }
-}
-
 async function calcDailyTrend(year: number, month: number, ym: string, isCurrentMonth: boolean, sentCoachIds?: string[]) {
   const { start: kstStart, end: kstEnd } = monthRangeKst(year, month)
   const lastDayOfMonth = new Date(year, month, 0).getDate()
@@ -238,7 +159,7 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   if (sentCoachIds && sentCoachIds.length > 0) totalCoachWhere.id = { in: sentCoachIds }
   const totalCoaches = await prisma.coach.count({ where: totalCoachWhere })
 
-  const [schedRaw, anyMonthSchedRaw, scoutRaw, allCompletionRaw] = await Promise.all([
+  const [schedRaw, anyMonthSchedRaw, allCompletionRaw] = await Promise.all([
     // "이번 달 입력": 해당 year_month 스케줄만
     prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
       `SELECT TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
@@ -252,14 +173,6 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
       `SELECT TO_CHAR(last_edited_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
        FROM schedule_access_logs
        WHERE last_edited_at >= $1 AND last_edited_at < $2
-       GROUP BY 1`,
-      kstStart,
-      kstEnd,
-    ),
-    prisma.$queryRawUnsafe<Array<{ d: string; cnt: bigint }>>(
-      `SELECT TO_CHAR(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS d, COUNT(*)::bigint AS cnt
-       FROM scoutings
-       WHERE created_at >= $1 AND created_at < $2
        GROUP BY 1`,
       kstStart,
       kstEnd,
@@ -280,7 +193,6 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
 
   const schedMap = new Map(schedRaw.map((r) => [r.d, Number(r.cnt)]))
   const anyMonthMap = new Map(anyMonthSchedRaw.map((r) => [r.d, Number(r.cnt)]))
-  const scoutMap = new Map(scoutRaw.map((r) => [r.d, Number(r.cnt)]))
 
   // 일별 누적 완료 수 계산 (전체 + 삼전 DS/DX)
   const allDailyNew = new Map<string, number>()
@@ -298,7 +210,6 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
   const days: Array<{
     date: string; day: number
     scheduleEdits: number; anyMonthEdits: number
-    scoutingsCreated: number
     dsCompleted: number; dxCompleted: number
     inputRate: number | null
   }> = []
@@ -312,7 +223,6 @@ async function calcDailyTrend(year: number, month: number, ym: string, isCurrent
       day: d,
       scheduleEdits: schedMap.get(dateStr) ?? 0,
       anyMonthEdits: anyMonthMap.get(dateStr) ?? 0,
-      scoutingsCreated: scoutMap.get(dateStr) ?? 0,
       dsCompleted: dsCum,
       dxCompleted: dxCum,
       inputRate: totalCoaches > 0 ? round1((allCum / totalCoaches) * 100) : null,
@@ -381,23 +291,11 @@ async function calcTrend(currentYear: number, currentMonth: number) {
   }
 
   const results = await Promise.all(
-    months.map(async ({ ym, year: y, month: m }) => {
-      const [sched, ext, pool, resp] = await Promise.all([
-        calcScheduleInputRate(ym),
-        calcExternalHireRateSimple(ym, y, m),
-        calcCoachPoolByManager(y, m),
-        calcScoutingResponseRate(y, m),
-      ])
-      const avgPool =
-        pool.length > 0
-          ? round1(pool.reduce((s, p) => s + p.uniqueCoaches, 0) / pool.length)
-          : null
+    months.map(async ({ ym }) => {
+      const sched = await calcScheduleInputRate(ym)
       return {
         yearMonth: ym,
         scheduleInputRate: sched.rate,
-        externalHireRate: ext,
-        avgCoachPool: avgPool,
-        scoutingResponseRate: resp.rate,
       }
     }),
   )
@@ -476,16 +374,10 @@ export async function GET(request: NextRequest) {
   const sentCoachIds = await fetchSentCoachIds()
 
   // --- current month metrics ---
-  const [schedCurr, schedPrev, extCurr, extPrevRate, poolCurr, poolPrev, respCurr, respPrev, dailyTrend, samsungSchedule, extHistory, trend, weeklyTrend] =
+  const [schedCurr, schedPrev, dailyTrend, samsungSchedule, extHistory, trend, weeklyTrend] =
     await Promise.all([
       calcScheduleInputRate(yearMonth, sentCoachIds),
       calcScheduleInputRate(prevYMStr),
-      calcExternalHireRate(yearMonth, year, month),
-      calcExternalHireRateSimple(prevYMStr, prev.year, prev.month),
-      calcCoachPoolByManager(year, month),
-      calcCoachPoolByManager(prev.year, prev.month),
-      calcScoutingResponseRate(year, month),
-      calcScoutingResponseRate(prev.year, prev.month),
       calcDailyTrend(year, month, yearMonth, isCurrentMonth, sentCoachIds),
       calcSamsungScheduleRate(yearMonth, sentCoachIds),
       calcExternalHireHistory(year, month),
@@ -529,17 +421,6 @@ export async function GET(request: NextRequest) {
     afterRate: sentCount > 0 ? round1((afterCount / sentCount) * 100) : null,
   }
 
-  // merge prevMonth into coachPoolByManager
-  const prevPoolMap = new Map(poolPrev.map((p) => [p.managerId, p.uniqueCoaches]))
-  const managersPool = poolCurr.map((m) => {
-    const pv = prevPoolMap.get(m.managerId) ?? null
-    return {
-      ...m,
-      prevMonth: pv,
-      changeRate: pv != null && pv > 0 ? round1(((m.uniqueCoaches - pv) / pv) * 100) : null,
-    }
-  })
-
   return NextResponse.json({
     yearMonth,
     isCurrentMonth,
@@ -549,22 +430,6 @@ export async function GET(request: NextRequest) {
         total: schedCurr.total,
         rate: schedCurr.rate,
         prevMonth: schedPrev.rate,
-      },
-      externalHireRate: {
-        channels: extCurr.channels,
-        externalTotal: extCurr.externalTotal,
-        scoutingTotal: extCurr.scoutingTotal,
-        rate: extCurr.rate,
-        prevMonth: extPrevRate,
-      },
-      coachPoolByManager: {
-        managers: managersPool,
-      },
-      scoutingResponseRate: {
-        requested: respCurr.requested,
-        responded: respCurr.responded,
-        rate: respCurr.rate,
-        prevMonth: respPrev.rate,
       },
       samsungSchedule,
       scheduleProvision,

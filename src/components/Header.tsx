@@ -58,12 +58,17 @@ function HeaderContent() {
     }> = [
       { href: "/schedule", label: "일정", active: pathname === "/schedule" },
       { href: "/coaches", label: "코치 목록", active: pathname.startsWith("/coaches") },
-      { href: "/mypage?tab=scoutings", label: "찜꽁스테이지", active: pathname === "/mypage" && (!searchParams || searchParams === "scoutings") },
-      { href: "/mypage?tab=courses", label: "나의 과정", active: pathname === "/mypage" && searchParams === "courses" },
+      { href: "/mypage", label: "마이페이지", active: pathname === "/mypage" },
       {
         href: "/schedule/samsung",
         label: "삼전 전용",
         active: pathname === "/schedule/samsung",
+        roles: ["admin", "samsung_admin"] as const,
+      },
+      {
+        href: "/samsung-ds",
+        label: "삼전 DS",
+        active: pathname === "/samsung-ds",
         roles: ["admin", "samsung_admin"] as const,
       },
       {
@@ -130,10 +135,10 @@ function HeaderContent() {
                   href={item.href}
                   className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
                     item.active
-                      ? item.href === "/schedule/samsung"
+                      ? item.href === "/schedule/samsung" || item.href === "/samsung-ds"
                         ? "bg-[#FFF3E0] text-[#E65100]"
                         : "bg-[#EBF2FA] text-[#1565C0]"
-                      : item.href === "/schedule/samsung"
+                      : item.href === "/schedule/samsung" || item.href === "/samsung-ds"
                         ? "text-gray-500 hover:bg-gray-50 hover:text-[#E65100]"
                         : "text-gray-500 hover:bg-gray-50 hover:text-[#1565C0]"
                   }`}

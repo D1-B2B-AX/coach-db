@@ -43,9 +43,7 @@ interface ScheduleCalendarProps {
   onToggleSlot: (slot: string) => void
   onBulkToggle?: (start: string, end: string) => void
   bulkStatus?: boolean[]
-  scoutingDates?: Map<string, string>
   dayEngagements?: { courseName: string; timeText: string }[]
-  dayScoutings?: { managerName: string; courseName: string | null; hireStart: string | null; hireEnd: string | null }[]
   onPrevMonth: () => void
   onNextMonth: () => void
   canGoPrev?: boolean
@@ -65,8 +63,6 @@ export default function ScheduleCalendar({
   onBulkToggle,
   bulkStatus,
   dayEngagements,
-  dayScoutings,
-  scoutingDates,
   onPrevMonth,
   onNextMonth,
   canGoPrev = true,
@@ -145,7 +141,6 @@ export default function ScheduleCalendar({
           const isConfirmed = confirmedDates.has(key)
           const isAvailable = availableDates.has(key)
           const isUnavailable = unavailableDates.has(key)
-          const isScouted = scoutingDates?.has(key) ?? false
           const isSelected = selectedDay === key
 
           let cellClass =
@@ -159,12 +154,6 @@ export default function ScheduleCalendar({
           } else if (isConfirmed) {
             cellClass +=
               " bg-[#1976D2] text-white font-semibold cursor-pointer hover:bg-[#1565C0]"
-          } else if (isScouted && isAvailable) {
-            cellClass +=
-              " bg-[#E8F5E9] border-2 border-[#FFB74D] text-[#2E7D32] font-semibold cursor-pointer hover:bg-[#C8E6C9]"
-          } else if (isScouted) {
-            cellClass +=
-              " border-2 border-[#FFB74D] font-semibold cursor-pointer hover:bg-gray-100"
           } else if (isUnavailable) {
             cellClass +=
               " bg-[#FBE9E7] text-[#D84315] font-semibold cursor-pointer hover:bg-[#FFCCBC]"
@@ -194,7 +183,7 @@ export default function ScheduleCalendar({
           }
 
           return (
-          <div key={key} className={cellClass} onClick={handleClick} title={isScouted ? `찜꽁중 (${scoutingDates!.get(key)} 매니저)` : undefined}>
+            <div key={key} className={cellClass} onClick={handleClick}>
               {d}
             </div>
           )
@@ -225,30 +214,8 @@ export default function ScheduleCalendar({
         </div>
       )}
 
-      {/* Scouting details for selected day */}
-      {selectedDay && dayScoutings && dayScoutings.length > 0 && (
-        <div
-          className="mt-3 cursor-pointer rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2.5 transition-colors hover:bg-[#FFF3CC]"
-          onClick={() => document.getElementById("scouting-alerts")?.scrollIntoView({ behavior: "smooth" })}
-        >
-          {dayScoutings.map((s, i) => (
-            <div key={i} className={i > 0 ? "mt-1.5 border-t border-[#FFE082]/50 pt-1.5" : ""}>
-              {s.courseName && (
-                <div className="text-[13px] font-semibold text-[#E65100]">{s.courseName}</div>
-              )}
-              <div className="text-[12px] text-[#795548]">
-                {s.managerName} 매니저
-                {s.hireStart && s.hireEnd && (
-                  <span className="ml-1.5 text-[#A1887F]">{s.hireStart}~{s.hireEnd}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Time buttons — below calendar, fixed position (hidden when engagement details shown) */}
-      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && !(dayScoutings && dayScoutings.length > 0) && (
+      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && (
         <>
           <div className="mt-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">

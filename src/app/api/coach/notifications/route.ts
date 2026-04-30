@@ -3,29 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { logAccess } from '@/lib/access-log'
 
-function formatScoutingDisplay(params: {
-  date: string
-  managerName: string
-  managerEmail?: string | null
-  courseName: string | null
-  hireStart?: string | null
-  hireEnd?: string | null
-}): string {
-  const { date, managerName, managerEmail, hireStart, hireEnd } = params
-  const courseName = params.courseName?.trim() || null
-
-  const [, mo, day] = date.split('-')
-  const dateStr = `${parseInt(mo, 10)}/${parseInt(day, 10)}`
-  const timeStr = hireStart && hireEnd ? ` ${hireStart}~${hireEnd}` : ''
-  const managerLabel = managerEmail
-    ? `${managerName}매니저 (${managerEmail})`
-    : `${managerName}매니저`
-  const base = `${dateStr}${timeStr} 찜꽁 (${managerLabel})`
-
-  if (!courseName) return base
-  return `${dateStr}${timeStr} 찜꽁 — ${courseName} (${managerLabel})`
-}
-
 // GET /api/coach/notifications — 코치 알림 목록
 export async function GET(request: NextRequest) {
   const token = extractToken(request)
@@ -51,97 +28,7 @@ export async function GET(request: NextRequest) {
     take: pendingOnly ? 100 : 50,
   })
 
-  // Collect scoutingIds from scouting_request notifications (batch fetch)
-  const scoutingIds: string[] = []
-  for (const n of notifications) {
-    if (n.type === 'scouting_request' || n.type === 'scouting_request_modified') {
-      const data = n.data as Record<string, unknown> | null
-      if (data && data.scoutingId && typeof data.scoutingId === 'string') {
-        scoutingIds.push(data.scoutingId)
-      }
-    }
-  }
-
-  // Batch fetch scoutings
-  const scoutings = scoutingIds.length > 0
-    ? await prisma.scouting.findMany({
-        where: { id: { in: scoutingIds } },
-        select: {
-          id: true,
-          courseName: true,
-          note: true,
-          date: true,
-          hireStart: true,
-          hireEnd: true,
-          manager: { select: { name: true, email: true } },
-          course: { select: { location: true, hourlyRate: true, remarks: true } },
-        },
-      })
-    : []
-  const scoutingMap = new Map(scoutings.map((s) => [s.id, s]))
-
-  const enriched = notifications.map((n) => {
-    const base = { ...n, expired: n.expiredAt !== null }
-
-    const data = n.data as Record<string, unknown> | null
-    if (n.type !== 'scouting_request' || !data || !data.scoutingId) {
-      return base
-    }
-
-    const scoutingId = data.scoutingId as string
-    const scouting = scoutingMap.get(scoutingId)
-    if (!scouting) {
-      return base
-    }
-
-    const courseName = scouting.courseName ?? null
-    const managerName = typeof data.managerName === 'string' && data.managerName.trim()
-      ? data.managerName.trim()
-      : scouting.manager.name
-    const managerEmail = typeof data.managerEmail === 'string' && data.managerEmail.trim()
-      ? data.managerEmail.trim()
-      : scouting.manager.email
-    const date = scouting.date.toISOString().slice(0, 10)
-    const hireStart = scouting.hireStart ?? null
-    const hireEnd = scouting.hireEnd ?? null
-
-    let displayText: string | null = formatScoutingDisplay({
-      date,
-      managerName,
-      managerEmail,
-      courseName,
-      hireStart,
-      hireEnd,
-    })
-    if (displayText === '') displayText = null
-
-    return {
-      ...base,
-      data: {
-        ...(data as Record<string, unknown>),
-        hireStart,
-        hireEnd,
-        managerEmail,
-      },
-      enriched: (() => {
-        const raw = scouting.note ?? ''
-        const cdMatch = raw.match(/\[과정설명\]\s*([\s\S]*?)(?=\n\[전하는 말\]|\n\[기타\]|$)/)
-        const msgMatch = raw.match(/\[전하는 말\]\s*([\s\S]*?)$/) || raw.match(/\[기타\]\s*([\s\S]*?)$/)
-        const hasMark = cdMatch || msgMatch
-        return {
-          displayText,
-          courseName,
-          note: scouting.note,
-          courseDescription: hasMark ? (cdMatch?.[1]?.trim() || null) : (raw.trim() || null),
-          message: hasMark ? (msgMatch?.[1]?.trim() || null) : null,
-          location: scouting.course?.location ?? null,
-          hourlyRate: scouting.course?.hourlyRate ?? null,
-          remarks: scouting.course?.remarks ?? null,
-          managerName: managerName ?? null,
-        }
-      })(),
-    }
-  })
+  const enriched = notifications.map((n) => ({ ...n, expired: n.expiredAt !== null }))
 
   return NextResponse.json({ notifications: enriched })
 }

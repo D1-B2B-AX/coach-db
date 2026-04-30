@@ -13,36 +13,22 @@ export async function GET(request: NextRequest) {
 
     const courses = await prisma.course.findMany({
       where: { managerId: targetManagerId, deletedAt: null },
-      include: {
-        _count: { select: { scoutings: true } },
-        scoutings: {
-          select: { status: true },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     })
 
-    const result = courses.map((c) => {
-      const statusCounts: Record<string, number> = {}
-      for (const s of c.scoutings) {
-        statusCounts[s.status] = (statusCounts[s.status] || 0) + 1
-      }
-      return {
-        id: c.id,
-        name: c.name,
-        description: c.description,
-        managerId: c.managerId,
-        startDate: c.startDate,
-        endDate: c.endDate,
-        workHours: c.workHours,
-        location: c.location,
-        hourlyRate: c.hourlyRate,
-        remarks: c.remarks,
-        createdAt: c.createdAt,
-        scoutingCount: c._count.scoutings,
-        statusCounts,
-      }
-    })
+    const result = courses.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      managerId: c.managerId,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      workHours: c.workHours,
+      location: c.location,
+      hourlyRate: c.hourlyRate,
+      remarks: c.remarks,
+      createdAt: c.createdAt,
+    }))
 
     // 삭제된 과정도 함께 반환 (흔적 표시용)
     const deletedCourses = await prisma.course.findMany({

@@ -198,7 +198,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set())
   const [monthData, setMonthData] = useState<Record<string, number>>({})
   const [coaches, setCoaches] = useState<CoachEntry[]>([])
-  const [scoutingManagers, setScoutingManagers] = useState<Record<string, string>>({})
   const [statusData, setStatusData] = useState<StatusData | null>(null)
   const [timeFilter, setTimeFilter] = useState<string>("all")
   const [timeFilterSource, setTimeFilterSource] = useState<TimeFilterSource>("default")
@@ -215,16 +214,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const [syncing, setSyncing] = useState(false)
   const [courses, setCourses] = useState<CourseOption[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
-  const [showScoutModal, setShowScoutModal] = useState(false)
-  const [bulkCoachIds, setBulkCoachIds] = useState<string[]>([])
-  const [bulkDates, setBulkDates] = useState<string[]>([])
-  const [bulkCourseName, setBulkCourseName] = useState("")
-  const [bulkCourseDescription, setBulkCourseDescription] = useState("")
-  const [bulkRemark, setBulkRemark] = useState("")
-  const [bulkMessage, setBulkMessage] = useState("")
-  const [bulkSending, setBulkSending] = useState(false)
-  const bulkSendingRef = useRef(false)
-  const [bulkError, setBulkError] = useState("")
   const yearMonth = formatYearMonth(currentYear, currentMonth)
 
   // ── Restore filters from URL on mount & sync changes back ──
@@ -359,7 +348,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
   const fetchCoaches = useCallback(async () => {
     if (!selectedStart) {
       setCoaches([])
-      setScoutingManagers({})
       return
     }
     setCoachLoading(true)
@@ -375,36 +363,11 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
       else if (variant === "samsung") params.set("coachFilter", "samsung-only")
       const qs = params.toString() ? `?${params}` : ""
 
-      const scoutParams = new URLSearchParams({ date: selectedStart })
-      if (selectedEnd) scoutParams.set("endDate", selectedEnd)
-
-      const [coachRes, scoutRes] = await Promise.all([
-        fetch(`/api/schedules/${ym}/${day}${qs}`),
-        fetch(`/api/scoutings?${scoutParams}`),
-      ])
-      if (coachRes.status === 401 || scoutRes.status === 401) { window.location.href = '/login'; return }
+      const coachRes = await fetch(`/api/schedules/${ym}/${day}${qs}`)
+      if (coachRes.status === 401) { window.location.href = '/login'; return }
       if (coachRes.ok) {
         const data = await coachRes.json()
         setCoaches(data.coaches || [])
-      }
-      if (scoutRes.ok) {
-        const data = await scoutRes.json()
-        const mapping: Record<string, string> = {}
-        for (const s of (data.scoutings || [])) {
-          if (s.status === 'cancelled') continue
-          const coachId = s.coachId
-          if (!coachId) continue
-          const managerName = (s.manager?.name || '').trim() || '매니저'
-          const existing = mapping[coachId]
-          if (existing) {
-            if (!existing.includes(managerName)) {
-              mapping[coachId] = `${existing}, ${managerName}`
-            }
-          } else {
-            mapping[coachId] = managerName
-          }
-        }
-        setScoutingManagers(mapping)
       }
     } catch {
       // silently fail
@@ -636,132 +599,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
     fetchMonthData()
   }
 
-  // 선택된 날짜 범위의 모든 날짜 생성
-  function getSelectedDateRange(): string[] {
-    if (selectedCourseId && selectedDates.size > 0) {
-      return [...selectedDates].sort()
-    }
-    if (!selectedStart) return []
-    if (!selectedEnd) return [selectedStart]
-    const dates: string[] = []
-    const cursor = new Date(selectedStart + "T12:00:00Z")
-    const end = new Date(selectedEnd + "T12:00:00Z")
-    while (cursor <= end) {
-      dates.push(cursor.toISOString().slice(0, 10))
-      cursor.setUTCDate(cursor.getUTCDate() + 1)
-    }
-    return dates
-  }
-
-  function openBulkScoutModal(coachIds: string[]) {
-    if (coachIds.length === 0 || !selectedStart) return
-    if (!selectedCourseId) {
-      alert("과정을 먼저 선택해주세요.")
-      return
-    }
-    const selectedCourse = courses.find((c) => c.id === selectedCourseId)
-    setBulkCoachIds(coachIds)
-    setBulkDates(getSelectedDateRange())
-    setBulkCourseName(selectedCourse?.name ?? "")
-    setBulkCourseDescription(selectedCourse?.description ?? "")
-    setBulkRemark("")
-    setBulkMessage("")
-    setBulkError("")
-    setBulkSending(false)
-    setShowScoutModal(true)
-  }
-
-  function closeBulkModal() {
-    setShowScoutModal(false)
-    setBulkCoachIds([])
-    setBulkDates([])
-    setBulkCourseName("")
-    setBulkCourseDescription("")
-    setBulkRemark("")
-    setBulkMessage("")
-    setBulkError("")
-    setBulkSending(false)
-  }
-
-  // 팝업 입력값으로 여러 코치를 선택된 날짜 범위에 일괄 컨택
-  async function submitBulkScout() {
-    if (bulkCoachIds.length === 0 || !selectedStart) return
-    if (bulkSendingRef.current) return
-    const courseName = bulkCourseName.trim()
-    if (!courseName) {
-      setBulkError("과정명을 입력해주세요.")
-      return
-    }
-    bulkSendingRef.current = true
-    // Parse workHours to extract per-date times
-    const selectedCourse = courses.find(c => c.id === selectedCourseId)
-    const workHoursMap = new Map<string, { start: string; end: string }>()
-    if (selectedCourse?.workHours) {
-      for (const line of selectedCourse.workHours.split("\n")) {
-        const m = line.match(/^(\d{4}-\d{2}-\d{2})\(.+?\)\s+(\d{2}:\d{2})-(\d{2}:\d{2})/)
-        if (m) workHoursMap.set(m[1], { start: m[2], end: m[3] })
-      }
-    }
-
-    const dates = bulkDates
-    setBulkSending(true)
-    setBulkError("")
-    try {
-      let successCount = 0
-      let failedCount = 0
-      let firstErrorMessage = ""
-      for (const coachId of bulkCoachIds) {
-        for (const date of dates) {
-          const dateTime = workHoursMap.get(date)
-          const res = await fetch('/api/scoutings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                coachId,
-                date,
-                mode: 'upsert',
-                courseName,
-                courseDescription: bulkCourseDescription.trim() || undefined,
-                message: bulkMessage.trim() || undefined,
-                hireStart: dateTime?.start || undefined,
-                hireEnd: dateTime?.end || undefined,
-                ...(selectedCourseId && { courseId: selectedCourseId }),
-              }),
-            })
-          if (res.ok) {
-            successCount++
-            continue
-          }
-
-          const data = await res.json().catch(() => ({}))
-          const errorMessage = typeof data?.error === "string" ? data.error : `${res.status} ${res.statusText}`
-          if (!firstErrorMessage) firstErrorMessage = errorMessage
-          console.error("[submitBulkScout] POST /api/scoutings failed", { coachId, date, status: res.status, errorMessage, data })
-          failedCount++
-        }
-      }
-      // 섭외된 코치 목록 갱신 (다시 가져오기)
-      await fetchCoaches()
-      setToastMessage(
-        `${bulkCoachIds.length}명 × ${dates.length}일 컨택 완료 (${successCount}건${failedCount > 0 ? `, 실패 ${failedCount}건` : ''})`
-      )
-      setShowToast(true)
-      if (failedCount === 0) {
-        closeBulkModal()
-      } else {
-        setBulkError(firstErrorMessage || "일부 전송에 실패했습니다. 다시 시도해주세요.")
-      }
-    } catch (e) {
-      console.error('일괄 컨택 에러:', e)
-      setToastMessage('컨택 처리 중 네트워크 오류')
-      setShowToast(true)
-      setBulkError("전송 중 오류가 발생했습니다.")
-    } finally {
-      setBulkSending(false)
-      bulkSendingRef.current = false
-    }
-  }
-
   return (
     <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
       {/* Main content: calendar + coach list */}
@@ -805,8 +642,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onStatusFilterChange={setStatusFilter}
           engagementFilter={engagementFilter}
           onEngagementFilterChange={setEngagementFilter}
-          scoutingManagers={scoutingManagers}
-          onBulkScout={openBulkScoutModal}
           courses={courses}
           selectedCourseId={selectedCourseId}
           onCourseChange={(id) => {
@@ -845,79 +680,6 @@ export default function DashboardContent({ variant }: DashboardContentProps) {
           onReset={handleReset}
         />
       </div>
-
-      {showScoutModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => !bulkSending && closeBulkModal()}
-        >
-          <div
-            className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold text-[#333]">컨택 내용 확인</h3>
-            <p className="mt-1 text-xs text-gray-500">
-              선택된 코치 {bulkCoachIds.length}명 / {bulkDates.length}일
-            </p>
-            <div className="mt-4 space-y-3">
-              {/* 과정 정보 — 과정에서 가져오되 편집 가능 */}
-              <div>
-                <span className="mb-1 block text-xs font-medium text-gray-600">과정명</span>
-                <input
-                  type="text"
-                  value={bulkCourseName}
-                  onChange={(e) => setBulkCourseName(e.target.value)}
-                  maxLength={200}
-                  disabled={bulkSending}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                />
-              </div>
-              <div>
-                <span className="mb-1 block text-xs font-medium text-gray-600">과정설명</span>
-                <textarea
-                  value={bulkCourseDescription}
-                  onChange={(e) => setBulkCourseDescription(e.target.value)}
-                  placeholder="코치에게 전달할 설명을 입력하세요"
-                  rows={3}
-                  disabled={bulkSending}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                />
-              </div>
-              <div>
-                <span className="mb-1 block text-xs font-medium text-gray-600">함께 전하는 말</span>
-                <textarea
-                  value={bulkMessage}
-                  onChange={(e) => setBulkMessage(e.target.value)}
-                  placeholder="코치에게 따로 전할 말이 있으면 입력하세요"
-                  rows={2}
-                  disabled={bulkSending}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-[#333] focus:border-[#1976D2] focus:outline-none"
-                />
-              </div>
-
-              {bulkError && <p className="text-xs text-red-600">{bulkError}</p>}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => closeBulkModal()}
-                disabled={bulkSending}
-                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={submitBulkScout}
-                disabled={bulkSending}
-                className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-2 text-sm font-medium text-white hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {bulkSending ? "전송 중..." : "전송"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Toast
         message={toastMessage}

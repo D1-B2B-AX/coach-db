@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { isOff } from "@/lib/holidays"
-import Badge from "@/components/ui/Badge"
 
 function formatTimeLabel(start: string, end: string): string {
   const sh = parseInt(start.slice(0, 2), 10)
@@ -108,7 +107,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   const [selectedDay, setSelectedDay] = useState<string | null>(null
   )
   const [scheduleCache, setScheduleCache] = useState<Map<string, ScheduleEntry[]>>(new Map())
-  const [scoutingDates, setScoutingDates] = useState<Map<string, string>>(new Map()) // date -> managerName
 
   const yearMonth = `${year}-${String(month + 1).padStart(2, "0")}`
   const { restricted: isRestricted } = getSamsungRestriction(workType, year, month)
@@ -155,35 +153,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
   useEffect(() => {
     fetchSchedules()
   }, [fetchSchedules])
-
-  // Fetch scouting data for this coach
-  useEffect(() => {
-    if (isRestricted) {
-      setScoutingDates(new Map())
-      return
-    }
-    async function fetchScoutings() {
-      try {
-        const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`
-        const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${new Date(year, month + 1, 0).getDate()}`
-        const res = await fetch(`/api/scoutings?coachId=${coachId}&date=${firstDay}&endDate=${lastDay}`)
-        if (res.ok) {
-          const data = await res.json()
-          const map = new Map<string, string>()
-          for (const s of data.scoutings || []) {
-            if (s.status === 'cancelled') continue
-            const d = s.date.slice(0, 10)
-            map.set(d, s.manager?.name || "")
-          }
-          console.log('[scouting]', coachId, firstDay, '~', lastDay, 'found:', map.size, [...map.entries()])
-          setScoutingDates(map)
-        } else {
-          console.error('[scouting] API error:', res.status, res.statusText)
-        }
-      } catch (err) { console.error('[scouting] fetch error:', err) }
-    }
-    fetchScoutings()
-  }, [coachId, year, month, isRestricted])
 
   // Compute 6-month work day summary from cache + engagementSchedules
   const workDaySummary = (() => {
@@ -383,8 +352,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                   const isToday = key === todayStr
                   const isConfirmed = engagementDates.has(key)
                   const isAvailable = availableDates.has(key)
-                  const isScouted = scoutingDates.has(key)
-                  const scoutedManagerName = isScouted ? (scoutingDates.get(key) || "").trim() : ""
                   const isSelected = selectedDay === key
 
                   let cellClass =
@@ -392,10 +359,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
 
                   if (isSelected) {
                     cellClass += " bg-[#ECEFF1] border-2 border-[#546E7A] font-semibold"
-                  } else if (isScouted && isAvailable && !isConfirmed) {
-                    cellClass += " bg-[#E8F5E9] border-2 border-[#FFB74D] text-[#2E7D32] font-semibold hover:bg-[#C8E6C9]"
-                  } else if (isScouted && !isConfirmed) {
-                    cellClass += " border-2 border-[#FFB74D] font-semibold hover:bg-gray-100"
                   } else if (isConfirmed) {
                     cellClass += " bg-[#1976D2] text-white font-semibold hover:bg-[#1565C0]"
                   } else if (isAvailable) {
@@ -404,7 +367,7 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                     cellClass += " hover:bg-gray-100"
                   }
 
-                  if (!isConfirmed && !isSelected && !isScouted) {
+                  if (!isConfirmed && !isSelected) {
                     if (isOff(key, dayOfWeek)) cellClass += " text-[#E53935]"
                     else if (dayOfWeek === 6) cellClass += " text-[#1565C0]"
                   }
@@ -418,13 +381,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                       key={key}
                       className={cellClass}
                       onClick={() => setSelectedDay(isSelected ? null : key)}
-                      title={
-                        isScouted
-                          ? scoutedManagerName
-                            ? `찜꽁중 · ${scoutedManagerName}`
-                            : "찜꽁중"
-                          : undefined
-                      }
                     >
                       {d}
                     </div>
@@ -441,10 +397,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded-[10px] bg-[#1976D2]" />
                   확정
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded-[10px] border-2 border-[#FFB74D] bg-[#E8F5E9]" />
-                  <Badge variant="status" tone="orange">찜꽁중</Badge>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded-[10px] border border-transparent bg-[#F4F6FA] ring-1 ring-[#D0D6DF]" />
@@ -509,9 +461,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                 ]
                 merged.sort((a, b) => a.startTime.localeCompare(b.startTime))
 
-                const hasScoutInfo = scoutingDates.has(selectedDay)
-                const scoutManagerRaw = scoutingDates.get(selectedDay) || ""
-                const scoutManager = scoutManagerRaw.trim()
                 const availItems = merged.filter(m => m.type === "avail")
                 const engItems = merged.filter(m => m.type === "eng")
 
@@ -525,18 +474,6 @@ export default function ScheduleTab({ coachId, engagements, engagementSchedules,
                     {availLabel && (
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-[#2E7D32]">{availLabel}</span>
-                        {hasScoutInfo && (
-                          <Badge variant="status" tone="orange">
-                            {scoutManager ? `찜꽁중 · ${scoutManager}` : "찜꽁중"}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    {!availLabel && hasScoutInfo && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Badge variant="status" tone="orange">
-                          {scoutManager ? `찜꽁중 · ${scoutManager}` : "찜꽁중"}
-                        </Badge>
                       </div>
                     )}
                     {engItems.map((item, i) => (

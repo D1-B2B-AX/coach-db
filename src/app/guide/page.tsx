@@ -43,56 +43,17 @@ const steps: Array<{
   },
   {
     number: "03",
-    title: "코치 찾기 + 찜꽁",
+    title: "코치 찾기",
     content: (
       <div className="space-y-4">
         <p><Accent>일정</Accent> 메뉴에서 과정을 선택하면, 날짜와 시간에 맞춰 <B>근무 가능한 코치님 목록</B>이 자동으로 표시됩니다.</p>
-        <p>원하는 코치님을 <B>체크</B>하고 <Accent>찜꽁</Accent> 버튼을 눌러주세요.</p>
-        <p className="text-[15px] text-[#999]">다른 매니저님이 이미 찜꽁 중이라면 진행 단계를 슬쩍 여쭤봐주세요!</p>
+        <p>원하는 코치님을 선택한 뒤 직접 연락하여 일정을 조율해주세요.</p>
       </div>
     ),
     image: "/guide/3.png",
   },
   {
     number: "04",
-    title: "코치님께 한마디",
-    content: (
-      <div className="space-y-4">
-        <p><B>함께 전하는 말</B>을 자유롭게 작성해주세요.</p>
-        <p className="text-[15px] text-[#999]">바로 섭외가 아니어도 괜찮아요. 코치님과 편하게 소통해보세요!</p>
-      </div>
-    ),
-    image: "/guide/4.png",
-  },
-  {
-    number: "05",
-    title: "코치님에게는\n이렇게 보여요",
-    content: (
-      <p>코치님의 캘린더에 요청이 표시됩니다.</p>
-    ),
-    image: "/guide/5-1.png",
-  },
-  {
-    number: "",
-    title: "",
-    content: (
-      <div className="space-y-4">
-        <p>코치님이 보는 알림 화면입니다!</p>
-        <p className="text-[15px] text-[#999]">메일 알림도 곧 지원 예정입니다.</p>
-      </div>
-    ),
-    image: "/guide/5-2.png",
-  },
-  {
-    number: "06",
-    title: "확정하기",
-    content: (
-      <p>코치님이 수락하신 후, 매니저님이 <Accent>찜꽁스테이지</Accent>에서 <B>최종 확정</B>을 눌러주셔야 확정됩니다.</p>
-    ),
-    image: "/guide/6.png",
-  },
-  {
-    number: "07",
     title: "계약 작성",
     content: (
       <div className="space-y-4">
@@ -129,11 +90,11 @@ const steps: Array<{
   },
   {
     number: "",
-    title: "별점 + 재섭외 의사",
+    title: "별점 + 재채용 의사",
     content: (
       <div className="space-y-4">
         <p>다른 매니저님들을 위해 함께 일했던 코치님에 대한 <B>별점</B>을 남겨주세요.</p>
-        <p>다시 섭외하고 싶은지 <B>재섭외 의사</B>까지 남겨주시면 큰 도움이 됩니다.</p>
+        <p>다시 함께하고 싶은지 <B>재채용 의사</B>까지 남겨주시면 큰 도움이 됩니다.</p>
       </div>
     ),
     image: "/guide/10.png",
@@ -162,8 +123,8 @@ export default function GuidePage() {
           <div className="mt-10 grid grid-cols-2 gap-4 max-w-sm">
             <a href="#recruit" className="group relative overflow-hidden rounded-2xl bg-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.15] transition-all border border-white/[0.08] hover:border-white/20">
               <div className="text-[24px] mb-3">&#128269;</div>
-              <div className="text-[15px] font-bold text-white">코치 섭외하기</div>
-              <div className="text-[12px] text-white/40 mt-1.5 leading-relaxed">과정 등록 → 찜꽁<br />→ 확정 → 계약</div>
+              <div className="text-[15px] font-bold text-white">코치 채용하기</div>
+              <div className="text-[12px] text-white/40 mt-1.5 leading-relaxed">과정 등록 → 코치 찾기<br />→ 계약 작성</div>
             </a>
             <a href="#manage" className="group relative overflow-hidden rounded-2xl bg-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.15] transition-all border border-white/[0.08] hover:border-white/20">
               <div className="text-[24px] mb-3">&#128203;</div>
@@ -174,10 +135,10 @@ export default function GuidePage() {
         </div>
       </div>
 
-      {/* Section: 코치 섭외하기 */}
+      {/* Section: 코치 채용하기 */}
       <div className="mx-auto max-w-4xl px-8">
         <div id="recruit" className="scroll-mt-8 pt-20 pb-6">
-          <p className="text-[13px] font-bold text-[#1976D2] tracking-[0.15em] uppercase">코치 섭외하기</p>
+          <p className="text-[13px] font-bold text-[#1976D2] tracking-[0.15em] uppercase">코치 채용하기</p>
           <h2 className="text-[28px] font-bold text-[#111] mt-2 tracking-tight">과정을 만들고,<br />코치님을 찾아보세요.</h2>
         </div>
 

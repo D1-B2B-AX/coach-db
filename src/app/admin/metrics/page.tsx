@@ -21,32 +21,9 @@ interface ScheduleInputRate extends MetricBase {
   total: number
 }
 
-interface ExternalHireRate extends MetricBase {
-  channels: ChannelCount[]
-  externalTotal: number
-  scoutingTotal: number
-}
-
 interface ExternalHireHistory {
   months: string[]
   channels: { key: string; label: string; values: (number | null)[] }[]
-}
-
-interface CoachPoolManager {
-  managerId: string
-  managerName: string
-  uniqueCoaches: number
-  prevMonth: number | null
-  changeRate: number | null
-}
-
-interface CoachPoolByManager {
-  managers: CoachPoolManager[]
-}
-
-interface ScoutingResponseRate extends MetricBase {
-  requested: number
-  responded: number
 }
 
 interface SamsungScheduleItem {
@@ -63,7 +40,6 @@ interface DailyTrendPoint {
   day: number
   scheduleEdits: number
   anyMonthEdits: number
-  scoutingsCreated: number
   dsCompleted: number
   dxCompleted: number
   inputRate: number | null
@@ -72,9 +48,6 @@ interface DailyTrendPoint {
 interface TrendPoint {
   yearMonth: string
   scheduleInputRate: number | null
-  externalHireRate: number | null
-  avgCoachPool: number | null
-  scoutingResponseRate: number | null
 }
 
 interface WeeklyTrendPoint {
@@ -88,9 +61,6 @@ interface MetricsData {
   isCurrentMonth: boolean
   metrics: {
     scheduleInputRate: ScheduleInputRate
-    externalHireRate: ExternalHireRate
-    coachPoolByManager: CoachPoolByManager
-    scoutingResponseRate: ScoutingResponseRate
     samsungSchedule: SamsungScheduleItem[]
     scheduleProvision: {
       sentCount: number
@@ -381,17 +351,11 @@ function ExternalHireForm({
 /* ------------------------------------------------------------------ */
 const TREND_COLORS: Record<string, string> = {
   scheduleInputRate: '#3B82F6',
-  externalHireRate: '#F59E0B',
-  avgCoachPool: '#10B981',
-  scoutingResponseRate: '#8B5CF6',
 }
 const TREND_LABELS: Record<string, string> = {
   scheduleInputRate: '일정 입력률',
-  externalHireRate: '외부 구인 비율',
-  avgCoachPool: '평균 코치 pool',
-  scoutingResponseRate: '섭외 응답률',
 }
-const TREND_KEYS = ['scheduleInputRate', 'externalHireRate', 'avgCoachPool', 'scoutingResponseRate'] as const
+const TREND_KEYS = ['scheduleInputRate'] as const
 
 function TrendChart({ trend }: { trend: TrendPoint[] }) {
   if (!trend || trend.length === 0) return null
@@ -798,70 +762,13 @@ export default function AdminMetricsPage() {
                   <p className="text-sm text-gray-400 py-4">이번 달부터 기록이 시작됩니다</p>
                 )}
                 <ExternalHireForm
-                  channels={data.metrics.externalHireRate.channels}
+                  channels={data.metrics.externalHireHistory.channels.map((ch) => {
+                    const ymIdx = data.metrics.externalHireHistory.months.indexOf(yearMonth)
+                    return { key: ch.key, label: ch.label, count: ymIdx >= 0 ? (ch.values[ymIdx] ?? 0) : 0 }
+                  })}
                   yearMonth={yearMonth}
                   onSaved={() => fetchData(yearMonth)}
                 />
-              </div>
-
-              {/* Card: Coach Pool Average */}
-              <div className={CARD}>
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">매니저당 평균 코치 pool</h3>
-                {data.metrics.coachPoolByManager.managers.length > 0 ? (
-                  (() => {
-                    const mgrs = data.metrics.coachPoolByManager.managers
-                    const avg = mgrs.reduce((s, m) => s + m.uniqueCoaches, 0) / mgrs.length
-                    const prevAvg = mgrs.filter(m => m.prevMonth !== null).length > 0
-                      ? mgrs.reduce((s, m) => s + (m.prevMonth ?? 0), 0) / mgrs.filter(m => m.prevMonth !== null).length
-                      : null
-                    const delta = prevAvg !== null ? avg - prevAvg : null
-                    return (
-                      <>
-                        <p className="text-2xl font-bold text-gray-900 tracking-tight mt-1">
-                          {avg.toFixed(1)}
-                          <span className="text-sm font-medium text-gray-500 ml-1">명</span>
-                        </p>
-                        <div className="mt-1.5">
-                          {prevAvg !== null && delta !== null ? (
-                            <p className="text-sm">
-                              <span className="text-gray-400 tabular-nums">{prevAvg.toFixed(1)}명 →</span>
-                              <span className={`ml-1 font-medium tabular-nums ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                                {delta > 0 ? '+' : ''}{delta.toFixed(1)}명
-                              </span>
-                            </p>
-                          ) : (
-                            <span className="text-sm text-gray-400">&mdash;</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2 truncate">
-                          {mgrs.length}명 매니저 · 총 {mgrs.reduce((s, m) => s + m.uniqueCoaches, 0)}명 코치
-                        </p>
-                      </>
-                    )
-                  })()
-                ) : (
-                  <p className="text-sm text-gray-400 mt-2">데이터 없음</p>
-                )}
-              </div>
-
-              {/* Card: Scouting Response Rate */}
-              <div className={CARD}>
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                  섭외 응답률
-                  <span className="text-xs font-normal text-gray-400 ml-1">(수락+거절)</span>
-                </h3>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight mt-1">
-                  {formatRate(data.metrics.scoutingResponseRate.rate)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1.5 tabular-nums">
-                  {data.metrics.scoutingResponseRate.responded} / {data.metrics.scoutingResponseRate.requested}건
-                </p>
-                <div className="mt-1.5">
-                  <DeltaBadge
-                    current={data.metrics.scoutingResponseRate.rate}
-                    prev={data.metrics.scoutingResponseRate.prevMonth}
-                  />
-                </div>
               </div>
 
             </div>

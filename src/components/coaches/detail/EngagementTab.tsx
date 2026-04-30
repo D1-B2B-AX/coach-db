@@ -324,7 +324,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
                       <span><span className="text-gray-400">시급</span> <span className={first.hourlyRate ? "text-[#333]" : "text-gray-300"}>{first.hourlyRate ? `${first.hourlyRate.toLocaleString()}원` : "-"}</span></span>
                       <span><span className="text-gray-400">담당</span> <span className="text-[#333]">{first.hiredBy || "-"}</span></span>
                       <span><span className="text-gray-400">평가</span> <span className={first.rating !== null ? "text-[#F57F17]" : "text-gray-300"}>{first.rating !== null ? `★ ${first.rating}` : "-"}</span></span>
-                      <span className="flex items-center gap-1"><span className="text-gray-400">재섭외</span> {first.rehire !== null ? (
+                      <span className="flex items-center gap-1"><span className="text-gray-400">재채용</span> {first.rehire !== null ? (
                         <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${first.rehire ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FBE9E7] text-[#D84315]"}`}>
                           {first.rehire ? "희망" : "비희망"}
                         </span>
@@ -487,7 +487,7 @@ export default function EngagementTab({ coachId, currentManagerName, isAdmin, op
 
                 {/* Rehire */}
                 <div>
-                  <label className="block text-sm font-semibold text-[#333] mb-1.5">재섭외 의사</label>
+                  <label className="block text-sm font-semibold text-[#333] mb-1.5">재채용 의사</label>
                   <select
                     value={form.rehire}
                     onChange={(e) => updateForm("rehire", e.target.value)}

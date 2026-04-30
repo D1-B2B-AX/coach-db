@@ -90,36 +90,6 @@ export function groupByCoachCourse(list: EngagementHistory[]): CoachCourseGroup[
   })
 }
 
-export interface Scouting {
-  id: string
-  coachId: string
-  courseId: string | null
-  date: string
-  status: string
-  note: string | null
-  courseName: string | null
-  hireStart: string | null
-  hireEnd: string | null
-  scheduleText: string | null
-  coach: {
-    id: string; name: string
-    employeeId?: string | null; email?: string | null
-    phone?: string | null; workType?: string | null
-  }
-  manager: { id: string; name: string }
-  course?: { id: string; name: string; startDate: string | null; endDate: string | null } | null
-}
-
-export interface CourseGroup {
-  id: string | null
-  name: string
-  startDate: string | null
-  endDate: string | null
-  createdAt?: string
-  dateRows: Map<string, Scouting[]>
-  allScoutings: Scouting[]
-}
-
 export interface Course {
   id: string
   name: string
@@ -143,34 +113,9 @@ export interface DeletedCourse {
 
 // Constants
 
-export const STATUS_CONFIG: Record<string, { label: string; className: string; activeClassName: string }> = {
-  all: { label: "전체", className: "bg-gray-100 text-gray-500", activeClassName: "bg-[#333] text-white" },
-  scouting: { label: "찜꽁중", className: "bg-[#FFF3E0] text-[#F57C00]", activeClassName: "bg-[#F57C00] text-white" },
-  accepted: { label: "수락", className: "bg-[#E8F5E9] text-[#388E3C]", activeClassName: "bg-[#388E3C] text-white" },
-  rejected: { label: "거절", className: "bg-[#FFEBEE] text-[#D32F2F]", activeClassName: "bg-[#D32F2F] text-white" },
-  confirmed: { label: "확정", className: "bg-[#E3F2FD] text-[#1976D2]", activeClassName: "bg-[#1976D2] text-white" },
-  cancelled: { label: "취소", className: "bg-gray-100 text-gray-400", activeClassName: "bg-gray-500 text-white" },
-}
-
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]
 
-export const SHEET_HEADERS = [
-  "계약서 발송 여부", "신규\n조교", "No.", "사번", "근무자 성명",
-  "담당직무", "담당Manager", "과정명", "기준시급/월급여",
-  "고용시작일", "고용종료일",
-  "소정근로일별 근로시간(휴게시간)\n일 최대 8H, 4시간 근로시 휴게 0.5H 필수",
-  "E-mail 주소", "연락처", "연락처 뒷자리 4자리",
-  "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
-]
-
 // Utility functions
-
-export function formatFullDate(d: string): string {
-  const date = new Date(d)
-  const days = ["일", "월", "화", "수", "목", "금", "토"]
-  const yy = String(date.getFullYear()).slice(2)
-  return `${yy}.${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`
-}
 
 export function parseTimeValue(s: string): string {
   const dot = s.match(/^(\d{1,2})\.(\d+)$/)
@@ -211,116 +156,6 @@ export function formatScheduleLine(dateStr: string, startTime: string, endTime: 
   return `${dateStr}(${dayName}) ${startTime} ~ ${endTime} (휴게 ${breakStr}, 총 ${totalH}H)`
 }
 
-export function tsvCell(v: string): string {
-  return v.includes("\t") || v.includes("\n") || v.includes('"')
-    ? '"' + v.replace(/"/g, '""') + '"' : v
-}
-
-export function buildSheetRow(s: Scouting): string[] {
-  const c = s.coach
-  const isNew = !c.employeeId
-  const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
-  return [
-    "",
-    isNew ? "V" : "",
-    "",
-    c.employeeId || "",
-    c.name,
-    workType,
-    s.manager.name,
-    s.courseName || "",
-    "15000",
-    s.hireStart || "",
-    s.hireEnd || "",
-    s.scheduleText || "",
-    c.email || "",
-    c.phone || "",
-    "",
-    "",
-  ]
-}
-
-const EXCEL_HEADERS = [
-  "계약서 발송 여부",
-  "신규\n조교",
-  "No.",
-  "사번",
-  "근무자 성명",
-  "담당직무",
-  "담당Manager",
-  "과정명",
-  "기준시급/월급여",
-  "고용시작일",
-  "고용종료일",
-  "소정근로일별 근로시간(휴게시간)\n일 최대 8H, 4시간 근로시 휴게 0.5H 필수",
-  "E-mail 주소",
-  "연락처",
-  "연락처 뒷자리 4자리",
-  "비고(근무일정 변경시 작성)\n취소사유를 입력부탁드립니다.",
-]
-
-export function buildContractRows(scoutings: Scouting[]): string[][] {
-  // 같은 코치는 1줄로 합침
-  const grouped = new Map<string, Scouting[]>()
-  for (const s of scoutings) {
-    const key = s.coachId
-    if (!grouped.has(key)) grouped.set(key, [])
-    grouped.get(key)!.push(s)
-  }
-
-  return [...grouped.values()].map((items) => {
-    const first = items[0]
-    const c = first.coach
-    const isNew = !c.employeeId
-    const workType = c.workType === "운영조교" ? "운영조교" : "실습코치"
-    const scheduleLines = items
-      .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-      .filter((s) => s.hireStart && s.hireEnd)
-      .map((s) => formatScheduleLine(s.date.slice(0, 10), s.hireStart!, s.hireEnd!))
-      .join("\n")
-    const phone = c.phone || ""
-    const last4 = phone.replace(/[^0-9]/g, "").slice(-4)
-    const courseStart = first.course?.startDate?.slice(0, 10) || ""
-    const courseEnd = first.course?.endDate?.slice(0, 10) || ""
-    return [
-      "",
-      isNew ? "V" : "",
-      "",
-      c.employeeId || "",
-      c.name,
-      workType,
-      first.manager.name,
-      first.courseName || "",
-      "15000",
-      courseStart,
-      courseEnd,
-      scheduleLines,
-      c.email || "",
-      phone,
-      last4,
-      "",
-    ]
-  })
-}
-
-export function downloadContractExcel(scoutings: Scouting[]) {
-  import("xlsx").then((XLSX) => {
-    const rows = buildContractRows(scoutings)
-    const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...rows])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "계약요청")
-    const courseName = scoutings[0]?.courseName?.replace(/[/\\?*[\]]/g, "") || "계약"
-    const dateStr = new Date().toISOString().slice(0, 10)
-    XLSX.writeFile(wb, `${courseName}_${dateStr}.xlsx`)
-  })
-}
-
-export function copyContractToClipboard(scoutings: Scouting[]): Promise<boolean> {
-  const rows = buildContractRows(scoutings)
-  const tsv = rows.map(row => row.map(tsvCell).join("\t")).join("\n")
-  return navigator.clipboard.writeText(tsv).then(() => true).catch(() => false)
-}
-
 export function groupEngagements(list: EngagementHistory[]): EngagementGroup[] {
   const map = new Map<string, EngagementHistory[]>()
   for (const e of list) {
@@ -352,11 +187,3 @@ export function formatPeriod(start: string | null, end: string | null): string {
   return `~ ${fmt(end!)}`
 }
 
-export function getStatusCounts(scoutings: Scouting[]): Record<string, number> {
-  const counts: Record<string, number> = {}
-  for (const s of scoutings) {
-    if (s.status === "cancelled") continue
-    counts[s.status] = (counts[s.status] || 0) + 1
-  }
-  return counts
-}

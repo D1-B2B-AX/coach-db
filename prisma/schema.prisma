@@ -44,7 +44,6 @@ model Coach {
   accessLogs  ScheduleAccessLog[]
   engagements          Engagement[]
   engagementSchedules  EngagementSchedule[]
-  scoutings            Scouting[]
   notifications        Notification[]
   pushSubscriptions    PushSubscription[]
 
@@ -68,47 +67,12 @@ model Manager {
   role      ManagerRole @default(user)
   createdAt DateTime    @default(now()) @map("created_at")
 
-  scoutings         Scouting[]
   courses           Course[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   courseEditLogs    CourseEditLog[]
 
   @@map("managers")
-}
-
-// ─── 섭외 ───
-
-enum ScoutingStatus {
-  scouting
-  accepted
-  rejected
-  confirmed
-  cancelled
-}
-
-model Scouting {
-  id        String         @id @default(uuid())
-  coachId   String         @map("coach_id")
-  managerId String         @map("manager_id")
-  courseId   String?        @map("course_id")
-  date      DateTime       @db.Date
-  note       String?        @db.Text
-  status     ScoutingStatus @default(scouting)
-  courseName    String?   @map("course_name") @db.VarChar(200)
-  hireStart     String?   @map("hire_start") @db.VarChar(10)
-  hireEnd       String?   @map("hire_end") @db.VarChar(10)
-  scheduleText  String?   @map("schedule_text") @db.Text
-  createdAt     DateTime  @default(now()) @map("created_at")
-
-  coach   Coach   @relation(fields: [coachId], references: [id], onDelete: Cascade)
-  manager Manager @relation(fields: [managerId], references: [id], onDelete: Cascade)
-  course  Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
-
-  @@unique([coachId, date, managerId])
-  @@index([coachId, date])
-  @@index([courseId])
-  @@map("scoutings")
 }
 
 // ─── 과정 ───
@@ -128,7 +92,6 @@ model Course {
   deletedAt   DateTime? @map("deleted_at")
 
   manager   Manager   @relation(fields: [managerId], references: [id], onDelete: Cascade)
-  scoutings Scouting[]
   editLogs  CourseEditLog[]
 
   @@index([managerId])
