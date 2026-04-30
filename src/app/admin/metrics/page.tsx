@@ -77,6 +77,26 @@ interface MetricsData {
   weeklyTrend?: WeeklyTrendPoint[]
 }
 
+interface EmailTrackingCoach {
+  name: string
+  email: string | null
+  status: 'not_visited' | 'visited_only' | 'completed'
+  latestAccess: string | null
+  latestEdit: string | null
+  monthsEdited: number
+  scheduleCount: number
+}
+
+interface EmailTrackingData {
+  coaches: EmailTrackingCoach[]
+  summary: {
+    total: number
+    completed: number
+    visitedOnly: number
+    notVisited: number
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -497,6 +517,97 @@ function WeeklyTrendMiniChart({ weeklyTrend }: { weeklyTrend: WeeklyTrendPoint[]
 }
 
 /* ------------------------------------------------------------------ */
+/*  Email Campaign Tracking                                            */
+/* ------------------------------------------------------------------ */
+const STATUS_CFG = {
+  completed: { label: '입력완료', color: 'text-green-700', bg: 'bg-green-50', dot: 'bg-green-500' },
+  visited_only: { label: '접속만', color: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-500' },
+  not_visited: { label: '미접속', color: 'text-red-600', bg: 'bg-red-50', dot: 'bg-red-500' },
+} as const
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${m}/${day} ${hh}:${mm}`
+}
+
+function EmailTrackingSection({ data }: { data: EmailTrackingData }) {
+  const { coaches, summary } = data
+  const rate = summary.total > 0 ? ((summary.completed / summary.total) * 100).toFixed(1) : '0'
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-800">메일 발송 코치 활동 추적</h3>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-green-600 font-medium">완료 {summary.completed}</span>
+          <span className="text-amber-600 font-medium">접속만 {summary.visitedOnly}</span>
+          <span className="text-red-500 font-medium">미접속 {summary.notVisited}</span>
+          <span className="text-gray-400">|</span>
+          <span className="text-gray-700 font-semibold tabular-nums">{rate}%</span>
+        </div>
+      </div>
+
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-5">
+        <div className="h-full flex">
+          {summary.completed > 0 && (
+            <div
+              className="h-full bg-green-500 transition-all"
+              style={{ width: `${(summary.completed / summary.total) * 100}%` }}
+            />
+          )}
+          {summary.visitedOnly > 0 && (
+            <div
+              className="h-full bg-amber-400 transition-all"
+              style={{ width: `${(summary.visitedOnly / summary.total) * 100}%` }}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 pl-2 pr-3 text-gray-500 font-medium">이름</th>
+              <th className="text-left py-2 px-3 text-gray-500 font-medium">상태</th>
+              <th className="text-left py-2 px-3 text-gray-500 font-medium">최근 접속</th>
+              <th className="text-left py-2 px-3 text-gray-500 font-medium">최근 저장</th>
+              <th className="text-right py-2 px-3 text-gray-500 font-medium">입력 월수</th>
+              <th className="text-right py-2 pl-3 pr-2 text-gray-500 font-medium">일정 건수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {coaches.map((c) => {
+              const cfg = STATUS_CFG[c.status]
+              return (
+                <tr key={c.email ?? c.name} className="border-b border-gray-50 hover:bg-gray-50/50">
+                  <td className="py-2.5 pl-2 pr-3 text-gray-800 font-medium">{c.name}</td>
+                  <td className="py-2.5 px-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.bg} ${cfg.color}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {cfg.label}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-gray-600 tabular-nums">{fmtDate(c.latestAccess)}</td>
+                  <td className="py-2.5 px-3 text-gray-600 tabular-nums">{fmtDate(c.latestEdit)}</td>
+                  <td className="py-2.5 px-3 text-right text-gray-600 tabular-nums">{c.monthsEdited || '-'}</td>
+                  <td className="py-2.5 pl-3 pr-2 text-right text-gray-600 tabular-nums">{c.scheduleCount || '-'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page                                                          */
 /* ------------------------------------------------------------------ */
 export default function AdminMetricsPage() {
@@ -504,6 +615,7 @@ export default function AdminMetricsPage() {
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [emailTracking, setEmailTracking] = useState<EmailTrackingData | null>(null)
 
   const fetchData = useCallback(async (ym: string) => {
     setLoading(true)
@@ -523,6 +635,10 @@ export default function AdminMetricsPage() {
 
   useEffect(() => {
     fetchData(yearMonth)
+    fetch('/api/admin/metrics/email-tracking')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d && setEmailTracking(d))
+      .catch(() => {})
   }, [yearMonth, fetchData])
 
   const hasSamsung = data ? data.metrics.samsungSchedule.length > 0 : false
@@ -683,6 +799,15 @@ export default function AdminMetricsPage() {
           {hasDailyTrend && (
             <div className="mt-6">
               <DailyHeatmap data={data.dailyTrend} samsung={data.metrics.samsungSchedule} />
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/*  Zone 3.5: Email Campaign Tracking                            */}
+          {/* ============================================================ */}
+          {emailTracking && emailTracking.coaches.length > 0 && (
+            <div className="mt-6">
+              <EmailTrackingSection data={emailTracking} />
             </div>
           )}
 
