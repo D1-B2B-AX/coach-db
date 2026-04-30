@@ -20,7 +20,7 @@ const CALENDAR_LEGEND_ITEMS = [
     iconClass: "border border-[#1976D2] bg-[#1976D2]",
   },
   {
-    label: "컨택중",
+    label: "가용",
     iconClass: "border border-[#FFB74D] bg-white",
   },
   {
