@@ -797,7 +797,6 @@ function CoachScheduleContent() {
       <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-b-2xl bg-[#1565C0] overflow-hidden">
         <CoachHeader
           coachName={coachInfo?.name ?? ""}
-          token={isViewer ? undefined : (token ?? undefined)}
           onProfile={isViewer ? undefined : () => setShowProfile(true)}
         />
       </div>

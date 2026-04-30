@@ -20,10 +20,6 @@ const CALENDAR_LEGEND_ITEMS = [
     iconClass: "border border-[#1976D2] bg-[#1976D2]",
   },
   {
-    label: "가용",
-    iconClass: "border border-[#FFB74D] bg-white",
-  },
-  {
     label: "선택 중",
     iconClass: "border border-[#455A64] bg-white",
   },
