@@ -44,6 +44,7 @@ function MyPageContent() {
           console.error("[mypage] /api/auth/me failed:", res.status)
         }
       } catch (e) { console.error("[mypage] fetchMe error:", e) }
+      finally { setLoading(false) }
     }
     fetchMe()
   }, [])
