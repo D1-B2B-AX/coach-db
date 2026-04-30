@@ -90,7 +90,7 @@ function HeaderContent() {
       if (!managerRole) return false
       return item.roles.includes(managerRole)
     })
-  }, [managerRole, pathname, searchParams])
+  }, [managerRole, pathname])
 
   return (
     <header className={isStaging ? "bg-[#FFF8E1] border-b border-[#FFE082]" : "bg-white border-b border-gray-100"}>

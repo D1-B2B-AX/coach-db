@@ -92,10 +92,12 @@ function MyPageContent() {
     } catch { /* ignore */ }
   }, [managerId, isViewingOther])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchCourses()
     fetchEngagementHistory()
   }, [fetchCourses, fetchEngagementHistory])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Course CRUD handlers
   async function handleCourseCreate(name: string, startDate?: string, endDate?: string) {
