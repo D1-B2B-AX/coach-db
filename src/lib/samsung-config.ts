@@ -8,19 +8,27 @@ export function getSamsungHideConfig() {
   }
 }
 
-/** yearMonth("2026-05") 기준으로 삼전 DS/DX 숨김 여부 판단 */
+/** yearMonth("2026-05") 기준으로 삼전 DS/DX 숨김 여부 판단.
+ *  현재 달은 항상 노출, 다음 달부터 HIDE_UNTIL까지 숨김. */
 export function getSamsungExclusions(yearMonth: string): { excludeDS: boolean; excludeDX: boolean } {
   const { dsHideFrom, dxHideFrom, hideUntil } = getSamsungHideConfig()
+  const nextMonth = getNextYearMonth()
 
   return {
-    excludeDS: dsHideFrom !== '' && hideUntil !== '' && yearMonth >= dsHideFrom && yearMonth <= hideUntil,
-    excludeDX: dxHideFrom !== '' && hideUntil !== '' && yearMonth >= dxHideFrom && yearMonth <= hideUntil,
+    excludeDS: dsHideFrom !== '' && hideUntil !== '' && yearMonth >= nextMonth && yearMonth <= hideUntil,
+    excludeDX: dxHideFrom !== '' && hideUntil !== '' && yearMonth >= nextMonth && yearMonth <= hideUntil,
   }
 }
 
 function currentYearMonth(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getNextYearMonth(): string {
+  const now = new Date()
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
 }
 
 /**
