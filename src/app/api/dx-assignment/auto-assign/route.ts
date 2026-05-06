@@ -4,9 +4,9 @@ import { requireManager } from '@/lib/api-auth'
 import { fetchDxTracks, DxTrack } from '@/lib/sync/samsung-dx-tracks'
 import { toBitmap, subtractBitmap, clearOverlappingPeriods, hasAvailability } from '@/lib/schedule-bitmap'
 import { getSamsungExclusions } from '@/lib/samsung-config'
-import { autoAssignForDate } from '@/lib/dx-assignment/auto-assign'
 
-// ─── 5-minute cache for DX tracks ───
+const MAX_PER_TRACK = 2
+
 let cache: { data: DxTrack[]; expiry: number } | null = null
 
 async function getCachedTracks(year: number): Promise<DxTrack[]> {
@@ -31,174 +31,211 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'yearMonth or date is required' }, { status: 400 })
   }
 
-  // Build list of target dates
-  const targetDates: Date[] = []
   let resolvedYearMonth: string
-
   if (date) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
     }
-    targetDates.push(new Date(date + 'T12:00:00Z'))
     resolvedYearMonth = date.slice(0, 7)
   } else {
     if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(yearMonth!)) {
       return NextResponse.json({ error: 'Invalid yearMonth format' }, { status: 400 })
     }
     resolvedYearMonth = yearMonth!
-    const [y, m] = yearMonth!.split('-').map(Number)
-    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
-    for (let d = 1; d <= daysInMonth; d++) {
-      targetDates.push(new Date(Date.UTC(y, m - 1, d, 12, 0, 0)))
-    }
   }
 
   const { excludeDX } = getSamsungExclusions(resolvedYearMonth)
   if (excludeDX) {
-    return NextResponse.json({ created: 0, skipped: targetDates.length })
+    return NextResponse.json({ created: 0, skipped: 0 })
   }
 
   const year = Number(resolvedYearMonth.split('-')[0])
-  const allTracks = await getCachedTracks(year)
-
-  // DX work hours: 09:00~18:00
-  const dxRange = toBitmap([{ startTime: '09:00', endTime: '18:00' }])
-
-  // Month range for counting assignments
   const monthNum = Number(resolvedYearMonth.split('-')[1])
   const monthStart = new Date(Date.UTC(year, monthNum - 1, 1))
   const monthEnd = new Date(Date.UTC(year, monthNum, 0))
+  const allTracks = await getCachedTracks(year)
+  const dxRange = toBitmap([{ startTime: '09:00', endTime: '18:00' }])
 
-  let created = 0
-  let skipped = 0
+  // Find tracks active in the target period
+  let activeTracks: DxTrack[]
+  if (date) {
+    const d = new Date(date + 'T12:00:00Z')
+    activeTracks = allTracks.filter((t) => t.startDate <= d && t.endDate >= d)
+  } else {
+    activeTracks = allTracks.filter((t) => t.startDate <= monthEnd && t.endDate >= monthStart)
+  }
+  if (activeTracks.length === 0) {
+    return NextResponse.json({ created: 0, skipped: 0 })
+  }
 
-  for (const targetDate of targetDates) {
-    // 1. Find tracks active on this date
-    const activeTracks = allTracks.filter((t) => {
-      return t.startDate <= targetDate && t.endDate >= targetDate
-    })
-    if (activeTracks.length === 0) {
-      skipped++
-      continue
+  // Build dates per track (clamped to month boundaries)
+  const trackDatesMap = new Map<string, Date[]>()
+  for (const track of activeTracks) {
+    const start = track.startDate < monthStart ? monthStart : track.startDate
+    const end = track.endDate > monthEnd ? monthEnd : track.endDate
+    const dates: Date[] = []
+    const cur = new Date(start)
+    while (cur <= end) {
+      dates.push(new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth(), cur.getUTCDate(), 12)))
+      cur.setUTCDate(cur.getUTCDate() + 1)
     }
+    trackDatesMap.set(track.trackName, dates)
+  }
 
-    const trackNames = activeTracks.map((t) => t.trackName)
+  // Collect all unique dates
+  const allDatesSet = new Set<number>()
+  for (const dates of trackDatesMap.values()) {
+    for (const d of dates) allDatesSet.add(d.getTime())
+  }
+  const allDates = [...allDatesSet].sort().map((t) => new Date(t))
 
-    // 2. Fetch available DX coaches for this date
-    const [availSchedules, busySchedules, existingAssignments, monthAssignments] = await Promise.all([
+  // For each date, compute available DX coach IDs
+  const availByDate = new Map<number, Map<string, { id: string; name: string }>>()
+
+  for (const targetDate of allDates) {
+    const [availSchedules, busySchedules] = await Promise.all([
       prisma.coachSchedule.findMany({
         where: {
           date: targetDate,
-          coach: {
-            status: 'active',
-            deletedAt: null,
-            workType: { contains: '삼전 DX' },
-          },
+          coach: { status: 'active', deletedAt: null, workType: { contains: '삼전 DX' } },
         },
         include: { coach: { select: { id: true, name: true } } },
       }),
       prisma.engagementSchedule.findMany({
         where: {
           date: targetDate,
-          engagement: {
-            status: { in: ['scheduled', 'in_progress', 'completed'] },
-          },
+          engagement: { status: { in: ['scheduled', 'in_progress', 'completed'] } },
         },
         select: { coachId: true, startTime: true, endTime: true },
       }),
-      // 3. Existing assignments for this date
-      prisma.dxAssignment.findMany({
-        where: { date: targetDate },
-        select: { trackName: true, coachId: true, isAuto: true },
-      }),
-      // Month assignment counts
-      prisma.dxAssignment.groupBy({
-        by: ['coachId'],
-        where: {
-          date: { gte: monthStart, lte: monthEnd },
-        },
-        _count: true,
-      }),
     ])
 
-    // Build busy map
     const busyMap = new Map<string, { startTime: string; endTime: string }[]>()
     for (const b of busySchedules) {
       if (!busyMap.has(b.coachId)) busyMap.set(b.coachId, [])
       busyMap.get(b.coachId)!.push({ startTime: b.startTime, endTime: b.endTime })
     }
 
-    // Group avail by coach
-    const coachAvailMap = new Map<string, {
-      id: string; name: string
-      intervals: { startTime: string; endTime: string }[]
-    }>()
+    const coachAvailMap = new Map<string, { id: string; name: string; intervals: { startTime: string; endTime: string }[] }>()
     for (const s of availSchedules) {
       if (!coachAvailMap.has(s.coachId)) {
-        coachAvailMap.set(s.coachId, {
-          id: s.coach.id,
-          name: s.coach.name,
-          intervals: [],
-        })
+        coachAvailMap.set(s.coachId, { id: s.coach.id, name: s.coach.name, intervals: [] })
       }
-      coachAvailMap.get(s.coachId)!.intervals.push({
-        startTime: s.startTime,
-        endTime: s.endTime,
-      })
+      coachAvailMap.get(s.coachId)!.intervals.push({ startTime: s.startTime, endTime: s.endTime })
     }
 
-    // Month count map
-    const monthCountMap = new Map<string, number>()
-    for (const ma of monthAssignments) {
-      monthCountMap.set(ma.coachId, ma._count)
-    }
-
-    // Filter to coaches with 09:00~18:00 availability
-    const availableCoaches = []
+    const available = new Map<string, { id: string; name: string }>()
     for (const [coachId, entry] of coachAvailMap) {
       const availBm = toBitmap(entry.intervals)
-      const busyIntervals = busyMap.get(coachId) || []
-      const busyBm = toBitmap(busyIntervals)
+      const busyBm = toBitmap(busyMap.get(coachId) || [])
       const remainBm = clearOverlappingPeriods(subtractBitmap(availBm, busyBm), busyBm)
-
-      const dxAvail = remainBm.map((v, i) => v && dxRange[i])
-      if (!hasAvailability(dxAvail)) continue
-
-      availableCoaches.push({
-        id: entry.id,
-        name: entry.name,
-        currentMonthAssignments: monthCountMap.get(coachId) ?? 0,
-      })
+      if (!hasAvailability(remainBm.map((v, i) => v && dxRange[i]))) continue
+      available.set(coachId, { id: entry.id, name: entry.name })
     }
 
-    // 4. Call autoAssignForDate
-    const results = autoAssignForDate(trackNames, availableCoaches, existingAssignments)
+    availByDate.set(targetDate.getTime(), available)
+  }
 
-    // 5. Save results to DB (isAuto=true)
-    if (results.length > 0) {
-      // Delete existing auto assignments for these tracks on this date first
-      await prisma.dxAssignment.deleteMany({
-        where: {
-          date: targetDate,
-          trackName: { in: trackNames },
-          isAuto: true,
-        },
+  // Per track: find coaches available on ALL dates of that track
+  const trackNames = activeTracks.map((t) => t.trackName)
+  const coachesPerTrack = new Map<string, Map<string, { id: string; name: string }>>()
+  for (const [trackName, dates] of trackDatesMap) {
+    let common: Map<string, { id: string; name: string }> | null = null
+    for (const d of dates) {
+      const available = availByDate.get(d.getTime())!
+      if (common === null) {
+        common = new Map(available)
+      } else {
+        for (const id of common.keys()) {
+          if (!available.has(id)) common.delete(id)
+        }
+      }
+    }
+    coachesPerTrack.set(trackName, common ?? new Map())
+  }
+
+  // Get existing manual assignments + month counts
+  const [existingAssignments, monthAssignments] = await Promise.all([
+    prisma.dxAssignment.findMany({
+      where: { trackName: { in: trackNames }, date: { in: allDates }, isAuto: false },
+      select: { trackName: true, coachId: true },
+    }),
+    prisma.dxAssignment.groupBy({
+      by: ['coachId'],
+      where: { date: { gte: monthStart, lte: monthEnd }, isAuto: false },
+      _count: true,
+    }),
+  ])
+
+  const monthCountMap = new Map<string, number>()
+  for (const ma of monthAssignments) monthCountMap.set(ma.coachId, ma._count)
+
+  // Deduplicate manual assignments per track
+  const manualPerTrack = new Map<string, Set<string>>()
+  for (const ea of existingAssignments) {
+    if (!manualPerTrack.has(ea.trackName)) manualPerTrack.set(ea.trackName, new Set())
+    manualPerTrack.get(ea.trackName)!.add(ea.coachId)
+  }
+
+  // Assign 2 coaches per track (fewest candidates first, least monthly assignments first)
+  const sortedTracks = [...trackNames].sort((a, b) => {
+    const ca = coachesPerTrack.get(a)?.size ?? 0
+    const cb = coachesPerTrack.get(b)?.size ?? 0
+    if (ca !== cb) return ca - cb
+    return a.localeCompare(b)
+  })
+
+  const globalPool = new Set<string>()
+  for (const coaches of coachesPerTrack.values()) {
+    for (const id of coaches.keys()) globalPool.add(id)
+  }
+
+  // Remove manually assigned coaches from pool
+  for (const coachIds of manualPerTrack.values()) {
+    for (const id of coachIds) globalPool.delete(id)
+  }
+
+  const trackAssignments: { trackName: string; coachId: string }[] = []
+
+  for (const trackName of sortedTracks) {
+    const manualCount = manualPerTrack.get(trackName)?.size ?? 0
+    const remaining = MAX_PER_TRACK - manualCount
+    if (remaining <= 0) continue
+
+    const trackCoaches = coachesPerTrack.get(trackName) ?? new Map()
+    const candidates = [...trackCoaches.keys()]
+      .filter((id) => globalPool.has(id))
+      .map((id) => ({
+        id,
+        name: trackCoaches.get(id)!.name,
+        monthAssignments: monthCountMap.get(id) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (a.monthAssignments !== b.monthAssignments) return a.monthAssignments - b.monthAssignments
+        return a.name.localeCompare(b.name)
       })
 
-      await prisma.dxAssignment.createMany({
-        data: results.map((r) => ({
-          trackName: r.trackName,
-          date: targetDate,
-          coachId: r.coachId,
-          assignedBy: 'auto',
-          isAuto: true,
-        })),
-      })
-      created += results.length
-    } else {
-      skipped++
+    for (const coach of candidates.slice(0, remaining)) {
+      trackAssignments.push({ trackName, coachId: coach.id })
+      globalPool.delete(coach.id)
     }
   }
 
-  return NextResponse.json({ created, skipped })
+  // Delete existing auto assignments, then create new ones
+  await prisma.dxAssignment.deleteMany({
+    where: { trackName: { in: trackNames }, date: { in: allDates }, isAuto: true },
+  })
+
+  const newRows: { trackName: string; date: Date; coachId: string; assignedBy: string; isAuto: boolean }[] = []
+  for (const { trackName, coachId } of trackAssignments) {
+    for (const d of trackDatesMap.get(trackName) ?? []) {
+      newRows.push({ trackName, date: d, coachId, assignedBy: 'auto', isAuto: true })
+    }
+  }
+
+  if (newRows.length > 0) {
+    await prisma.dxAssignment.createMany({ data: newRows })
+  }
+
+  return NextResponse.json({ created: newRows.length, trackAssignments: trackAssignments.length })
 }

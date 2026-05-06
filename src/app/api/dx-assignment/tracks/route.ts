@@ -54,15 +54,18 @@ export async function GET(request: NextRequest) {
       })
     : []
 
-  // Group assignments by trackName
+  // Group assignments by trackName, deduplicate coaches
   const assignmentMap = new Map<string, { coachId: string; coachName: string; isAuto: boolean }[]>()
   for (const a of assignments) {
     if (!assignmentMap.has(a.trackName)) assignmentMap.set(a.trackName, [])
-    assignmentMap.get(a.trackName)!.push({
-      coachId: a.coach.id,
-      coachName: a.coach.name,
-      isAuto: a.isAuto,
-    })
+    const list = assignmentMap.get(a.trackName)!
+    if (!list.some((c) => c.coachId === a.coach.id)) {
+      list.push({
+        coachId: a.coach.id,
+        coachName: a.coach.name,
+        isAuto: a.isAuto,
+      })
+    }
   }
 
   const tracks = filtered.map((t) => ({

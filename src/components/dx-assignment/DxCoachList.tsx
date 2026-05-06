@@ -6,6 +6,7 @@ import { SURFACE_CARD_CLASS } from "@/components/ui/styles"
 interface Candidate {
   coachId: string
   coachName: string
+  dxTag: string | null
   assignedTrack: string | null
   currentMonthAssignments: number
 }
@@ -124,6 +125,15 @@ export default function DxCoachList({
                     <span className={`text-sm font-medium ${isAssigned ? "text-[#1565C0]" : "text-gray-700"}`}>
                       {candidate.coachName}
                     </span>
+                    {candidate.dxTag && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        candidate.dxTag === "심화"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}>
+                        {candidate.dxTag}
+                      </span>
+                    )}
                     {isOtherTrack && (
                       <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
                         다른 반 배정됨

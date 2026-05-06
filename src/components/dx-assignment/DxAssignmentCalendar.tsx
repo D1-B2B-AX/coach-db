@@ -148,26 +148,26 @@ export default function DxAssignmentCalendar({
   const yearMonthLabel = `${year}년 ${month + 1}월`
 
   return (
-    <div className={`min-w-0 ${SURFACE_CARD_CLASS} p-4 sm:p-5`}>
+    <div className={`min-w-0 ${SURFACE_CARD_CLASS} p-5 sm:p-6`}>
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <button
             onClick={onPrevMonth}
-            className="cursor-pointer rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h2 className="w-28 text-center text-sm font-semibold tabular-nums text-[#2F3640] sm:w-32">
+          <h2 className="w-32 text-center text-base font-semibold tabular-nums text-[#2F3640] sm:w-36">
             {yearMonthLabel}
           </h2>
           <button
             onClick={onNextMonth}
-            className="cursor-pointer rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="cursor-pointer rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -175,7 +175,7 @@ export default function DxAssignmentCalendar({
         <button
           onClick={onAutoAssign}
           disabled={autoAssigning}
-          className="cursor-pointer rounded-lg border border-[#1976D2] bg-[#1976D2] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-lg border border-[#1976D2] bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1565C0] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {autoAssigning ? "배정 중..." : "자동 배정"}
         </button>
@@ -189,7 +189,7 @@ export default function DxAssignmentCalendar({
             return (
               <span
                 key={name}
-                className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium ${color.bg} ${color.text}`}
+                className={`inline-flex items-center rounded px-2.5 py-1 text-[11px] font-medium ${color.bg} ${color.text}`}
               >
                 {name}
               </span>
@@ -199,11 +199,11 @@ export default function DxAssignmentCalendar({
       )}
 
       {/* Weekday headers */}
-      <div className="grid grid-cols-7 border-b border-gray-100 pb-1 mb-1">
+      <div className="grid grid-cols-7 border-b border-gray-100 pb-1.5 mb-1.5">
         {WEEKDAYS.map((w, i) => (
           <span
             key={w}
-            className={`py-1 text-center text-[11px] font-medium ${
+            className={`py-1.5 text-center text-xs font-medium ${
               i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
             }`}
           >
@@ -221,16 +221,16 @@ export default function DxAssignmentCalendar({
               {/* Date numbers */}
               <div className="grid grid-cols-7">
                 {week.map((day, di) => {
-                  if (day === null) return <div key={`e-${di}`} className="h-6" />
+                  if (day === null) return <div key={`e-${di}`} className="h-8" />
                   const key = dateKey(year, month, day)
                   const dow = di
                   const isToday = key === todayStr
                   return (
-                    <div key={key} className="h-6 flex items-center justify-center">
+                    <div key={key} className="h-8 flex items-center justify-center">
                       <span
-                        className={`text-[11px] font-medium ${
+                        className={`text-xs font-medium ${
                           isToday
-                            ? "flex h-5 w-5 items-center justify-center rounded-full bg-[#1565C0] text-white"
+                            ? "flex h-6 w-6 items-center justify-center rounded-full bg-[#1565C0] text-white"
                             : dow === 0
                               ? "text-red-400"
                               : dow === 6
@@ -247,7 +247,7 @@ export default function DxAssignmentCalendar({
 
               {/* Track bars */}
               {bars.length > 0 ? (
-                <div className="pb-1.5 space-y-0.5">
+                <div className="pb-2 space-y-1">
                   {bars.map((bar) => {
                     const color = getColor(bar.trackName)
                     const isSelected =
@@ -261,15 +261,15 @@ export default function DxAssignmentCalendar({
                         <button
                           onClick={() => onSelectTrack(bar.trackName, bar.selectDate)}
                           style={{ gridColumn: `${bar.startCol} / span ${bar.span}` }}
-                          className={`cursor-pointer rounded-md px-1.5 py-1 text-left transition-all ${color.bg} ${color.text} ${
+                          className={`cursor-pointer rounded-md px-2 py-1.5 text-left transition-all ${color.bg} ${color.text} ${
                             isSelected ? `ring-2 ${color.selected} shadow-sm` : "hover:brightness-95"
                           }`}
                         >
-                          <span className="block truncate text-[10px] font-semibold leading-tight">
+                          <span className="block truncate text-[11px] font-semibold leading-tight">
                             {bar.track.track} {bar.track.className}
                           </span>
                           {bar.track.coaches.length > 0 && (
-                            <span className="block truncate text-[9px] font-normal opacity-75 leading-tight">
+                            <span className="block truncate text-[10px] font-normal opacity-75 leading-tight">
                               {bar.track.coaches.map((c) => c.coachName).join(", ")}
                             </span>
                           )}
@@ -279,7 +279,7 @@ export default function DxAssignmentCalendar({
                   })}
                 </div>
               ) : (
-                <div className="h-1.5" />
+                <div className="h-2" />
               )}
             </div>
           )

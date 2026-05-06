@@ -23,6 +23,7 @@ interface Track {
 interface Candidate {
   coachId: string
   coachName: string
+  dxTag: string | null
   assignedTrack: string | null
   currentMonthAssignments: number
 }
@@ -229,7 +230,7 @@ export default function DxAssignmentPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl overflow-x-hidden px-4 py-6 sm:px-6">
       {/* Page title */}
       <div className="mb-5">
         <h1 className="text-base font-semibold text-[#2F3640]">DX 코치 배정</h1>
@@ -258,7 +259,7 @@ export default function DxAssignmentPage() {
 
       {/* Main layout: calendar (60%) + coach list (40%) */}
       {(!tracksLoading || tracks.length > 0) && (
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[3fr_2fr]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[3fr_2fr] xl:grid-cols-[7fr_3fr]">
           <DxAssignmentCalendar
             year={currentYear}
             month={currentMonth}

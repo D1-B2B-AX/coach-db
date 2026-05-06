@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         coach: coachWhere,
       },
       include: {
-        coach: { select: { id: true, name: true } },
+        coach: { select: { id: true, name: true, dxTag: true } },
       },
     }),
     prisma.engagementSchedule.findMany({
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
   // Group avail schedules by coach
   const coachAvailMap = new Map<string, {
-    id: string; name: string
+    id: string; name: string; dxTag: string | null
     intervals: { startTime: string; endTime: string }[]
   }>()
   for (const s of availSchedules) {
@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
       coachAvailMap.set(s.coachId, {
         id: s.coach.id,
         name: s.coach.name,
+        dxTag: s.coach.dxTag,
         intervals: [],
       })
     }
@@ -128,6 +129,7 @@ export async function GET(request: NextRequest) {
   const candidates: {
     coachId: string
     coachName: string
+    dxTag: string | null
     assignedTrack: string | null
     currentMonthAssignments: number
   }[] = []
@@ -145,6 +147,7 @@ export async function GET(request: NextRequest) {
     candidates.push({
       coachId: entry.id,
       coachName: entry.name,
+      dxTag: entry.dxTag,
       assignedTrack: assignmentMap.get(coachId) ?? null,
       currentMonthAssignments: monthCountMap.get(coachId) ?? 0,
     })
