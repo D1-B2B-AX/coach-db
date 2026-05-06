@@ -46,6 +46,7 @@ model Coach {
   engagementSchedules  EngagementSchedule[]
   notifications        Notification[]
   pushSubscriptions    PushSubscription[]
+  dxAssignments        DxAssignment[]
 
   @@map("coaches")
 }
@@ -373,4 +374,24 @@ model MetricSnapshot {
 
   @@unique([yearMonth, metricKey])
   @@map("metric_snapshots")
+}
+
+// ─── DX 배정 ───
+
+model DxAssignment {
+  id          String   @id @default(uuid())
+  trackName   String   @map("track_name") @db.VarChar(100)
+  date        DateTime @db.Date
+  coachId     String   @map("coach_id")
+  assignedBy  String   @map("assigned_by") @db.VarChar(100)
+  isAuto      Boolean  @default(false) @map("is_auto")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  coach       Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@unique([trackName, date, coachId])
+  @@unique([date, coachId])
+  @@index([date])
+  @@map("dx_assignments")
 }
