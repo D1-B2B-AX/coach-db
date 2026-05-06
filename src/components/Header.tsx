@@ -72,6 +72,11 @@ function HeaderContent() {
         roles: ["admin", "samsung_admin"] as const,
       },
       {
+        href: "/samsung-dx/assignment",
+        label: "DX 배정",
+        active: pathname === "/samsung-dx/assignment",
+      },
+      {
         href: "/admin/metrics",
         label: "지표",
         active: pathname === "/admin/metrics",
