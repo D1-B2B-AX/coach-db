@@ -49,6 +49,9 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [deletedSelectedIds, setDeletedSelectedIds] = useState<Set<string>>(new Set())
   const [syncLoading, setSyncLoading] = useState(false)
+  const [notionDryRunning, setNotionDryRunning] = useState(false)
+  const [notionSyncing, setNotionSyncing] = useState(false)
+  const [notionDryResult, setNotionDryResult] = useState<any>(null)
   const [toastMessage, setToastMessage] = useState("")
   const [showToast, setShowToast] = useState(false)
   const [pendingCoaches, setPendingCoaches] = useState<any[]>([])
@@ -900,6 +903,99 @@ export default function AdminPage() {
               >
                 {syncLoading ? "동기화 중..." : "DS 일정 동기화"}
               </button>
+            </div>
+
+            {/* 노션 코치 동기화 */}
+            <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
+              <h3 className="text-sm font-semibold text-[#333]">노션 코치 동기화</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                노션 2026 DB에서 코치 정보(연락처, 이메일, 유형, 분야, 커리큘럼 등)를 가져옵니다.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setNotionDryRunning(true)
+                    setNotionDryResult(null)
+                    try {
+                      const res = await fetch("/api/admin/sync-notion")
+                      const data = await res.json()
+                      if (res.ok) setNotionDryResult(data)
+                      else {
+                        setToastMessage(`조회 실패: ${data.error}`)
+                        setShowToast(true)
+                      }
+                    } catch {
+                      setToastMessage("조회 중 오류 발생")
+                      setShowToast(true)
+                    } finally { setNotionDryRunning(false) }
+                  }}
+                  disabled={notionDryRunning || notionSyncing}
+                  className="cursor-pointer rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                >
+                  {notionDryRunning ? "조회 중..." : "변경사항 미리보기"}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("노션 데이터로 코치 정보를 동기화합니다. 진행할까요?")) return
+                    setNotionSyncing(true)
+                    try {
+                      const res = await fetch("/api/admin/sync-notion", { method: "POST" })
+                      const data = await res.json()
+                      if (res.ok) {
+                        setToastMessage(`동기화 완료: ${data.created}명 생성, ${data.updated}명 업데이트`)
+                        setNotionDryResult(null)
+                      } else {
+                        setToastMessage(`동기화 실패: ${data.error}`)
+                      }
+                    } catch {
+                      setToastMessage("동기화 중 오류 발생")
+                    } finally {
+                      setNotionSyncing(false)
+                      setShowToast(true)
+                    }
+                  }}
+                  disabled={notionDryRunning || notionSyncing}
+                  className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                >
+                  {notionSyncing ? "동기화 중..." : "동기화 실행"}
+                </button>
+              </div>
+
+              {/* Dry-run 결과 */}
+              {notionDryResult && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex gap-3 text-sm">
+                    <span className="text-gray-500">노션 {notionDryResult.notionCount}명</span>
+                    <span className="text-[#2E7D32]">신규 {notionDryResult.toCreate}명</span>
+                    <span className="text-[#1976D2]">업데이트 {notionDryResult.toUpdate}명</span>
+                    <span className="text-gray-400">스킵 {notionDryResult.skipped}건</span>
+                  </div>
+                  {notionDryResult.changes?.filter((c: any) => c.diffs && c.diffs.length > 0).length > 0 ? (
+                    <div className="rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="grid grid-cols-[100px_80px_1fr_1fr] gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400">
+                        <div>이름</div>
+                        <div>필드</div>
+                        <div>현재 (DB)</div>
+                        <div>변경 (노션)</div>
+                      </div>
+                      {notionDryResult.changes
+                        .filter((c: any) => c.diffs && c.diffs.length > 0)
+                        .flatMap((c: any) =>
+                          c.diffs.map((d: any, i: number) => (
+                            <div key={`${c.name}-${i}`} className="grid grid-cols-[100px_80px_1fr_1fr] gap-3 border-b border-gray-100 px-4 py-2 last:border-0">
+                              <span className="text-sm font-medium text-[#333] truncate">{i === 0 ? c.name : ""}</span>
+                              <span className="text-xs text-gray-500">{d.field}</span>
+                              <span className="text-xs text-red-400 truncate">{d.db || "(없음)"}</span>
+                              <span className="text-xs text-[#2E7D32] truncate">{d.notion || "(없음)"}</span>
+                            </div>
+                          ))
+                        )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">변경 사항이 없습니다. DB와 노션이 일치합니다.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
