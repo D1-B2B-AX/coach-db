@@ -13,7 +13,7 @@
 
 ## 2. 환경 변수 추가
 
-Railway (또는 `.env.local`)에 아래 두 값을 추가합니다:
+Coolify (또는 `.env.local`)에 아래 두 값을 추가합니다:
 
 ```
 GMAIL_USER=coach-noreply@gmail.com

@@ -1,6 +1,6 @@
 # 코치DB 테스트 가이드
 
-> 스테이징: https://coach-db-staging.up.railway.app
+> 스테이징: https://coach-db.skillflo.app
 > 테스트 일자: 2026-03-31 (월)
 
 ---
@@ -64,13 +64,7 @@
 
 ### 테스트용 코치 링크
 
-각자 한 명씩 맡아서 진행해주세요:
-
-| 코치 | 링크 |
-|------|------|
-| 강민혁 | https://coach-db-staging.up.railway.app/coach?token=772280c72f75233d07cc6d7bb50a5baa793b50a6870e863eff406bdaf92b8731 |
-| 강병민 | https://coach-db-staging.up.railway.app/coach?token=838b195ac3a54777c4f85c354f0fd17266696299853f0f5f848326ba6364dbf1 |
-| 곽승예 | https://coach-db-staging.up.railway.app/coach?token=031f5c48a4401599cf6d5a243f30b12cc7708e98c1b66d7b0a045801aff298bc |
+테스트 대상 코치와 토큰은 레포에 저장하지 말고, 필요 시 Admin 대시보드에서 조회하거나 별도 공유 채널(비공개 1:1)로 전달합니다.
 
 ### Step 1: 코치로 스케줄 입력
 

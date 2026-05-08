@@ -24,8 +24,8 @@ const prisma = new PrismaClient({
 })
 
 async function main() {
-  const isProd = process.env.DATABASE_URL?.includes('railway') ?? false
-  console.log(`DB: ${isProd ? 'PROD (Railway)' : 'LOCAL'}`)
+  const isProd = process.env.DATABASE_URL?.includes('106.241.141.2') ?? false
+  console.log(`DB: ${isProd ? 'PROD (Coolify)' : 'LOCAL'}`)
 
   const cfg = getSamsungHideConfig()
   console.log(`Config: ${JSON.stringify(cfg)}`)

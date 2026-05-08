@@ -14,7 +14,7 @@ MVP 1차 구현 완료. Supabase 연결 + 구글시트 동기화 정상 동작 (
 
 ## 기술 스택
 
-Next.js 16 (App Router) + Tailwind CSS v4 + Prisma + PostgreSQL (Railway) + NextAuth v5 (Google OAuth) + Google Drive API + xlsx
+Next.js 16 (App Router) + Tailwind CSS v4 + Prisma + PostgreSQL (Coolify) + NextAuth v5 (Google OAuth) + Google Drive API + xlsx
 
 ## 핵심 컨벤션
 
