@@ -30,7 +30,7 @@ export default auth((req) => {
   }
 
   // Cron/webhook API routes: Bearer token auth (pass through)
-  if (pathname.startsWith("/api/sync/") || pathname === "/api/admin/backup") {
+  if (pathname.startsWith("/api/sync/") || pathname === "/api/admin/backup" || pathname === "/api/admin/sync-notion") {
     return NextResponse.next()
   }
 
