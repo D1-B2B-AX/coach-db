@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { fetchDxTracks, DxTrack } from '@/lib/sync/samsung-dx-tracks'
 import { toBitmap, subtractBitmap, clearOverlappingPeriods, hasAvailability } from '@/lib/schedule-bitmap'
 import { getSamsungExclusions } from '@/lib/samsung-config'
@@ -19,7 +19,7 @@ async function getCachedTracks(year: number): Promise<DxTrack[]> {
 
 // POST /api/dx-assignment/auto-assign
 export async function POST(request: NextRequest) {
-  const session = await requireManager()
+  const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -16,3 +16,9 @@ export async function requireManager() {
 
   return { session, manager }
 }
+
+export async function requireAdmin() {
+  const result = await requireManager()
+  if (!result || (result.manager.role !== 'admin' && result.manager.role !== 'samsung_admin')) return null
+  return result
+}

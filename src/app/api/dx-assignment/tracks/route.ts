@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { fetchDxTracks, DxTrack } from '@/lib/sync/samsung-dx-tracks'
 
 // ─── 5-minute cache for DX tracks ───
@@ -16,7 +16,7 @@ async function getCachedTracks(year: number): Promise<DxTrack[]> {
 
 // GET /api/dx-assignment/tracks?yearMonth=2026-05
 export async function GET(request: NextRequest) {
-  const session = await requireManager()
+  const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

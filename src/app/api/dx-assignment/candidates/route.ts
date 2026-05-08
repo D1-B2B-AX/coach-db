@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { toBitmap, subtractBitmap, clearOverlappingPeriods, hasAvailability } from '@/lib/schedule-bitmap'
 import { getSamsungExclusions } from '@/lib/samsung-config'
 
 // GET /api/dx-assignment/candidates?date=2026-05-12
 export async function GET(request: NextRequest) {
-  const session = await requireManager()
+  const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 
 // POST /api/dx-assignment/assign
 export async function POST(request: NextRequest) {
-  const session = await requireManager()
+  const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/dx-assignment/assign
 export async function DELETE(request: NextRequest) {
-  const session = await requireManager()
+  const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
