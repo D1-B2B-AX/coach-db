@@ -126,6 +126,7 @@ async function syncFromNotion(dryRun: boolean) {
     name: string;
     action: "created" | "updated" | "skipped";
     details?: string;
+    diffs?: Array<{ field: string; db: string | null; notion: string | null }> | null;
   }> = [];
 
   for (const page of pages) {
