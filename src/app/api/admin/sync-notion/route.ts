@@ -1,8 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireManager } from "@/lib/api-auth";
 import { generateAccessToken } from "@/lib/coach-auth";
 import { normalizeWorkTypeString } from "@/lib/work-type";
+
+async function authenticate(request: NextRequest): Promise<boolean> {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    if (token === process.env.SYNC_API_SECRET) return true;
+  }
+  const auth = await requireManager();
+  return auth !== null && auth.manager.role === "admin";
+}
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY!;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID!;
@@ -274,10 +284,9 @@ async function syncFromNotion(dryRun: boolean) {
 }
 
 // GET: dry-run (diff 확인)
-export async function GET() {
-  const auth = await requireManager();
-  if (!auth || auth.manager.role !== "admin") {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+export async function GET(request: NextRequest) {
+  if (!(await authenticate(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const result = await syncFromNotion(true);
@@ -292,10 +301,9 @@ export async function GET() {
 }
 
 // POST: 실제 동기화 실행
-export async function POST() {
-  const auth = await requireManager();
-  if (!auth || auth.manager.role !== "admin") {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+export async function POST(request: NextRequest) {
+  if (!(await authenticate(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const result = await syncFromNotion(false);
