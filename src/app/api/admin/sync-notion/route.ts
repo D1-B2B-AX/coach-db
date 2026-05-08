@@ -173,18 +173,29 @@ async function syncFromNotion(dryRun: boolean) {
     const existing = await prisma.coach.findFirst({ where: { name } });
 
     if (dryRun) {
+      const diffs: Array<{ field: string; db: string | null; notion: string | null }> = [];
+      if (existing) {
+        if (phone && phone !== existing.phone)
+          diffs.push({ field: "연락처", db: existing.phone, notion: phone });
+        if (email && email !== existing.email)
+          diffs.push({ field: "이메일", db: existing.email, notion: email });
+        if (workType && workType !== existing.workType)
+          diffs.push({ field: "유형", db: existing.workType, notion: workType });
+        if (affiliation && affiliation !== existing.affiliation)
+          diffs.push({ field: "소속", db: existing.affiliation, notion: affiliation });
+        if (portfolioUrl && portfolioUrl !== existing.portfolioUrl)
+          diffs.push({ field: "포트폴리오", db: existing.portfolioUrl, notion: portfolioUrl });
+        if (selfNote && selfNote !== existing.selfNote)
+          diffs.push({ field: "특이사항", db: existing.selfNote?.slice(0, 50) ?? null, notion: selfNote.slice(0, 50) });
+        if (availabilityDetail && availabilityDetail !== existing.availabilityDetail)
+          diffs.push({ field: "가용정보", db: existing.availabilityDetail?.slice(0, 50) ?? null, notion: availabilityDetail.slice(0, 50) });
+      }
       changes.push({
         name,
         action: existing ? "updated" : "created",
+        diffs: existing ? (diffs.length > 0 ? diffs : null) : null,
         details: existing
-          ? [
-              phone && phone !== existing.phone ? `연락처` : "",
-              email && email !== existing.email ? `이메일` : "",
-              workType && workType !== existing.workType ? `유형` : "",
-              selfNote && selfNote !== existing.selfNote ? `특이사항` : "",
-            ]
-              .filter(Boolean)
-              .join(", ") || "변경 없음"
+          ? diffs.map((d) => d.field).join(", ") || "변경 없음"
           : undefined,
       });
       existing ? updated++ : created++;
