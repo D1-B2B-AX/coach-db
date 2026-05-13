@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
-import { deleteFile, getKeyFromUrl } from '@/lib/r2'
+import { deleteFile } from '@/lib/storage'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
-// DELETE /api/documents/:id — delete a document (R2 + DB)
+export const runtime = 'nodejs'
+
+// DELETE /api/documents/:id — delete a document (storage + DB)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const session = await requireManager()
   if (!session) {
@@ -26,8 +28,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     where: { id },
   })
 
-  const key = getKeyFromUrl(document.fileUrl)
-  await deleteFile(key)
+  await deleteFile(document.fileUrl)
 
   return new NextResponse(null, { status: 204 })
 }

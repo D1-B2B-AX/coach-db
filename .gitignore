@@ -46,6 +46,7 @@ yarn-error.log*
 
 # backups
 /backups
+/.local-storage
 
 # vercel
 .vercel

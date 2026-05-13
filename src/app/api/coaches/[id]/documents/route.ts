@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
-import { uploadFile } from '@/lib/r2'
+import { buildStorageKey, getClientFileUrl, uploadFile } from '@/lib/storage'
 
 type RouteParams = { params: Promise<{ id: string }> }
+
+export const runtime = 'nodejs'
 
 const VALID_FILE_TYPES = ['resume', 'portfolio', 'certificate'] as const
 type FileType = (typeof VALID_FILE_TYPES)[number]
@@ -32,7 +34,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     orderBy: { uploadedAt: 'desc' },
   })
 
-  return NextResponse.json({ documents })
+  return NextResponse.json({
+    documents: documents.map((document) => ({
+      ...document,
+      fileUrl: getClientFileUrl(document),
+    })),
+  })
 }
 
 // POST /api/coaches/:id/documents — upload a document
@@ -82,15 +89,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
   const buffer = Buffer.from(arrayBuffer)
 
-  // Generate R2 key
-  const key = `coaches/${id}/${randomUUID()}-${file.name}`
+  const documentId = randomUUID()
+  const key = buildStorageKey('uploads', 'coaches', id, `${documentId}-${file.name}`)
 
-  // Upload to R2 first — if DB save fails, orphan R2 file is acceptable (no sensitive data, no cost impact)
   const fileUrl = await uploadFile(key, buffer, file.type || 'application/octet-stream')
 
   // Save metadata in DB
   const document = await prisma.coachDocument.create({
     data: {
+      id: documentId,
       coachId: id,
       fileUrl,
       fileName: file.name,
@@ -98,5 +105,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     },
   })
 
-  return NextResponse.json(document, { status: 201 })
+  return NextResponse.json({
+    ...document,
+    fileUrl: getClientFileUrl(document),
+  }, { status: 201 })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { getClientFileUrl } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
   const auth = await requireManager()
@@ -31,7 +32,10 @@ export async function GET(request: NextRequest) {
       createdAt: c.createdAt,
       fields: c.fields.map(f => f.field.name),
       curriculums: c.curriculums.map(cc => cc.curriculum.name),
-      documents: c.documents,
+      documents: c.documents.map((document) => ({
+        ...document,
+        fileUrl: getClientFileUrl(document),
+      })),
     })),
   })
 }
