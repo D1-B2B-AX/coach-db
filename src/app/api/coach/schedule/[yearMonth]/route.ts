@@ -3,9 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { logAccess } from '@/lib/access-log'
 import { toDateOnly } from '@/lib/date-utils'
-import { uploadFile } from '@/lib/r2'
+import { uploadFile } from '@/lib/storage'
 
 type RouteParams = { params: Promise<{ yearMonth: string }> }
+
+export const runtime = 'nodejs'
 
 function parseYearMonth(yearMonth: string) {
   if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(yearMonth)) return null

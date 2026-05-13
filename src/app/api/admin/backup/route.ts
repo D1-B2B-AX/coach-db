@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { uploadFile, listFiles, deleteFile } from '@/lib/r2'
+import { uploadFile, listFiles, deleteFile } from '@/lib/storage'
 
 const RETENTION_DAYS = 30
+
+export const runtime = 'nodejs'
 
 async function authenticate(request: NextRequest): Promise<boolean> {
   const authHeader = request.headers.get('authorization')
@@ -60,13 +62,13 @@ export async function POST(request: NextRequest) {
   }
 
   const json = JSON.stringify(backup)
-  const key = `backups/${dateStr}.json`
+  const key = `backups/db/${dateStr}.json`
 
   await uploadFile(key, Buffer.from(json, 'utf-8'), 'application/json')
 
   // Clean up old backups
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000)
-  const existing = await listFiles('backups/')
+  const existing = await listFiles('backups/db/')
   let deleted = 0
   for (const file of existing) {
     if (file.lastModified && file.lastModified < cutoff) {
