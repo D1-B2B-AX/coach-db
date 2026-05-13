@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import NotificationBell from './NotificationBell'
 
 const isStaging = process.env.NEXT_PUBLIC_ENV === 'staging'
 
@@ -154,9 +153,8 @@ function HeaderContent() {
               ))}
             </nav>
           </div>
-          {/* Right: notifications + user */}
+          {/* Right: user */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <NotificationBell />
             <div ref={userMenuRef} className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
