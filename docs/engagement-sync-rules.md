@@ -96,7 +96,18 @@
 - 모든 Date는 **UTC 정오(12:00:00)** 생성 — 타임존 밀림 방지
 - contextYear: startDate의 연도 사용, 없으면 현재 연도
 
-## 7. 충돌 처리
+## 7. source 필드 (engagement 출처 구분)
+
+| 값 | 의미 | 설정 시점 |
+|----|------|-----------|
+| `sheet` | 계약시트 동기화로 생성 | 동기화 시 신규 생성 |
+| `manual` | 매니저가 앱에서 직접 생성 | POST /api/coaches/:id/engagements |
+
+기존 레코드는 모두 `manual` (기본값).
+
+## 8. 충돌 처리 (날짜 겹침 + source 기반)
+
+### 코치 매칭
 
 | 상황 | 처리 |
 |------|------|
@@ -104,32 +115,48 @@
 | DB에 없는 코치 (~2025년) | **스킵** (과거 이력만 있는 코치 자동 생성 방지) |
 | DB에 있는 코치 + 시트에 새 정보 | email/phone/employeeId **빈 값일 때만 보완** |
 | 앱 수동 입력 필드 (availability, memos) | **절대 건드리지 않음** |
-| 같은 engagement 키 존재 | **스킵** (insert-only) |
 | workType | engagement에는 저장, coach 테이블은 건드리지 않음 |
 
-## 8. Course 자동 매칭 (매니저 연결)
+### Engagement 매칭
 
-- engagement 생성 시 G열(hiredBy) 매니저 이름으로 `managers` 테이블 조회
+중복 판단: `coachId + 날짜 겹침` (startDate ≤ existing.endDate AND endDate ≥ existing.startDate)
+
+| 상황 | 처리 |
+|------|------|
+| 날짜 겹치는 `manual` engagement 있음 | **빈 필드만 보완** (courseName, startTime, endTime, hourlyRate, workType, hiredBy 중 null인 것만) |
+| 날짜 겹치는 `sheet` engagement 있음 | **시트 데이터로 전체 업데이트** + engagement_schedules 재생성 |
+| 매칭 없음 | **신규 생성** (source: sheet) |
+
+핵심 원칙: **매니저가 직접 입력한 데이터는 절대 덮어쓰지 않는다.** 빈 필드만 채워준다.
+
+## 9. Course 자동 매칭 (매니저 연결)
+
+- engagement **신규 생성** 시 G열(hiredBy) 매니저 이름으로 `managers` 테이블 조회
 - 매칭되는 매니저가 있으면 `courses` 테이블에 자동 생성
 - 중복 판단 키: `managerId + name + startDate` (+ `deletedAt: null`)
 - 매핑: courseName → `name`, startDate → `startDate`, endDate → `endDate`, hourlyRate → `hourlyRate`
 - 매니저 이름 매칭 실패 시 → Course 생성 안 함 (engagement는 정상 생성)
 
-## 9. engagement_schedule 생성
+## 10. engagement_schedule 생성
 
-- engagement가 **새로 생성될 때만** M열 파싱 결과로 레코드 생성
-- 기존 engagement 스킵 시 → schedule도 생성 안 함
-- 삼성과 차이: 삼성은 delete-and-recreate, **일반 계약은 insert-only**
+- engagement **신규 생성** 시 M열 파싱 결과로 레코드 생성
+- `sheet` engagement **업데이트** 시 기존 schedules 삭제 후 재생성
+- `manual` engagement 매칭 시 → schedules 건드리지 않음
 
-## 10. 리턴값 (SyncResult)
+## 11. Dry-run 모드
+
+`GET /api/sync/engagements` — 실제 DB 변경 없이 변경사항 미리보기
+
+## 12. 리턴값 (SyncResult)
 
 ```typescript
 {
-  totalRows: number    // 헤더 제외 전체 행 수
-  created: number      // 새로 생성된 engagement 수
-  updated: number      // 현재 미사용 (항상 0)
-  skipped: number      // 스킵된 행 수
-  errors: number       // 에러 수
-  errorDetail: string[] // 미매칭 코치 목록 등
+  totalRows: number      // 헤더 제외 전체 행 수
+  created: number        // 신규 생성 수
+  updated: number        // 업데이트 수 (manual 보완 + sheet 업데이트)
+  skipped: number        // 스킵된 행 수
+  errors: number         // 에러 수
+  errorDetail: string[]  // 미매칭 코치 목록 등
+  changes?: SyncChange[] // dry-run 시 변경 상세
 }
 ```

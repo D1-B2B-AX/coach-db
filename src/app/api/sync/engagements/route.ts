@@ -3,6 +3,20 @@ import { requireManager } from '@/lib/api-auth'
 import { syncEngagements } from '@/lib/sync/engagements'
 import { prisma } from '@/lib/prisma'
 
+export async function GET() {
+  const auth = await requireManager()
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const result = await syncEngagements(true)
+    return NextResponse.json({ dryRun: true, ...result })
+  } catch (error) {
+    return NextResponse.json({ error: 'Dry-run failed' }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   // Bearer 토큰 인증 (cron) 또는 매니저 인증
   let triggeredBy = ''

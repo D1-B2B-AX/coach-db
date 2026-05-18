@@ -54,6 +54,8 @@ export default function AdminPage() {
   const [notionDryResult, setNotionDryResult] = useState<any>(null)
   const [engSyncing, setEngSyncing] = useState(false)
   const [engSyncResult, setEngSyncResult] = useState<any>(null)
+  const [engDryRunning, setEngDryRunning] = useState(false)
+  const [engDryResult, setEngDryResult] = useState<any>(null)
   const [toastMessage, setToastMessage] = useState("")
   const [showToast, setShowToast] = useState(false)
   const [pendingCoaches, setPendingCoaches] = useState<any[]>([])
@@ -1009,9 +1011,32 @@ export default function AdminPage() {
               <div className="mt-3 flex items-center gap-2">
                 <button
                   onClick={async () => {
+                    setEngDryRunning(true)
+                    setEngDryResult(null)
+                    try {
+                      const res = await fetch("/api/sync/engagements")
+                      const data = await res.json()
+                      if (res.ok) setEngDryResult(data)
+                      else {
+                        setToastMessage(`조회 실패: ${data.error}`)
+                        setShowToast(true)
+                      }
+                    } catch {
+                      setToastMessage("조회 중 오류 발생")
+                      setShowToast(true)
+                    } finally { setEngDryRunning(false) }
+                  }}
+                  disabled={engDryRunning || engSyncing}
+                  className="cursor-pointer rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                >
+                  {engDryRunning ? "조회 중..." : "변경사항 미리보기"}
+                </button>
+                <button
+                  onClick={async () => {
                     if (!confirm("계약시트에서 투입 이력을 동기화합니다. 진행할까요?")) return
                     setEngSyncing(true)
                     setEngSyncResult(null)
+                    setEngDryResult(null)
                     try {
                       const res = await fetch("/api/sync/engagements", { method: "POST" })
                       const data = await res.json()
@@ -1028,13 +1053,54 @@ export default function AdminPage() {
                       setShowToast(true)
                     }
                   }}
-                  disabled={engSyncing}
+                  disabled={engDryRunning || engSyncing}
                   className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
                 >
-                  {engSyncing ? "동기화 중..." : "계약시트 동기화"}
+                  {engSyncing ? "동기화 중..." : "동기화 실행"}
                 </button>
                 <a href="https://docs.google.com/spreadsheets/d/1hl6VxXYN1kJoQlRCpbpyWV2PFsu3LhFQ/edit?gid=1512869353#gid=1512869353" target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">시트 보기</a>
               </div>
+
+              {/* Dry-run 결과 */}
+              {engDryResult && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex gap-3 text-sm">
+                    <span className="text-gray-500">전체 {engDryResult.totalRows}행</span>
+                    <span className="text-[#2E7D32]">생성 예정 {engDryResult.created}건</span>
+                    <span className="text-gray-400">스킵 {engDryResult.skipped}건</span>
+                    {engDryResult.errors > 0 && <span className="text-red-500">에러 {engDryResult.errors}건</span>}
+                  </div>
+                  {engDryResult.changes?.length > 0 ? (
+                    <div className="rounded-xl border border-gray-200 overflow-hidden max-h-80 overflow-y-auto">
+                      <div className="grid grid-cols-[80px_1fr_100px_1fr] gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400">
+                        <div>코치</div>
+                        <div>과정명</div>
+                        <div>동작</div>
+                        <div>상세</div>
+                      </div>
+                      {engDryResult.changes.map((c: any, i: number) => (
+                        <div key={i} className="grid grid-cols-[80px_1fr_100px_1fr] gap-2 border-b border-gray-100 px-4 py-2 last:border-0">
+                          <span className="text-sm font-medium text-[#333] truncate">{c.coachName}</span>
+                          <span className="text-xs text-gray-600 truncate">{c.courseName}</span>
+                          <span className={`text-xs ${c.action.startsWith('create') ? 'text-[#2E7D32]' : 'text-gray-400'}`}>
+                            {c.action === 'create_coach' ? '코치 생성' : c.action === 'create_engagement' ? '이력 생성' : c.action === 'create_course' ? '과정 생성' : c.action === 'update_manual' ? '빈 필드 보완' : c.action === 'update_sheet' ? '시트 업데이트' : '스킵'}
+                          </span>
+                          <span className="text-xs text-gray-500 truncate">{c.details}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">변경 사항이 없습니다.</p>
+                  )}
+                  {engDryResult.errorDetail?.length > 0 && (
+                    <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600">
+                      {engDryResult.errorDetail.map((e: string, i: number) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 실행 결과 */}
               {engSyncResult && (
                 <div className="mt-3 flex gap-3 text-sm">
                   <span className="text-gray-500">전체 {engSyncResult.totalRows}행</span>

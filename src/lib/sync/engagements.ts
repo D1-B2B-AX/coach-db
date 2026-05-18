@@ -16,6 +16,13 @@ export interface WorkSchedule {
   endTime: string   // "18:00"
 }
 
+export interface SyncChange {
+  coachName: string
+  courseName: string
+  action: 'create_coach' | 'create_engagement' | 'create_course' | 'skip_duplicate' | 'skip_cancelled' | 'skip_no_match' | 'update_manual' | 'update_sheet'
+  details?: string
+}
+
 export interface SyncResult {
   totalRows: number
   created: number
@@ -23,6 +30,7 @@ export interface SyncResult {
   skipped: number
   errors: number
   errorDetail: string[]
+  changes?: SyncChange[]
 }
 
 // ─── Parsing Functions ───────────────────────────────────────────────────────
@@ -264,7 +272,7 @@ export function parseDate(raw: any): Date | null {
  * 구글시트에서 투입 이력을 읽어와 DB에 동기화
  * scripts/import-engagements.ts의 main() 함수를 모듈화한 버전
  */
-export async function syncEngagements(): Promise<SyncResult> {
+export async function syncEngagements(dryRun = false): Promise<SyncResult> {
   const result: SyncResult = {
     totalRows: 0,
     created: 0,
@@ -272,6 +280,7 @@ export async function syncEngagements(): Promise<SyncResult> {
     skipped: 0,
     errors: 0,
     errorDetail: [],
+    changes: dryRun ? [] : undefined,
   }
 
   // Google Auth setup
@@ -402,21 +411,27 @@ export async function syncEngagements(): Promise<SyncResult> {
         result.skipped++
         continue
       }
-      const resolvedEid = resolvedEmployeeId.get(name) || null
-      const created = await prisma.coach.create({
-        data: {
-          name,
-          accessToken: generateAccessToken(),
-          ...(resolvedEid && { employeeId: resolvedEid }),
-          ...(email && { email }),
-          ...(phone && { phone }),
-          ...(workType && { workType }),
-        },
-      })
-      coachId = created.id
-      coachByName.set(name, coachId)
+      if (dryRun) {
+        result.changes!.push({ coachName: name, courseName, action: 'create_coach', details: `신규 코치 생성 (${startDate.getUTCFullYear()}년 계약)` })
+        coachId = `dry-run-${name}`
+        coachByName.set(name, coachId)
+      } else {
+        const resolvedEid = resolvedEmployeeId.get(name) || null
+        const created = await prisma.coach.create({
+          data: {
+            name,
+            accessToken: generateAccessToken(),
+            ...(resolvedEid && { employeeId: resolvedEid }),
+            ...(email && { email }),
+            ...(phone && { phone }),
+            ...(workType && { workType }),
+          },
+        })
+        coachId = created.id
+        coachByName.set(name, coachId)
+      }
       result.created++
-    } else {
+    } else if (!dryRun) {
       // 기존 코치: 이메일/연락처/사번만 보완 (근무유형은 노션 기준 유지)
       const resolvedEid = resolvedEmployeeId.get(name) || null
       if (email || phone || resolvedEid) {
@@ -468,75 +483,118 @@ export async function syncEngagements(): Promise<SyncResult> {
     result.errorDetail.push(`미매칭 코치 (${unmatchedNames.size}명): ${[...unmatchedNames].join(', ')}`)
   }
 
-  // 4. Insert into DB (skip duplicates)
-  // NOTE: N+1 queries here are acceptable — this is a cron sync, not user-facing.
-  // Optimization to batch inserts is low priority given the small dataset size.
+  // 4. Upsert engagements (날짜 겹침 + source 기반)
   for (const eng of engagements) {
-    // Check for duplicate (same coach + course + startDate)
-    const existing = await prisma.engagement.findFirst({
+    const coachName = [...coachByName.entries()].find(([, id]) => id === eng.coachId)?.[0] || '?'
+    const isDryCoach = eng.coachId.startsWith('dry-run-')
+
+    // 같은 코치 + 날짜 겹침으로 기존 engagement 찾기
+    const overlap = isDryCoach ? null : await prisma.engagement.findFirst({
       where: {
         coachId: eng.coachId,
-        courseName: eng.courseName,
-        startDate: eng.startDate,
+        startDate: { lte: eng.endDate },
+        endDate: { gte: eng.startDate },
       },
     })
 
-    if (existing) {
-      result.skipped++
-    } else {
-      const createdEng = await prisma.engagement.create({
-        data: {
-          coachId: eng.coachId,
-          courseName: eng.courseName,
-          startDate: eng.startDate,
-          endDate: eng.endDate,
-          startTime: eng.startTime,
-          endTime: eng.endTime,
-          hourlyRate: eng.hourlyRate,
-          workType: eng.workType,
-          hiredBy: eng.hiredBy,
-          status: eng.status,
-        },
-      })
-      result.created++
+    if (overlap) {
+      if (overlap.source === 'manual') {
+        // manual: 빈 필드만 보완
+        const fills: Record<string, any> = {}
+        if (!overlap.courseName && eng.courseName) fills.courseName = eng.courseName
+        if (!overlap.startTime && eng.startTime) fills.startTime = eng.startTime
+        if (!overlap.endTime && eng.endTime) fills.endTime = eng.endTime
+        if (!overlap.hourlyRate && eng.hourlyRate) fills.hourlyRate = eng.hourlyRate
+        if (!overlap.workType && eng.workType) fills.workType = eng.workType
+        if (!overlap.hiredBy && eng.hiredBy) fills.hiredBy = eng.hiredBy
 
-      // Auto-match Course to manager
-      if (eng.hiredBy) {
-        const managerId = managerByName.get(eng.hiredBy)
-        if (managerId) {
-          const existingCourse = await prisma.course.findFirst({
-            where: {
-              managerId,
-              name: eng.courseName,
+        if (Object.keys(fills).length > 0) {
+          if (dryRun) {
+            result.changes!.push({ coachName, courseName: eng.courseName, action: 'update_manual', details: `빈 필드 보완: ${Object.keys(fills).join(', ')}` })
+          } else {
+            await prisma.engagement.update({ where: { id: overlap.id }, data: fills })
+          }
+          result.updated++
+        } else {
+          result.skipped++
+          if (dryRun) result.changes!.push({ coachName, courseName: eng.courseName, action: 'skip_duplicate', details: '매니저 입력 — 보완할 필드 없음' })
+        }
+      } else {
+        // sheet: 시트 데이터로 업데이트
+        if (dryRun) {
+          result.changes!.push({ coachName, courseName: eng.courseName, action: 'update_sheet', details: '시트 데이터로 업데이트' })
+        } else {
+          await prisma.engagement.update({
+            where: { id: overlap.id },
+            data: {
+              courseName: eng.courseName,
               startDate: eng.startDate,
-              deletedAt: null,
+              endDate: eng.endDate,
+              startTime: eng.startTime,
+              endTime: eng.endTime,
+              hourlyRate: eng.hourlyRate,
+              workType: eng.workType,
+              hiredBy: eng.hiredBy,
+              status: eng.status,
             },
           })
-          if (!existingCourse) {
-            await prisma.course.create({
-              data: {
-                name: eng.courseName,
-                managerId,
-                startDate: eng.startDate,
-                endDate: eng.endDate,
-                hourlyRate: eng.hourlyRate,
-              },
+          // engagement_schedules 재생성
+          await prisma.engagementSchedule.deleteMany({ where: { engagementId: overlap.id } })
+          for (const sched of eng.schedules) {
+            await prisma.engagementSchedule.create({
+              data: { engagementId: overlap.id, coachId: eng.coachId, date: sched.date, startTime: sched.startTime, endTime: sched.endTime },
             })
           }
         }
+        result.updated++
       }
-
-      // Insert into engagement_schedules
-      for (const sched of eng.schedules) {
-        await prisma.engagementSchedule.create({
+    } else {
+      // 신규 생성
+      if (dryRun) {
+        result.changes!.push({ coachName, courseName: eng.courseName, action: 'create_engagement', details: `${eng.status} / 스케줄 ${eng.schedules.length}건` })
+        if (eng.hiredBy && managerByName.has(eng.hiredBy)) {
+          result.changes!.push({ coachName, courseName: eng.courseName, action: 'create_course', details: `매니저: ${eng.hiredBy}` })
+        }
+        result.created++
+      } else {
+        const createdEng = await prisma.engagement.create({
           data: {
-            engagementId: createdEng.id,
             coachId: eng.coachId,
-            date: sched.date,
-            startTime: sched.startTime,
-            endTime: sched.endTime,
+            courseName: eng.courseName,
+            startDate: eng.startDate,
+            endDate: eng.endDate,
+            startTime: eng.startTime,
+            endTime: eng.endTime,
+            hourlyRate: eng.hourlyRate,
+            workType: eng.workType,
+            hiredBy: eng.hiredBy,
+            status: eng.status,
+            source: 'sheet',
           },
         })
+        result.created++
+
+        // Auto-match Course to manager
+        if (eng.hiredBy) {
+          const managerId = managerByName.get(eng.hiredBy)
+          if (managerId) {
+            const existingCourse = await prisma.course.findFirst({
+              where: { managerId, name: eng.courseName, startDate: eng.startDate, deletedAt: null },
+            })
+            if (!existingCourse) {
+              await prisma.course.create({
+                data: { name: eng.courseName, managerId, startDate: eng.startDate, endDate: eng.endDate, hourlyRate: eng.hourlyRate },
+              })
+            }
+          }
+        }
+
+        // Insert engagement_schedules
+        for (const sched of eng.schedules) {
+          await prisma.engagementSchedule.create({
+            data: { engagementId: createdEng.id, coachId: eng.coachId, date: sched.date, startTime: sched.startTime, endTime: sched.endTime },
+          })
+        }
       }
     }
 

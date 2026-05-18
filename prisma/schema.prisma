@@ -183,11 +183,19 @@ enum EngagementStatus {
   cancelled
 }
 
+enum EngagementSource {
+  sheet
+  manual
+
+  @@map("engagement_source")
+}
+
 model Engagement {
   id         String           @id @default(uuid())
   coachId    String           @map("coach_id")
   courseName String           @map("course_name") @db.VarChar(200)
   status     EngagementStatus @default(scheduled)
+  source     EngagementSource @default(manual)
   startDate  DateTime         @map("start_date") @db.Date
   endDate    DateTime         @map("end_date") @db.Date
   startTime  String?          @map("start_time") @db.VarChar(5)

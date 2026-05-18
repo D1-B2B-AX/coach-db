@@ -118,6 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         feedback: feedback ?? null,
         rehire: rehire ?? null,
         hiredBy: hiredBy ?? null,
+        source: 'manual',
       },
     })
 

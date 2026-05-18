@@ -344,6 +344,7 @@ export default function CourseTab({ courses, deletedCourses, onCourseCreate, onC
           className="cursor-pointer rounded-lg bg-[#1976D2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1565C0] disabled:opacity-40 transition-colors">
           {creating ? "추가 중..." : "추가"}
         </button>
+        <p className="w-full text-xs text-gray-400 mt-1">시급, 근무시간 등을 비워두면 계약시트에서 자동으로 채워집니다.</p>
       </div>
 
       {/* Course card list */}
