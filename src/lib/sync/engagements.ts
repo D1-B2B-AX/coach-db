@@ -5,6 +5,7 @@
 import { google } from 'googleapis'
 import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
+import { generateAccessToken } from '@/lib/coach-auth'
 import { normalizeWorkTypeString } from '@/lib/work-type'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -290,7 +291,7 @@ export async function syncEngagements(): Promise<SyncResult> {
     { fileId, alt: 'media' },
     { responseType: 'arraybuffer', timeout: 30000 }
   )
-  const workbook = XLSX.read(Buffer.from(res.data as ArrayBuffer))
+  const workbook = XLSX.read(Buffer.from(res.data as ArrayBuffer), { cellStyles: true })
   const sheet = workbook.Sheets['조교실습코치_일반계약요청']
   if (!sheet) {
     result.errors++
@@ -309,6 +310,15 @@ export async function syncEngagements(): Promise<SyncResult> {
   const coachByName = new Map<string, string>() // name -> id
   for (const c of coaches) {
     coachByName.set(c.name, c.id)
+  }
+
+  // 2-b. Get all managers from DB
+  const managers = await prisma.manager.findMany({
+    select: { id: true, name: true },
+  })
+  const managerByName = new Map<string, string>()
+  for (const m of managers) {
+    managerByName.set(m.name, m.id)
   }
 
   // 3. Pre-scan: 코치별 사번 수집 (노이즈 제거 후 유니크 값 join)
@@ -365,8 +375,9 @@ export async function syncEngagements(): Promise<SyncResult> {
       continue
     }
 
-    // Skip cancelled rows
-    if (courseName.includes('취소') || cancelCol.includes('취소')) {
+    // Skip cancelled rows (텍스트 "취소" 또는 H열 취소선)
+    const courseCell = sheet[XLSX.utils.encode_cell({ r: i, c: 7 })]
+    if (courseName.includes('취소') || cancelCol.includes('취소') || courseCell?.s?.font?.strike) {
       result.skipped++
       continue
     }
@@ -387,9 +398,24 @@ export async function syncEngagements(): Promise<SyncResult> {
 
     let coachId = coachByName.get(name)
     if (!coachId) {
-      // DB에 없는 코치는 건너뛰기 (과거 이력만 있는 코치 자동 생성 방지)
-      result.skipped++
-      continue
+      if (startDate.getUTCFullYear() < 2026) {
+        result.skipped++
+        continue
+      }
+      const resolvedEid = resolvedEmployeeId.get(name) || null
+      const created = await prisma.coach.create({
+        data: {
+          name,
+          accessToken: generateAccessToken(),
+          ...(resolvedEid && { employeeId: resolvedEid }),
+          ...(email && { email }),
+          ...(phone && { phone }),
+          ...(workType && { workType }),
+        },
+      })
+      coachId = created.id
+      coachByName.set(name, coachId)
+      result.created++
     } else {
       // 기존 코치: 이메일/연락처/사번만 보완 (근무유형은 노션 기준 유지)
       const resolvedEid = resolvedEmployeeId.get(name) || null
@@ -473,6 +499,32 @@ export async function syncEngagements(): Promise<SyncResult> {
         },
       })
       result.created++
+
+      // Auto-match Course to manager
+      if (eng.hiredBy) {
+        const managerId = managerByName.get(eng.hiredBy)
+        if (managerId) {
+          const existingCourse = await prisma.course.findFirst({
+            where: {
+              managerId,
+              name: eng.courseName,
+              startDate: eng.startDate,
+              deletedAt: null,
+            },
+          })
+          if (!existingCourse) {
+            await prisma.course.create({
+              data: {
+                name: eng.courseName,
+                managerId,
+                startDate: eng.startDate,
+                endDate: eng.endDate,
+                hourlyRate: eng.hourlyRate,
+              },
+            })
+          }
+        }
+      }
 
       // Insert into engagement_schedules
       for (const sched of eng.schedules) {

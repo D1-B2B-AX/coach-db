@@ -52,6 +52,8 @@ export default function AdminPage() {
   const [notionDryRunning, setNotionDryRunning] = useState(false)
   const [notionSyncing, setNotionSyncing] = useState(false)
   const [notionDryResult, setNotionDryResult] = useState<any>(null)
+  const [engSyncing, setEngSyncing] = useState(false)
+  const [engSyncResult, setEngSyncResult] = useState<any>(null)
   const [toastMessage, setToastMessage] = useState("")
   const [showToast, setShowToast] = useState(false)
   const [pendingCoaches, setPendingCoaches] = useState<any[]>([])
@@ -997,6 +999,57 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+
+            {/* 계약시트 동기화 */}
+            <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-gray-100 p-6">
+              <h3 className="text-sm font-semibold text-[#333]">계약시트 동기화</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                구글시트 &quot;조교실습코치_일반계약요청&quot;에서 투입 이력과 스케줄을 가져옵니다. 2026년 이후 신규 코치는 자동 생성됩니다.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    if (!confirm("계약시트에서 투입 이력을 동기화합니다. 진행할까요?")) return
+                    setEngSyncing(true)
+                    setEngSyncResult(null)
+                    try {
+                      const res = await fetch("/api/sync/engagements", { method: "POST" })
+                      const data = await res.json()
+                      if (res.ok) {
+                        setEngSyncResult(data)
+                        setToastMessage(`동기화 완료: ${data.created}건 생성, ${data.skipped}건 스킵`)
+                      } else {
+                        setToastMessage(`동기화 실패: ${data.error}`)
+                      }
+                    } catch {
+                      setToastMessage("동기화 중 오류 발생")
+                    } finally {
+                      setEngSyncing(false)
+                      setShowToast(true)
+                    }
+                  }}
+                  disabled={engSyncing}
+                  className="cursor-pointer rounded-lg bg-[#1976D2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1565C0] disabled:opacity-50 transition-colors"
+                >
+                  {engSyncing ? "동기화 중..." : "계약시트 동기화"}
+                </button>
+                <a href="https://docs.google.com/spreadsheets/d/1hl6VxXYN1kJoQlRCpbpyWV2PFsu3LhFQ/edit?gid=1512869353#gid=1512869353" target="_blank" rel="noopener noreferrer" className="text-xs text-[#1976D2] hover:underline">시트 보기</a>
+              </div>
+              {engSyncResult && (
+                <div className="mt-3 flex gap-3 text-sm">
+                  <span className="text-gray-500">전체 {engSyncResult.totalRows}행</span>
+                  <span className="text-[#2E7D32]">생성 {engSyncResult.created}건</span>
+                  <span className="text-gray-400">스킵 {engSyncResult.skipped}건</span>
+                  {engSyncResult.errors > 0 && <span className="text-red-500">에러 {engSyncResult.errors}건</span>}
+                </div>
+              )}
+              {engSyncResult?.errorDetail?.length > 0 && (
+                <div className="mt-2 rounded-lg bg-red-50 p-3 text-xs text-red-600">
+                  {engSyncResult.errorDetail.map((e: string, i: number) => <p key={i}>{e}</p>)}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
