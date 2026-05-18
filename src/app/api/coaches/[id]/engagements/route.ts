@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { effectiveEngagementStatus } from '@/lib/engagement-status'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -27,7 +28,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     orderBy: { startDate: 'desc' },
   })
 
-  return NextResponse.json({ engagements })
+  return NextResponse.json({
+    engagements: engagements.map((e) => ({
+      ...e,
+      status: effectiveEngagementStatus(e.status, e.startDate, e.endDate),
+    })),
+  })
 }
 
 // POST /api/coaches/:id/engagements — create a new engagement

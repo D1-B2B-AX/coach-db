@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { logAccess } from '@/lib/access-log'
+import { effectiveEngagementStatus } from '@/lib/engagement-status'
 import { toDateOnly } from '@/lib/date-utils'
 import { uploadFile } from '@/lib/storage'
 
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         date: { gte: startDate, lte: endDate },
       },
       include: {
-        engagement: { select: { courseName: true, status: true } },
+        engagement: { select: { courseName: true, status: true, startDate: true, endDate: true } },
       },
       orderBy: { date: 'asc' },
     }),
@@ -125,14 +126,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       startTime: e.startTime,
       endTime: e.endTime,
       location: e.location,
-      status: e.status,
+      status: effectiveEngagementStatus(e.status, e.startDate, e.endDate),
     })),
     engagementSchedules: engagementSchedules.map((es) => ({
       date: es.date.toISOString().split('T')[0],
       startTime: es.startTime,
       endTime: es.endTime,
       courseName: es.engagement.courseName,
-      status: es.engagement.status,
+      status: effectiveEngagementStatus(es.engagement.status, es.engagement.startDate, es.engagement.endDate),
     })),
     lastSavedAt: accessLog?.lastEditedAt?.toISOString() ?? null,
   })

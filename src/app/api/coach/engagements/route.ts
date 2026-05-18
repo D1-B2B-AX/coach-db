@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractToken, validateCoachToken } from '@/lib/coach-auth'
 import { logAccess } from '@/lib/access-log'
+import { effectiveEngagementStatus } from '@/lib/engagement-status'
 
 // GET /api/coach/engagements — returns all engagements for the coach (token auth)
 export async function GET(request: NextRequest) {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       startTime: e.startTime,
       endTime: e.endTime,
       location: e.location,
-      status: e.status,
+      status: effectiveEngagementStatus(e.status, e.startDate, e.endDate),
     })),
   })
 }

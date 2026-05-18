@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireManager } from '@/lib/api-auth'
+import { effectiveEngagementStatus } from '@/lib/engagement-status'
 import { toDateOnly } from '@/lib/date-utils'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         date: { gte: startDate, lte: endDate },
       },
       include: {
-        engagement: { select: { courseName: true, status: true } },
+        engagement: { select: { courseName: true, status: true, startDate: true, endDate: true } },
       },
       orderBy: { date: 'asc' },
     }),
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       startTime: es.startTime,
       endTime: es.endTime,
       courseName: es.engagement.courseName,
-      status: es.engagement.status,
+      status: effectiveEngagementStatus(es.engagement.status, es.engagement.startDate, es.engagement.endDate),
     })),
     accessLog: accessLog
       ? {
