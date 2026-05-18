@@ -210,8 +210,8 @@ export default function ScheduleCalendar({
         </div>
       )}
 
-      {/* Time buttons — below calendar, fixed position (hidden when engagement details shown) */}
-      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && !(dayEngagements && dayEngagements.length > 0) && (
+      {/* Time buttons — below calendar */}
+      {selectedDay && !isPast(parseInt(selectedDay.split("-")[2])) && (
         <>
           <div className="mt-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">

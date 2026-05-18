@@ -491,10 +491,18 @@ function CoachScheduleContent() {
         setSelectedDay(null)
         return
       }
-      // Open time panel in read-only mode to show confirmed info
       const day = parseInt(dateKey.split("-")[2])
       setSelectedDay(dateKey)
       setSelectedDayNum(day)
+
+      setEditingSlots((prev) => {
+        if (!prev.has(dateKey)) {
+          const next = new Map(prev)
+          next.set(dateKey, new Set())
+          return next
+        }
+        return prev
+      })
     },
     [selectedDay]
   )
@@ -597,6 +605,12 @@ function CoachScheduleContent() {
         const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
         const confirmed = confirmedSlotsMap.get(dateKey) ?? new Set()
         const daySlots = new Set(next.get(dateKey) ?? [])
+
+        if (!allFilled) {
+          const hasExistingSlots = daySlots.size > 0 || unavailableDates.has(dateKey)
+          if (hasExistingSlots) continue
+        }
+
         for (const s of rangeSlots) {
           if (!confirmed.has(s)) {
             if (allFilled) daySlots.delete(s)
@@ -607,21 +621,7 @@ function CoachScheduleContent() {
       }
       return next
     })
-
-    if (!allFilled) {
-      // 불가 날짜도 해제
-      setUnavailableDates((prev) => {
-        const next = new Set(prev)
-        for (let d = 1; d <= lastDate; d++) {
-          const date = new Date(currentYear, currentMonth, d)
-          if (date < todayStart) continue
-          const dateKey = `${monthPrefix}-${String(d).padStart(2, "0")}`
-          next.delete(dateKey)
-        }
-        return next
-      })
-    }
-  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots])
+  }, [currentYear, currentMonth, confirmedSlotsMap, editingSlots, unavailableDates])
 
   const bulkStatus = useMemo(() => {
     const today = new Date()
